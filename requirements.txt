@@ -1,0 +1,12 @@
+PyMuPDF
+pdfminer.six
+PyPDF2
+pdfplumber
+PyYAML
+pytest
+camelot-py[cv]
+ftfy
+clean-text
+spacy
+rank_bm25
+FlagEmbedding

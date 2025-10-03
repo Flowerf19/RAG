@@ -1,0 +1,6 @@
+# Cấu hình cho hybrid retriever
+hybrid:
+  alpha: 0.5  # Trọng số cho embedding (0.0~1.0)
+  bm25_score_type: cosine  # 'cosine' hoặc 'raw' (điểm gốc BM25)
+  normalize_bm25: true  # Có chuẩn hóa điểm BM25 về [0,1] không
+  rerank: false  # Có dùng rerank sau khi truy vấn không

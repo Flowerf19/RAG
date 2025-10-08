@@ -1,8 +1,0 @@
-# Cấu hình embedding cho Gemma (Ollama)
-embedding:
-  provider: ollama
-  model: bge-m3  # Dùng bge-m3 vì đã có trong ollama list
-  endpoint: http://localhost:11434/api/embed  # endpoint đúng của Ollama
-  timeout: 30  # giây
-  batch_size: 16
-  normalize: true

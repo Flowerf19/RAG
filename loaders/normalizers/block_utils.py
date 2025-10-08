@@ -202,3 +202,227 @@ def should_filter_block(
         return True
     
     return False
+
+
+# ========== BLOCK MERGING FUNCTIONALITY ==========
+
+def should_merge_blocks(block1, block2, config: Optional[dict] = None) -> Tuple[bool, str]:
+    """
+    Xác định liệu 2 blocks có nên merge không.
+    
+    Args:
+        block1: Block đầu tiên (tuple format)
+        block2: Block thứ hai (tuple format)  
+        config: Configuration cho merging
+    
+    Returns:
+        (should_merge: bool, reason: str)
+    """
+    if config is None:
+        config = {}
+    
+    # Config values
+    min_block_length = config.get('min_block_length', 50)
+    sentence_endings = config.get('sentence_endings', ('.', '!', '?', ':', ';'))
+    list_markers = config.get('list_markers', ('•', '-', '○', '*'))
+    
+    # Validate blocks
+    if not _is_valid_block(block1) or not _is_valid_block(block2):
+        return False, "invalid_block"
+    
+    text1 = str(block1[4]).strip()
+    text2 = str(block2[4]).strip()
+    
+    if not text1 or not text2:
+        return False, "empty_text"
+    
+    # Rule 1: Incomplete sentence continuation
+    if (not text1.endswith(sentence_endings) and 
+        text2 and not text2[0].isupper() and 
+        len(text1) < 100 and len(text2) < 100):
+        return True, "incomplete_sentence"
+    
+    # Rule 2: List item continuation  
+    if (_is_list_item(text1, list_markers) and not text1.endswith('.') and
+        not _is_list_item(text2, list_markers) and len(text2) < 80):
+        return True, "list_continuation"
+    
+    # Rule 3: Very short blocks (<20 chars) should merge
+    if len(text1) < 20 and len(text2) < 100:
+        return True, "very_short_block"
+    
+    # Rule 4: Page headers/numbers
+    if _is_page_header(text1) and len(text2) < 100:
+        return True, "page_header"
+    
+    # Rule 5: Section headers without content
+    if (_is_section_header(text1) and 
+        not _is_section_header(text2) and
+        len(text2) < 200):
+        return True, "section_header"
+    
+    return False, "no_merge_needed"
+
+
+def merge_blocks_list(blocks: List, config: Optional[dict] = None) -> List:
+    """
+    Merge blocks theo các rules đã định.
+    
+    Args:
+        blocks: List các blocks gốc
+        config: Configuration cho merging
+        
+    Returns:
+        List các blocks đã được merge
+    """
+    if not blocks:
+        return blocks
+    
+    merged_blocks = []
+    i = 0
+    
+    while i < len(blocks):
+        current_block = blocks[i]
+        
+        # Tìm tất cả blocks liên tiếp có thể merge
+        merge_chain = [current_block]
+        j = i + 1
+        
+        while j < len(blocks):
+            should_merge, reason = should_merge_blocks(
+                merge_chain[-1], blocks[j], config
+            )
+            
+            if should_merge:
+                merge_chain.append(blocks[j])
+                j += 1
+            else:
+                break
+        
+        # Merge chain thành 1 block
+        if len(merge_chain) > 1:
+            merged_block = _merge_block_chain(merge_chain, config)
+            merged_blocks.append(merged_block)
+        else:
+            merged_blocks.append(current_block)
+        
+        i = j if j > i + 1 else i + 1
+    
+    return merged_blocks
+
+
+def _merge_block_chain(blocks: List, config: Optional[dict] = None):
+    """Merge một chain các blocks thành 1 block."""
+    if not blocks:
+        return None
+    
+    if len(blocks) == 1:
+        return blocks[0]
+    
+    if config is None:
+        config = {}
+    
+    list_markers = config.get('list_markers', ('•', '-', '○', '*'))
+    
+    # Lấy metadata từ block đầu tiên
+    base_block = list(blocks[0])  # Copy
+    
+    # Merge text content
+    merged_text = ""
+    for i, block in enumerate(blocks):
+        text = str(block[4]).strip()
+        
+        if i == 0:
+            merged_text = text
+        else:
+            # Smart joining
+            if (merged_text and 
+                not merged_text.endswith((' ', '\n')) and 
+                not text.startswith(list_markers)):
+                # Thêm space nếu cần
+                if not merged_text.endswith(('-', '•')):
+                    merged_text += " "
+            
+            # Xử lý đặc biệt cho list items
+            if text.startswith(list_markers):
+                if not merged_text.endswith('\n'):
+                    merged_text += "\n"
+            
+            merged_text += text
+    
+    # Update merged text
+    base_block[4] = merged_text
+    
+    return tuple(base_block)
+
+
+def _is_valid_block(block) -> bool:
+    """Check if block có format hợp lệ."""
+    return (isinstance(block, (tuple, list)) and 
+            len(block) >= 5)
+
+
+def _is_list_item(text: str, list_markers: tuple) -> bool:
+    """Check if text là list item."""
+    text = text.strip()
+    return any(text.startswith(marker) for marker in list_markers)
+
+
+def _is_page_header(text: str) -> bool:
+    """Check if text là page header/number."""
+    text = text.strip()
+    patterns = [
+        r'^Page \d+/\d+$',
+        r'^\d+/\d+$',
+        r'^ISMS.*Classification.*Internal$'
+    ]
+    return any(re.match(pattern, text, re.IGNORECASE) for pattern in patterns)
+
+
+def _is_section_header(text: str) -> bool:
+    """Check if text là section header."""
+    text = text.strip()
+    patterns = [
+        r'^\d+\.\s*[A-Z][A-Z\s]*$',  # "2. PROCESS"
+        r'^\d+\.\d+\s*[A-Z][A-Z\s]*$',  # "2.1 PROCESS CHARACTERISTICS"
+        r'^[A-Z][A-Z\s]{5,}$'  # "RISK APPROACHES"
+    ]
+    return any(re.match(pattern, text) for pattern in patterns)
+
+
+def analyze_block_improvement(original_blocks: List, merged_blocks: List, config: Optional[dict] = None) -> dict:
+    """Phân tích cải thiện sau khi merge."""
+    if config is None:
+        config = {}
+    
+    min_block_length = config.get('min_block_length', 50)
+    sentence_endings = config.get('sentence_endings', ('.', '!', '?', ':', ';'))
+    
+    def count_short_blocks(blocks):
+        return sum(1 for block in blocks 
+                  if _is_valid_block(block) and 
+                  len(str(block[4]).strip()) < min_block_length)
+    
+    def count_incomplete_sentences(blocks):
+        return sum(1 for block in blocks
+                  if _is_valid_block(block) and
+                  not str(block[4]).strip().endswith(sentence_endings))
+    
+    original_short = count_short_blocks(original_blocks)
+    merged_short = count_short_blocks(merged_blocks)
+    
+    original_incomplete = count_incomplete_sentences(original_blocks)
+    merged_incomplete = count_incomplete_sentences(merged_blocks)
+    
+    return {
+        "original_blocks": len(original_blocks),
+        "merged_blocks": len(merged_blocks),
+        "blocks_reduced": len(original_blocks) - len(merged_blocks),
+        "reduction_percentage": (len(original_blocks) - len(merged_blocks)) / len(original_blocks) * 100 if original_blocks else 0,
+        "original_short_blocks": original_short,
+        "merged_short_blocks": merged_short,
+        "short_blocks_improved": original_short - merged_short,
+        "original_incomplete": original_incomplete,
+        "merged_incomplete": merged_incomplete,
+        "incomplete_improved": original_incomplete - merged_incomplete
+    }

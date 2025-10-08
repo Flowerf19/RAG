@@ -1,7 +1,0 @@
-processors/table.py
-processors/text.py
-processors/__init__.py
-strategies/fixed_size.py
-strategies/semantic.py
-strategies/sliding.py
-strategies/__init__.py

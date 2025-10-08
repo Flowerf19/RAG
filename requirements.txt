@@ -4,6 +4,8 @@ PyPDF2
 pdfplumber
 PyYAML
 pytest
+pytest-cov
+pytest-mock
 camelot-py[cv]
 ftfy
 clean-text

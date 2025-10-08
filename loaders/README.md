@@ -111,8 +111,16 @@ Mỗi chunk/model có thể có:
 ```python
 from rag.loaders.pdf_loader import PDFLoader
 
-# Load PDF thô
-loader = PDFLoader()
+# Load PDF thô với cấu hình mặc định
+loader = PDFLoader.create_default()
+doc = loader.load_pdf("path/to/document.pdf")
+
+# Hoặc với cấu hình tùy chỉnh
+loader = PDFLoader(
+    extract_text=True,
+    extract_tables=True,
+    min_repeated_text_threshold=5
+)
 doc = loader.load_pdf("path/to/document.pdf")
 
 # Chuẩn hóa toàn bộ document (nếu muốn)

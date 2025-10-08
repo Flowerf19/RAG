@@ -1,4 +1,0 @@
-__pycache__/
-model/__pycache__/
-strategies/__pycache__/
-utils/__pycache__/

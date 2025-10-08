@@ -7,122 +7,164 @@ import re
 import fitz  # PyMuPDF
 import pdfplumber
 
-from .config import load_preprocessing_config
 from .model.page import PDFPage
 from .model.document import PDFDocument
 from .model.table import TableSchema, TableRow, TableCell
 from .model.block import Block
+from .normalizers.block_utils import should_filter_block, merge_blocks_list, analyze_block_improvement
 
 logger = logging.getLogger("PDFLoader")
 
-def _extract_leading_number(value: str) -> Optional[int]:
-    if not isinstance(value, str):
-        return None
-    
-    match = re.match(r'^\s*(\d+)', value)
-    if not match:
-        return None
-    try:
-        return int(match.group(1))
-    except ValueError:
-        return None
-
-def _header_looks_like_continuation(tbl: TableSchema) -> bool:
-    header = getattr(tbl, 'header', None) or []
-    rows = getattr(tbl, 'rows', None) or []
-    if not rows:
-        return False
-    first_num = None
-    if header and header[0].strip():
-        first_num = _extract_leading_number(header[0])
-    if first_num is None:
-        first_row_value = ''
-        first_row = rows[0]
-        if getattr(first_row, 'cells', None):
-            first_row_value = first_row.cells[0].value or ''
-        first_num = _extract_leading_number(first_row_value)
-    if first_num is None:
-        return False
-    next_num = None
-    for row in rows:
-        cells = getattr(row, 'cells', None) or []
-        if not cells:
-            continue
-        candidate = _extract_leading_number(cells[0].value or '')
-        if candidate is not None:
-            next_num = candidate
-            break
-    if next_num is None:
-        return first_num > 1
-    if next_num == first_num or next_num == first_num + 1:
-        return True
-    if first_num > 1 and next_num > first_num:
-        return True
-    return False
-
-def _make_row(values: List[str], row_idx: int) -> TableRow:
-    cells = []
-    for col_idx, val in enumerate(values, start=1):
-        cells.append(TableCell(value=val, row=row_idx, col=col_idx, bbox=None, metadata={}))
-    return TableRow(cells=cells, row_idx=row_idx)
-
-def _reindex_rows(rows: List[TableRow]) -> None:
-    for r_idx, row in enumerate(rows, start=1):
-        row.row_idx = r_idx
-        for c_idx, cell in enumerate(row.cells, start=1):
-            cell.row = r_idx
-            cell.col = c_idx
-
-def _match_row_to_columns(row: TableRow, target_len: int) -> None:
-    cells = list(getattr(row, "cells", []) or [])
-    if target_len <= 0:
-        return
-    if len(cells) > target_len:
-        merged = " ".join(cell.value for cell in cells[target_len-1:]).strip()
-        new_cells = cells[:target_len-1] + [TableCell(value=merged, row=row.row_idx, col=target_len, bbox=None, metadata={})]
-    elif len(cells) < target_len:
-        new_cells = cells + [TableCell(value='', row=row.row_idx, col=len(cells)+i+1, bbox=None, metadata={}) for i in range(target_len - len(cells))]
-    else:
-        new_cells = cells
-    for idx, cell in enumerate(new_cells, start=1):
-        cell.row = row.row_idx
-        cell.col = idx
-    row.cells = new_cells
-
-def _rebuild_markdown(header: List[str], rows: List[TableRow]) -> str:
-    md_lines: List[str] = []
-    if header:
-        md_lines.append('| ' + ' | '.join(header) + ' |')
-        md_lines.append('|' + ('---|' * len(header)))
-    for row in rows:
-        md_lines.append('| ' + ' | '.join(cell.value for cell in row.cells) + ' |')
-    return '\n'.join(md_lines) + ('\n' if md_lines else '')
 
 class PDFLoader:
+    """
+    PDF Loader class - chỉ chịu trách nhiệm load và parse PDF thành structured data.
+    KHÔNG bao gồm normalize hay chunking logic.
+    
+    Tất cả các thuộc tính cấu hình được triển khai trực tiếp trong class theo chuẩn OOP.
+    """
+    
+    def __init__(
+        self,
+        extract_text: bool = True,
+        extract_tables: bool = True,
+        tables_engine: str = "auto",
+        min_repeated_text_threshold: int = 3,
+        min_text_length: int = 10,
+        repeated_block_threshold: int = 3,
+        enable_repeated_block_filter: bool = True,
+        enable_position_filter: bool = True,
+        enable_page_number_filter: bool = True,
+        enable_empty_filter: bool = True,
+        enable_bbox_filter: bool = True,
+        min_bbox_area: float = 10.0,
+        enable_block_merging: bool = True,
+        min_block_length: int = 50
+    ) -> None:
+        """
+        Khởi tạo PDFLoader với các thuộc tính cấu hình.
+        
+        Args:
+            extract_text: Có trích xuất text không
+            extract_tables: Có trích xuất bảng không  
+            tables_engine: Engine để trích xuất bảng ('auto', 'camelot', 'pdfplumber')
+            min_repeated_text_threshold: Ngưỡng tối thiểu để phát hiện text lặp lại
+            min_text_length: Độ dài text tối thiểu cho block hợp lệ
+            repeated_block_threshold: Block lặp lại >= ngưỡng này sẽ bị lọc
+            enable_repeated_block_filter: Bật bộ lọc block lặp lại
+            enable_position_filter: Bật bộ lọc vị trí
+            enable_page_number_filter: Bật bộ lọc số trang
+            enable_empty_filter: Bật bộ lọc block rỗng
+            enable_bbox_filter: Bật bộ lọc bbox
+            min_bbox_area: Diện tích bbox tối thiểu
+            enable_block_merging: Bật tính năng merge blocks phân mảnh
+            min_block_length: Độ dài tối thiểu để block được coi là "short"
+        """
+        # Core extraction settings
+        self.extract_text: bool = extract_text
+        self.extract_tables: bool = extract_tables
+        self.tables_engine: str = tables_engine.lower()
+        
+        # Block filtering settings
+        self.min_repeated_text_threshold: int = min_repeated_text_threshold
+        self.min_text_length: int = min_text_length
+        self.repeated_block_threshold: int = repeated_block_threshold
+        
+        # Filter enablement flags
+        self.enable_repeated_block_filter: bool = enable_repeated_block_filter
+        self.enable_position_filter: bool = enable_position_filter
+        self.enable_page_number_filter: bool = enable_page_number_filter
+        self.enable_empty_filter: bool = enable_empty_filter
+        self.enable_bbox_filter: bool = enable_bbox_filter
+        
+        # Bbox settings
+        self.min_bbox_area: float = min_bbox_area
+        
+        # Block merging settings
+        self.enable_block_merging: bool = enable_block_merging
+        self.min_block_length: int = min_block_length
+        
+        # Validate settings
+        self._validate_config()
+        
+        logger.info(
+            "PDFLoader initialized: extract_text=%s, extract_tables=%s, engine=%s, "
+            "min_repeated_text_threshold=%s, min_text_length=%s", 
+            self.extract_text, self.extract_tables, self.tables_engine,
+            self.min_repeated_text_threshold, self.min_text_length
+        )
+    
+    def _validate_config(self) -> None:
+        """Validate cấu hình đầu vào."""
+        if self.min_repeated_text_threshold < 1:
+            raise ValueError("min_repeated_text_threshold must be >= 1")
+        if self.min_text_length < 0:
+            raise ValueError("min_text_length must be >= 0")
+        if self.repeated_block_threshold < 1:
+            raise ValueError("repeated_block_threshold must be >= 1")
+        if self.min_bbox_area < 0:
+            raise ValueError("min_bbox_area must be >= 0")
+        if self.tables_engine not in ('auto', 'camelot', 'pdfplumber'):
+            logger.warning("Unknown tables_engine '%s', falling back to 'auto'", self.tables_engine)
+            self.tables_engine = 'auto'
+
+    @classmethod
+    def create_default(cls) -> 'PDFLoader':
+        """
+        Factory method để tạo PDFLoader với cấu hình mặc định.
+        Equivalent với config cũ từ YAML.
+        """
+        return cls(
+            extract_text=True,
+            extract_tables=True,
+            tables_engine="auto",
+            min_repeated_text_threshold=3,
+            min_text_length=10,
+            repeated_block_threshold=3,
+            enable_repeated_block_filter=True,
+            enable_position_filter=True,
+            enable_page_number_filter=True,
+            enable_empty_filter=True,
+            enable_bbox_filter=True,
+            min_bbox_area=10.0,
+            enable_block_merging=True,
+            min_block_length=50
+        )
+    
+    @classmethod
+    def create_text_only(cls) -> 'PDFLoader':
+        """
+        Factory method để tạo PDFLoader chỉ trích xuất text, không có bảng.
+        """
+        return cls(
+            extract_text=True,
+            extract_tables=False,
+            tables_engine="auto",
+            min_repeated_text_threshold=3,
+            min_text_length=10,
+            enable_block_merging=True,
+            min_block_length=50
+        )
+    
+    @classmethod 
+    def create_tables_only(cls) -> 'PDFLoader':
+        """
+        Factory method để tạo PDFLoader chỉ trích xuất bảng, không có text.
+        """
+        return cls(
+            extract_text=False,
+            extract_tables=True,
+            tables_engine="auto",
+            min_repeated_text_threshold=3,
+            enable_block_merging=False,  # Tables only không cần merge blocks
+            min_block_length=50
+        )
+
     def load(self, file_path: str) -> PDFDocument:
         """
         Wrapper cho load_pdf để tương thích với pipeline.
         """
         return self.load_pdf(file_path)
-    """
-    PDF Loader class - chỉ chịu trách nhiệm load và parse PDF thành structured data.
-    KHÔNG bao gồm normalize hay chunking logic.
-    """
-    def __init__(self, config_path: Optional[str] = None) -> None:
-        try:
-            self.config = load_preprocessing_config()
-        except Exception as e:
-            logger.error("Failed to load preprocessing config: %s", e)
-            raise RuntimeError(f"PDFLoader config loading failed: {e}")
-        self.extract_text: bool = bool(self.config.get('extract_text', True))
-        self.extract_tables: bool = bool(self.config.get('extract_tables', True))
-        self.tables_engine: str = str(self.config.get('tables_engine', 'auto')).lower()
-        if 'min_repeated_text_threshold' not in self.config:
-            logger.error("Missing required config: min_repeated_text_threshold")
-            raise ValueError("Missing required config: min_repeated_text_threshold")
-        self.min_repeated_text_threshold: int = int(self.config['min_repeated_text_threshold'])
-        logger.info("PDFLoader initialized with config: extract_text=%s, extract_tables=%s, engine=%s, min_repeated_text_threshold=%s", 
-                   self.extract_text, self.extract_tables, self.tables_engine, self.min_repeated_text_threshold)
 
     def _file_sha256(self, path: str) -> str:
         h = hashlib.sha256()
@@ -368,6 +410,19 @@ class PDFLoader:
         for page_idx in range(doc.page_count):
             page = doc.load_page(page_idx)
             blocks = all_blocks[page_idx] if all_blocks and page_idx < len(all_blocks) else []
+            
+            # Apply block merging if enabled (BEFORE creating page)
+            if self.enable_block_merging and blocks:
+                merge_config = {
+                    'min_block_length': self.min_block_length,
+                    'sentence_endings': ('.', '!', '?', ':', ';'),
+                    'list_markers': ('•', '-', '○', '*')
+                }
+                original_count = len(blocks)
+                blocks = merge_blocks_list(blocks, merge_config)
+                if len(blocks) != original_count:
+                    logger.debug(f"Page {page_idx+1}: Merged {original_count} blocks into {len(blocks)} blocks")
+            
             page_meta = {
                 "file_path": file_path,
                 "page_number": page_idx + 1,
@@ -460,9 +515,171 @@ class PDFLoader:
         )
 
     def load_directory(self, dir_path: str) -> List[Dict[str, Any]]:
+        """Load tất cả PDF files trong một directory."""
         pdf_files = [
             os.path.join(dir_path, f)
             for f in os.listdir(dir_path)
             if f.lower().endswith('.pdf')
         ]
         return [asdict(self.load_pdf(f)) for f in pdf_files]
+    
+    def get_config(self) -> Dict[str, Any]:
+        """
+        Xuất cấu hình hiện tại của loader.
+        Useful for debugging và logging.
+        """
+        return {
+            'extract_text': self.extract_text,
+            'extract_tables': self.extract_tables,
+            'tables_engine': self.tables_engine,
+            'min_repeated_text_threshold': self.min_repeated_text_threshold,
+            'min_text_length': self.min_text_length,
+            'repeated_block_threshold': self.repeated_block_threshold,
+            'enable_repeated_block_filter': self.enable_repeated_block_filter,
+            'enable_position_filter': self.enable_position_filter,
+            'enable_page_number_filter': self.enable_page_number_filter,
+            'enable_empty_filter': self.enable_empty_filter,
+            'enable_bbox_filter': self.enable_bbox_filter,
+            'min_bbox_area': self.min_bbox_area
+        }
+    
+    def update_config(self, **kwargs) -> None:
+        """
+        Cập nhật cấu hình loader runtime.
+        
+        Args:
+            **kwargs: Các thuộc tính cần cập nhật và giá trị mới
+        """
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+                logger.info("Updated %s to %s", key, value)
+            else:
+                logger.warning("Unknown config parameter: %s", key)
+        
+        # Re-validate after update
+        self._validate_config()
+    
+    def enable_all_filters(self) -> None:
+        """Bật tất cả các bộ lọc."""
+        self.enable_repeated_block_filter = True
+        self.enable_position_filter = True
+        self.enable_page_number_filter = True
+        self.enable_empty_filter = True
+        self.enable_bbox_filter = True
+        logger.info("All filters enabled")
+    
+    def disable_all_filters(self) -> None:
+        """Tắt tất cả các bộ lọc."""
+        self.enable_repeated_block_filter = False
+        self.enable_position_filter = False
+        self.enable_page_number_filter = False
+        self.enable_empty_filter = False
+        self.enable_bbox_filter = False
+        logger.info("All filters disabled")
+    
+    def __repr__(self) -> str:
+        """String representation of the loader configuration."""
+        return (
+            f"PDFLoader(extract_text={self.extract_text}, "
+            f"extract_tables={self.extract_tables}, "
+            f"tables_engine='{self.tables_engine}', "
+            f"min_repeated_text_threshold={self.min_repeated_text_threshold})"
+        )
+    
+    # ========== STATIC UTILITY METHODS ==========
+    
+    @staticmethod
+    def _extract_leading_number(value: Any) -> Optional[int]:
+        """Extract leading number from a string value."""
+        if not isinstance(value, str):
+            return None
+        
+        match = re.match(r'^\s*(\d+)', value)
+        if not match:
+            return None
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _header_looks_like_continuation(tbl: TableSchema) -> bool:
+        """Check if table header looks like a continuation of previous table."""
+        header = getattr(tbl, 'header', None) or []
+        rows = getattr(tbl, 'rows', None) or []
+        if not rows:
+            return False
+        first_num = None
+        if header and header[0].strip():
+            first_num = PDFLoader._extract_leading_number(header[0])
+        if first_num is None:
+            first_row_value = ''
+            first_row = rows[0]
+            if getattr(first_row, 'cells', None):
+                first_row_value = first_row.cells[0].value or ''
+            first_num = PDFLoader._extract_leading_number(first_row_value)
+        if first_num is None:
+            return False
+        next_num = None
+        for row in rows:
+            cells = getattr(row, 'cells', None) or []
+            if not cells:
+                continue
+            candidate = PDFLoader._extract_leading_number(cells[0].value or '')
+            if candidate is not None:
+                next_num = candidate
+                break
+        if next_num is None:
+            return first_num > 1
+        if next_num == first_num or next_num == first_num + 1:
+            return True
+        if first_num > 1 and next_num > first_num:
+            return True
+        return False
+
+    @staticmethod
+    def _make_row(values: List[str], row_idx: int) -> TableRow:
+        """Create a TableRow from list of values."""
+        cells = []
+        for col_idx, val in enumerate(values, start=1):
+            cells.append(TableCell(value=val, row=row_idx, col=col_idx, bbox=None, metadata={}))
+        return TableRow(cells=cells, row_idx=row_idx)
+
+    @staticmethod
+    def _reindex_rows(rows: List[TableRow]) -> None:
+        """Reindex row and cell indices for consistency."""
+        for r_idx, row in enumerate(rows, start=1):
+            row.row_idx = r_idx
+            for c_idx, cell in enumerate(row.cells, start=1):
+                cell.row = r_idx
+                cell.col = c_idx
+
+    @staticmethod
+    def _match_row_to_columns(row: TableRow, target_len: int) -> None:
+        """Adjust row to have exactly target_len columns."""
+        cells = list(getattr(row, "cells", []) or [])
+        if target_len <= 0:
+            return
+        if len(cells) > target_len:
+            merged = " ".join(cell.value for cell in cells[target_len-1:]).strip()
+            new_cells = cells[:target_len-1] + [TableCell(value=merged, row=row.row_idx, col=target_len, bbox=None, metadata={})]
+        elif len(cells) < target_len:
+            new_cells = cells + [TableCell(value='', row=row.row_idx, col=len(cells)+i+1, bbox=None, metadata={}) for i in range(target_len - len(cells))]
+        else:
+            new_cells = cells
+        for idx, cell in enumerate(new_cells, start=1):
+            cell.row = row.row_idx
+            cell.col = idx
+        row.cells = new_cells
+
+    @staticmethod
+    def _rebuild_markdown(header: List[str], rows: List[TableRow]) -> str:
+        """Rebuild markdown table from header and rows."""
+        md_lines: List[str] = []
+        if header:
+            md_lines.append('| ' + ' | '.join(header) + ' |')
+            md_lines.append('|' + ('---|' * len(header)))
+        for row in rows:
+            md_lines.append('| ' + ' | '.join(cell.value for cell in row.cells) + ' |')
+        return '\n'.join(md_lines) + ('\n' if md_lines else '')

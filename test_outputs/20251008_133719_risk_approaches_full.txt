@@ -1,0 +1,80 @@
+RISK APPROACHES CHUNKS - FULL DETAILS
+============================================================
+
+Found 3 chunks containing 'risk approaches':
+
+============================================================
+RISK APPROACHES CHUNK 1
+============================================================
+CHUNK ID: 25c6c667ada3
+EXACT CITATION: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf, Page 2, Blocks 15-16-17-18-19
+SOURCE FILE: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf
+PAGE NUMBER: 2
+BLOCK INDICES: [15, 16, 17, 18, 19]
+CHUNK SIZE: 722 chars, 44 words
+POSITION (BBOX): x=92.5-544.0, y=327.6-417.3
+CREATED AT: 2025-10-08T13:37:19.546971
+
+COMPLETE TEXT CONTENT:
+========================================
+.......................... 9 2.3.1 Establish the Context ........................................................................................... 9 2.3.2 Identify and Assess Inherent Risks ........................................................................ 9 2.3.3 Identify and Assess Controls ............................................................................... 14 2.3.4 Determine Residual Risk and Treatment decision .................................................. 15 2.3.5 Communication, Monitoring and Review ............................................................... 17 2.4 
+RISK APPROACHES ................................................................................................ 17
+========================================
+
+HIGHLIGHTED CONTEXT (±100 chars around 'risk approaches'):
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+tion, Monitoring and Review ............................................................... 17 2.4 
+RISK APPROACHES ................................................................................................ 17
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+============================================================
+RISK APPROACHES CHUNK 2
+============================================================
+CHUNK ID: 67ab9529a010
+EXACT CITATION: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf, Page 2, Blocks 20-22
+SOURCE FILE: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf
+PAGE NUMBER: 2
+BLOCK INDICES: [20, 22]
+CHUNK SIZE: 324 chars, 17 words
+POSITION (BBOX): x=92.5-544.0, y=27.3-436.6
+CREATED AT: 2025-10-08T13:37:19.546987
+
+COMPLETE TEXT CONTENT:
+========================================
+.......................... 17 2.4 
+RISK APPROACHES ................................................................................................ 17 2.5 
+RECORDS ............................................................................................................. 18 XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX
+========================================
+
+HIGHLIGHTED CONTEXT (±100 chars around 'risk approaches'):
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.......................... 17 2.4 
+RISK APPROACHES ................................................................................................ 17 2.5 
+RECORDS .......................................................................
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+============================================================
+RISK APPROACHES CHUNK 3
+============================================================
+CHUNK ID: ccda1d658b8d
+EXACT CITATION: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf, Page 16, Blocks 12-13-14-15-16
+SOURCE FILE: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf
+PAGE NUMBER: 16
+BLOCK INDICES: [12, 13, 14, 15, 16]
+CHUNK SIZE: 799 chars, 121 words
+POSITION (BBOX): x=52.9-544.2, y=358.8-511.8
+CREATED AT: 2025-10-08T13:37:19.548155
+
+COMPLETE TEXT CONTENT:
+========================================
+st be carried out periodically, with annual repetitions as a standard, and when significant changes occur that affect the context of the organization. 2.4 RISK APPROACHES There are different approaches to risk management, depending on the nature of the process being assessed, the regional scope or the type of assessment. Valid risk approaches include: • 
+Asset based: Focused on the security of specific, or logically aggregated, IT assets that are relevant for operations. • 
+Business based: Directed at assessing the procedural, technical and compliance security risks that may affect specific business projects or products that are delivered to clients. • 
+Operational: Directed at assessing all the possible risks that may affect business objectives set out by the company, and its operations.
+========================================
+
+HIGHLIGHTED CONTEXT (±100 chars around 'risk approaches'):
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ as a standard, and when significant changes occur that affect the context of the organization. 2.4 RISK APPROACHES There are different approaches to risk management, depending on the nature of the process being assessed, the regional scope or the type of assessment. Valid risk approaches include: •
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+

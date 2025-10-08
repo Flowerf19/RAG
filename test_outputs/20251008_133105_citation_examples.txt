@@ -1,0 +1,52 @@
+CITATION & SOURCE TRACKING EXAMPLES
+==================================================
+
+=== PAGE 16 CHUNKS (Risk Approaches Section) ===
+CHUNK: 399d84ef9224
+CITATION: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf, Page 16, Blocks 0-1-2-4-6-7-8-9-10-11
+CONTENT: ISMS 
+Classification:   Internal Risk Management 
+Owner:   Information Security Committee ISMS/PR_RSK001 
+Version: 5.0 
+Company: Page 17/18 Table 2.7 – Actions to be taken according to the Level of Ri...
+SOURCE DETAILS:
+  - File: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf
+  - Page: 16
+  - Blocks: [0, 1, 2, 4, 6, 7, 8, 9, 10, 11]
+  - Bbox: (52.91999816894531, 28.754987716674805, 548.3080444335938, 763.8629760742188)
+----------------------------------------
+
+CHUNK: ccda1d658b8d
+CITATION: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf, Page 16, Blocks 12-13-14-15-16
+CONTENT: st be carried out periodically, with annual repetitions as a standard, and when significant changes occur that affect the context of the organization. 2.4 RISK APPROACHES There are different approache...
+SOURCE DETAILS:
+  - File: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf
+  - Page: 16
+  - Blocks: [12, 13, 14, 15, 16]
+  - Bbox: (52.91999816894531, 358.8002014160156, 544.1570434570312, 511.77398681640625)
+----------------------------------------
+
+CHUNK: 4c4ea0801893
+CITATION: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf, Page 16, Blocks 23-24-25-26
+CONTENT:  clients. • 
+Operational: Directed at assessing all the possible risks that may affect business objectives set out by the company, and its operations. year. MEDIUM 
+The risk can be accepted but should...
+SOURCE DETAILS:
+  - File: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf
+  - Page: 16
+  - Blocks: [23, 24, 25, 26]
+  - Bbox: (75.38400268554688, 27.254980087280273, 510.89007568359375, 178.68429565429688)
+----------------------------------------
+
+=== CHUNKS WITH 'RISK APPROACHES' TEXT ===
+FOUND IN: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf, Page 2, Blocks 15-16-17-18-19
+TEXT: .......................... 9 2.3.1 Establish the Context ........................................................................................... 9 2.3.2 Identify and Assess Inherent Risks ........................................................................ 9 2.3.3 Identify and Assess Controls ............................................................................... 14 2.3.4 Determine Residual Risk and Treatment decision .................................................. 15 2.3.5 Communication, Monitoring and Review ............................................................... 17 2.4 
+RISK APPROACHES ................................................................................................ 17
+----------------------------------------
+
+FOUND IN: C:\Users\ENGUYEHWC\Downloads\RAG\RAG\data\pdf\Process_Risk Management.pdf, Page 2, Blocks 20-22
+TEXT: .......................... 17 2.4 
+RISK APPROACHES ................................................................................................ 17 2.5 
+RECORDS ............................................................................................................. 18 XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX
+----------------------------------------
+

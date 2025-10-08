@@ -1,0 +1,18 @@
+BLOCK TO CHUNK ID MAPPING
+==================================================
+
+Block 17: ['25c6c667ada3', 'f8c974f83575', '4a434b2fecb7', '4007ff54b932', 'ad46bcd93c76', 'f2cc84a54912', '08a92b2b49fc', '0d200beb2ea9', '507d74d3b944', 'dddd579df63e']
+Block 18: ['341c02ddf501', '25c6c667ada3', '4a434b2fecb7', '9f6fe0dea520', 'ad46bcd93c76', 'f2cc84a54912', '08a92b2b49fc', '0d200beb2ea9', '507d74d3b944', 'dddd579df63e']
+Block 19: ['25c6c667ada3', 'f8c974f83575', '4a434b2fecb7', '9f6fe0dea520', '8b9387f0cf94', 'f2cc84a54912', '7f99e6dfcd52', '0d200beb2ea9', '507d74d3b944', '93bf07b2af56']
+Block 20: ['67ab9529a010', '9f6fe0dea520', '8b9387f0cf94', 'f2cc84a54912', '0d200beb2ea9', '507d74d3b944', '93bf07b2af56']
+Block 21: ['4a434b2fecb7', '9f6fe0dea520', '8b9387f0cf94', '5ad21c2f7a3d', '7f99e6dfcd52', '0a19792a3dc8', '93bf07b2af56']
+Block 22: ['67ab9529a010', '4a434b2fecb7', '9f6fe0dea520', '8b9387f0cf94', '5ad21c2f7a3d', '7f99e6dfcd52', '0a19792a3dc8', '507d74d3b944', '93bf07b2af56']
+Block 23: ['4a434b2fecb7', '989ca635a0f4', '90d921cf9f21', '5ad21c2f7a3d', '7f99e6dfcd52', '0a19792a3dc8', '507d74d3b944', '93bf07b2af56', '4c4ea0801893']
+Block 24: ['4a434b2fecb7', '989ca635a0f4', '90d921cf9f21', '5ad21c2f7a3d', '41796f0b9ee1', '0a19792a3dc8', '507d74d3b944', '93bf07b2af56', '4c4ea0801893']
+Block 25: ['4a434b2fecb7', '90d921cf9f21', '5ad21c2f7a3d', '41796f0b9ee1', '0a19792a3dc8', '507d74d3b944', '93bf07b2af56', '4c4ea0801893']
+Block 26: ['90d921cf9f21', 'b4eee09008a7', '41796f0b9ee1', '5b482a3d4966', 'b48e3678dc10', '4c4ea0801893']
+
+SUMMARY:
+Target blocks: 10
+Found blocks: 10
+Missing blocks: set()

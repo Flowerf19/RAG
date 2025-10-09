@@ -137,3 +137,19 @@ for page in doc.pages:
 - Output: `PDFDocument` objects cho `DocumentService`
 - Loader chỉ trả về dữ liệu thô, không chunking, không normalize
 - Nếu muốn chuẩn hóa, hãy gọi `.normalize()` ở tầng model hoặc dùng normalizer riêng
+
+
+ Duplicate Statistics:
+   • Total blocks: 230
+   • Unique texts: 224
+   • Duplicate blocks: 6
+   • Duplicate rate: 2.6%
+
+✅ LOW DUPLICATE RATE (2.6%)
+   Recommendation: Deduplication optional
+
+💡 DEDUPLICATION STRATEGY:
+   1. Group blocks by content_sha256
+   2. Keep first occurrence per hash
+   3. Remove 6 duplicate blocks
+   4. Result: 224 unique blocks

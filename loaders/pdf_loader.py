@@ -11,7 +11,7 @@ from .model.page import PDFPage
 from .model.document import PDFDocument
 from .model.table import TableSchema, TableRow, TableCell
 from .model.block import Block
-from .normalizers.block_utils import should_filter_block, merge_blocks_list, analyze_block_improvement
+from .model.text import Text
 
 logger = logging.getLogger("PDFLoader")
 
@@ -39,7 +39,9 @@ class PDFLoader:
         enable_bbox_filter: bool = True,
         min_bbox_area: float = 10.0,
         enable_block_merging: bool = True,
-        min_block_length: int = 50
+        min_block_length: int = 50,
+        enable_block_normalization: bool = True,
+        enable_sentence_segmentation: bool = False
     ) -> None:
         """
         Khởi tạo PDFLoader với các thuộc tính cấu hình.
@@ -59,6 +61,8 @@ class PDFLoader:
             min_bbox_area: Diện tích bbox tối thiểu
             enable_block_merging: Bật tính năng merge blocks phân mảnh
             min_block_length: Độ dài tối thiểu để block được coi là "short"
+            enable_block_normalization: Bật normalization (stable_id, hash)
+            enable_sentence_segmentation: Bật sentence segmentation (requires spaCy)
         """
         # Core extraction settings
         self.extract_text: bool = extract_text
@@ -84,14 +88,18 @@ class PDFLoader:
         self.enable_block_merging: bool = enable_block_merging
         self.min_block_length: int = min_block_length
         
+        # Block normalization settings
+        self.enable_block_normalization: bool = enable_block_normalization
+        self.enable_sentence_segmentation: bool = enable_sentence_segmentation
+        
         # Validate settings
         self._validate_config()
         
         logger.info(
             "PDFLoader initialized: extract_text=%s, extract_tables=%s, engine=%s, "
-            "min_repeated_text_threshold=%s, min_text_length=%s", 
+            "normalization=%s, sentence_segmentation=%s", 
             self.extract_text, self.extract_tables, self.tables_engine,
-            self.min_repeated_text_threshold, self.min_text_length
+            self.enable_block_normalization, self.enable_sentence_segmentation
         )
     
     def _validate_config(self) -> None:
@@ -113,6 +121,7 @@ class PDFLoader:
         """
         Factory method để tạo PDFLoader với cấu hình mặc định.
         Equivalent với config cũ từ YAML.
+        Enables block normalization and sentence segmentation for chunking.
         """
         return cls(
             extract_text=True,
@@ -128,13 +137,15 @@ class PDFLoader:
             enable_bbox_filter=True,
             min_bbox_area=10.0,
             enable_block_merging=True,
-            min_block_length=50
+            min_block_length=50,
+            enable_block_normalization=True,
+            enable_sentence_segmentation=True
         )
     
     @classmethod
     def create_text_only(cls) -> 'PDFLoader':
         """
-        Factory method để tạo PDFLoader chỉ trích xuất text, không có bảng.
+        Factory method để tạo PDFLoader chỉ trích xuất text
         """
         return cls(
             extract_text=True,
@@ -143,7 +154,9 @@ class PDFLoader:
             min_repeated_text_threshold=3,
             min_text_length=10,
             enable_block_merging=True,
-            min_block_length=50
+            min_block_length=50,
+            enable_block_normalization=True,
+            enable_sentence_segmentation=True
         )
     
     @classmethod 
@@ -190,6 +203,30 @@ class PDFLoader:
             )
         except Exception:
             return []
+
+    def _extract_table_caption(self, page: Any, table_bbox: Optional[tuple], text_blocks: List[Any], next_page_blocks: Optional[List[Any]] = None, page_height: Optional[float] = None) -> Optional[str]:
+        """
+        Extract table caption from text blocks.
+        Delegates to TableCaptionExtractor in table_utils for the actual extraction logic.
+        
+        Args:
+            page: pdfplumber page object (not used, kept for API compatibility)
+            table_bbox: (x0, y0, x1, y1) of table
+            text_blocks: List of text blocks from current page
+            next_page_blocks: List of text blocks from next page (optional)
+            page_height: Page height for cross-page detection
+            
+        Returns:
+            Caption text or None if not found
+        """
+        from .normalizers.table_utils import TableCaptionExtractor
+        
+        return TableCaptionExtractor.extract_caption(
+            table_bbox=table_bbox,
+            text_blocks=text_blocks,
+            next_page_blocks=next_page_blocks,
+            page_height=page_height
+        )
 
     def _open_documents(self, file_path: str) -> Tuple[Optional[Any], Optional[Any], List[str]]:
         file_warnings: List[str] = []
@@ -390,38 +427,48 @@ class PDFLoader:
                 pages=[],
                 warnings=file_warnings
             )
-        all_blocks = PDFDocument.collect_all_blocks(doc)
-        
-        # Collect block_hash_counter to detect repeated blocks across document
-        from loaders.normalizers.block_utils import compute_block_hash
-        from collections import Counter
-        block_hash_counter = Counter()
-        for blocks_in_page in all_blocks:
-            for block_tuple in blocks_in_page:
-                # block_tuple: (x0, y0, x1, y1, text, block_no, block_type)
-                if len(block_tuple) >= 5:
-                    text = block_tuple[4]
-                    if text and len(text.strip()) >= 5:
-                        block_hash = compute_block_hash(text)
-                        if block_hash:
-                            block_hash_counter[block_hash] += 1
+        # Use Text class for text extraction
+        all_blocks = Text.collect_all_blocks(doc)
+        block_hash_counter = Text.build_block_hash_counter(all_blocks)
         
         # Không normalize, chỉ trả về block thô, nhưng luôn trích xuất bảng nếu extract_tables
         for page_idx in range(doc.page_count):
             page = doc.load_page(page_idx)
-            blocks = all_blocks[page_idx] if all_blocks and page_idx < len(all_blocks) else []
             
-            # Apply block merging if enabled (BEFORE creating page)
-            if self.enable_block_merging and blocks:
-                merge_config = {
-                    'min_block_length': self.min_block_length,
-                    'sentence_endings': ('.', '!', '?', ':', ';'),
-                    'list_markers': ('•', '-', '○', '*')
-                }
-                original_count = len(blocks)
-                blocks = merge_blocks_list(blocks, merge_config)
-                if len(blocks) != original_count:
-                    logger.debug(f"Page {page_idx+1}: Merged {original_count} blocks into {len(blocks)} blocks")
+            # Keep original blocks for caption extraction (before merging/filtering)
+            original_blocks = all_blocks[page_idx] if all_blocks and page_idx < len(all_blocks) else []
+            
+            # Extract text blocks using Text class
+            text_config = {
+                'enable_block_merging': self.enable_block_merging,
+                'min_block_length': self.min_block_length,
+                'enable_repeated_block_filter': self.enable_repeated_block_filter,
+                'repeated_block_threshold': self.repeated_block_threshold,
+                'min_text_length': self.min_text_length
+            }
+            
+            blocks = []
+            if self.extract_text:
+                blocks = Text.extract_text_blocks_for_page(
+                    doc=doc,
+                    page_idx=page_idx,
+                    all_blocks=all_blocks,
+                    block_hash_counter=block_hash_counter,
+                    config=text_config
+                )
+                
+                # Normalize blocks: set stable_id, content_sha256, and optionally sentences
+                if self.enable_block_normalization and blocks:
+                    for block in blocks:
+                        # Set stable_id and content_sha256
+                        block.set_stable_id_and_hash(doc_id, page_idx + 1)
+                        
+                        # Optionally perform full normalization (includes sentence segmentation)
+                        if self.enable_sentence_segmentation:
+                            try:
+                                block.normalize()
+                            except Exception as e:
+                                logger.warning(f"Block normalization failed on page {page_idx+1}: {e}")
             
             page_meta = {
                 "file_path": file_path,
@@ -437,68 +484,85 @@ class PDFLoader:
                     raw_tables = self._extract_tables_for_page(file_path, page_idx + 1, plumber_pdf)
                     # raw_tables is now List[Dict[str, Any]] with 'matrix' and 'bbox'
                     # Clean tables: remove header/footer, empty rows/cols, duplicates
-                    from loaders.normalizers.table_utils import clean_tables
-                    # Extract just the matrix for cleaning
-                    matrices = [t.get('matrix', t) if isinstance(t, dict) else t for t in raw_tables]
-                    cleaned_matrices = clean_tables(matrices)
-                    # Rebuild tables with bbox if available
+                    # BUT keep track of which tables were kept to preserve bbox mapping
+                    from loaders.normalizers.table_utils import clean_table
                     tables = []
-                    for idx, clean_mat in enumerate(cleaned_matrices):
-                        bbox = None
-                        if idx < len(raw_tables) and isinstance(raw_tables[idx], dict):
-                            bbox = raw_tables[idx].get('bbox')
-                        tables.append({'matrix': clean_mat, 'bbox': bbox})
+                    for raw_table in raw_tables:
+                        matrix = raw_table.get('matrix', raw_table) if isinstance(raw_table, dict) else raw_table
+                        bbox = raw_table.get('bbox') if isinstance(raw_table, dict) else None
+                        
+                        # Clean individual table
+                        cleaned_matrix = clean_table(matrix)
+                        if cleaned_matrix:  # Only keep if not filtered out
+                            tables.append({'matrix': cleaned_matrix, 'bbox': bbox})
+                    
+                    # Also filter duplicates across all tables
+                    if len(tables) > 1:
+                        from loaders.normalizers.table_utils import filter_duplicate_tables
+                        matrices_only = [t['matrix'] for t in tables]
+                        unique_matrices = filter_duplicate_tables(matrices_only)
+                        # Rebuild with original bboxes for unique tables
+                        unique_tables = []
+                        for unique_mat in unique_matrices:
+                            for table_dict in tables:
+                                if table_dict['matrix'] == unique_mat:
+                                    unique_tables.append(table_dict)
+                                    break
+                        tables = unique_tables
                 except Exception as e:
                     logger.warning(f"Table extraction failed for page {page_idx+1}: {e}")
+            
+            # Convert tables to TableBlocks and add to blocks
+            if tables:
+                from .model.block import TableBlock
+                # Get next page blocks for cross-page caption search
+                next_page_blocks = None
+                page_height = page_meta.get('page_size', {}).get('height')
+                if page_idx + 1 < doc.page_count:
+                    next_page_blocks = all_blocks[page_idx + 1] if all_blocks and page_idx + 1 < len(all_blocks) else None
+                
+                for table_dict in tables:
+                    matrix = table_dict.get('matrix', [])
+                    bbox = table_dict.get('bbox')
+                    if matrix:
+                        # Create TableSchema from matrix
+                        table_obj = TableSchema.from_matrix(matrix, file_path=file_path, page_number=page_idx + 1, bbox=bbox)
+                        
+                        # Try to extract table caption using ORIGINAL blocks (before merging)
+                        # Also check next page if table is at bottom
+                        caption = self._extract_table_caption(page, bbox, original_blocks, next_page_blocks, page_height)
+                        if caption:
+                            if table_obj.metadata is None:
+                                logger.debug(f"Page {page_idx+1}: metadata was None, initializing")
+                                table_obj.metadata = {}
+                            table_obj.metadata['table_caption'] = caption
+                            logger.debug(f"Extracted caption for table on page {page_idx+1}: {caption}")
+                            logger.debug(f"  Metadata after assignment: {table_obj.metadata}")
+                        
+                        # Create TableBlock
+                        table_block = TableBlock(
+                            text="",  # TableBlock không cần text, data ở table
+                            bbox=bbox,
+                            table=table_obj,
+                            metadata={
+                                'doc_id': doc_id,
+                                'page_number': page_idx + 1,
+                                'block_type': 'table'
+                            }
+                        )
+                        
+                        # Add to blocks list
+                        blocks.append(table_block)
+            
             pages.append(PDFPage(
                 page_number=page_idx + 1,
                 text="",  # text sẽ được tạo trong xử lý nếu cần
                 blocks=blocks,
-                tables=tables,
+                tables=[],  # Không lưu tables riêng biệt nữa
                 warnings=[],
                 source=page_meta,
             ))
-        # Sau khi load tất cả pages, convert tables thành TableSchema, merge, và gán caption
-        if self.extract_tables:
-            try:
-                # Thu thập tất cả TableSchema từ các trang
-                all_table_objs = []
-                for page in pages:
-                    for t in page.tables:
-                        if isinstance(t, TableSchema):
-                            all_table_objs.append(t)
-                        elif isinstance(t, dict) and 'matrix' in t:
-                            matrix = t.get('matrix', [])
-                            bbox = t.get('bbox')
-                            if matrix:
-                                t_obj = TableSchema.from_matrix(matrix, file_path=file_path, page_number=page.page_number, bbox=bbox)
-                                all_table_objs.append(t_obj)
-                
-                # Merge tables bị split trước
-                merged_tables = TableSchema.merge_split_tables(all_table_objs)
-                
-                # Gán caption sau khi merge
-                self.assign_table_captions(merged_tables, file_path)
-                
-                # Cập nhật lại tables vào pages (keep dict format với matrix + bbox)
-                # Group merged tables by page
-                from collections import defaultdict
-                tables_by_page = defaultdict(list)
-                for t in merged_tables:
-                    tables_by_page[t.page_number].append(t)
-                
-                # Update pages với merged + captioned tables
-                for page in pages:
-                    if page.page_number in tables_by_page:
-                        page.tables = [{'matrix': t.to_matrix(), 'bbox': t.bbox} if hasattr(t, 'to_matrix') 
-                                      else {'matrix': [[]], 'bbox': t.bbox} for t in tables_by_page[page.page_number]]
-                        # Also attach metadata with caption
-                        for i, t in enumerate(tables_by_page[page.page_number]):
-                            if i < len(page.tables) and hasattr(t, 'metadata') and t.metadata:
-                                if isinstance(page.tables[i], dict):
-                                    page.tables[i]['metadata'] = t.metadata
-            except Exception as e:
-                logger.warning(f"Table merge/caption assignment failed: {e}")
+        # Tables đã được tích hợp vào blocks dưới dạng TableBlock, không cần xử lý riêng
         
         try:
             if plumber_pdf is not None:
@@ -586,100 +650,4 @@ class PDFLoader:
             f"tables_engine='{self.tables_engine}', "
             f"min_repeated_text_threshold={self.min_repeated_text_threshold})"
         )
-    
-    # ========== STATIC UTILITY METHODS ==========
-    
-    @staticmethod
-    def _extract_leading_number(value: Any) -> Optional[int]:
-        """Extract leading number from a string value."""
-        if not isinstance(value, str):
-            return None
-        
-        match = re.match(r'^\s*(\d+)', value)
-        if not match:
-            return None
-        try:
-            return int(match.group(1))
-        except ValueError:
-            return None
 
-    @staticmethod
-    def _header_looks_like_continuation(tbl: TableSchema) -> bool:
-        """Check if table header looks like a continuation of previous table."""
-        header = getattr(tbl, 'header', None) or []
-        rows = getattr(tbl, 'rows', None) or []
-        if not rows:
-            return False
-        first_num = None
-        if header and header[0].strip():
-            first_num = PDFLoader._extract_leading_number(header[0])
-        if first_num is None:
-            first_row_value = ''
-            first_row = rows[0]
-            if getattr(first_row, 'cells', None):
-                first_row_value = first_row.cells[0].value or ''
-            first_num = PDFLoader._extract_leading_number(first_row_value)
-        if first_num is None:
-            return False
-        next_num = None
-        for row in rows:
-            cells = getattr(row, 'cells', None) or []
-            if not cells:
-                continue
-            candidate = PDFLoader._extract_leading_number(cells[0].value or '')
-            if candidate is not None:
-                next_num = candidate
-                break
-        if next_num is None:
-            return first_num > 1
-        if next_num == first_num or next_num == first_num + 1:
-            return True
-        if first_num > 1 and next_num > first_num:
-            return True
-        return False
-
-    @staticmethod
-    def _make_row(values: List[str], row_idx: int) -> TableRow:
-        """Create a TableRow from list of values."""
-        cells = []
-        for col_idx, val in enumerate(values, start=1):
-            cells.append(TableCell(value=val, row=row_idx, col=col_idx, bbox=None, metadata={}))
-        return TableRow(cells=cells, row_idx=row_idx)
-
-    @staticmethod
-    def _reindex_rows(rows: List[TableRow]) -> None:
-        """Reindex row and cell indices for consistency."""
-        for r_idx, row in enumerate(rows, start=1):
-            row.row_idx = r_idx
-            for c_idx, cell in enumerate(row.cells, start=1):
-                cell.row = r_idx
-                cell.col = c_idx
-
-    @staticmethod
-    def _match_row_to_columns(row: TableRow, target_len: int) -> None:
-        """Adjust row to have exactly target_len columns."""
-        cells = list(getattr(row, "cells", []) or [])
-        if target_len <= 0:
-            return
-        if len(cells) > target_len:
-            merged = " ".join(cell.value for cell in cells[target_len-1:]).strip()
-            new_cells = cells[:target_len-1] + [TableCell(value=merged, row=row.row_idx, col=target_len, bbox=None, metadata={})]
-        elif len(cells) < target_len:
-            new_cells = cells + [TableCell(value='', row=row.row_idx, col=len(cells)+i+1, bbox=None, metadata={}) for i in range(target_len - len(cells))]
-        else:
-            new_cells = cells
-        for idx, cell in enumerate(new_cells, start=1):
-            cell.row = row.row_idx
-            cell.col = idx
-        row.cells = new_cells
-
-    @staticmethod
-    def _rebuild_markdown(header: List[str], rows: List[TableRow]) -> str:
-        """Rebuild markdown table from header and rows."""
-        md_lines: List[str] = []
-        if header:
-            md_lines.append('| ' + ' | '.join(header) + ' |')
-            md_lines.append('|' + ('---|' * len(header)))
-        for row in rows:
-            md_lines.append('| ' + ' | '.join(cell.value for cell in row.cells) + ' |')
-        return '\n'.join(md_lines) + ('\n' if md_lines else '')

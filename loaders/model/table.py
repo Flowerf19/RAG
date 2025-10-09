@@ -180,7 +180,8 @@ class TableSchema(LoaderBaseModel):
                 import collections.abc
                 if getattr(tables, 'n', 0) > 0 and isinstance(tables, collections.abc.Iterable):
                     for t in tables:
-                        matrix = TableSchema.normalize_table_cells(t.df.values.tolist())
+                        # Use camelot table data directly
+                        matrix = t.df.values.tolist() if hasattr(t, 'df') else []
                         # Try to get bbox from camelot table
                         bbox = None
                         if hasattr(t, '_bbox'):
@@ -202,7 +203,8 @@ class TableSchema(LoaderBaseModel):
             # Try to get table bboxes from pdfplumber
             table_settings = page.find_tables()
             for idx, t in enumerate(tables):
-                matrix = TableSchema.normalize_table_cells(t)
+                # Use table data directly (pdfplumber returns List[List[str]])
+                matrix = t if isinstance(t, list) else []
                 bbox = None
                 if table_settings and idx < len(table_settings):
                     tb = table_settings[idx]
@@ -230,8 +232,8 @@ class TableSchema(LoaderBaseModel):
                 try:
                     tables = TableSchema.extract_tables_pdfplumber(plumber_pdf, page_num_1based)
                     if tables:
-                        # keep reasonably shaped tables (>= header + 1 data row, >= 2 cols)
-                        filtered_tables = [t for t in tables if len(t.get('matrix', [])) >= 2 and len(t.get('matrix', [[]])[0]) >= 2]
+                        # keep reasonably shaped tables (>= header + 1 data row, >= 1 cols)
+                        filtered_tables = [t for t in tables if len(t.get('matrix', [])) >= 2]  # Just need header + 1 data row
                         if filtered_tables:
                             return filtered_tables
                 except Exception:
@@ -301,3 +303,122 @@ class TableSchema(LoaderBaseModel):
         for row in self.rows:
             md += "| " + " | ".join(cell.value for cell in row.cells) + " |\n"
         return md
+
+    def to_matrix(self) -> List[List[str]]:
+        """Convert TableSchema back to matrix format for compatibility."""
+        if not self.header:
+            return []
+        
+        matrix = [self.header]
+        for row in self.rows:
+            row_data = [cell.value for cell in row.cells]
+            matrix.append(row_data)
+        
+        return matrix
+
+    # ---------------- Table manipulation utilities ----------------
+    @staticmethod
+    def extract_leading_number(value: Any) -> Optional[int]:
+        """Extract leading number from a string value."""
+        import re
+        if not isinstance(value, str):
+            return None
+        
+        match = re.match(r'^\s*(\d+)', value)
+        if not match:
+            return None
+        try:
+            return int(match.group(1))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def header_looks_like_continuation(tbl: 'TableSchema') -> bool:
+        """Check if table header looks like a continuation of previous table."""
+        header = getattr(tbl, 'header', None) or []
+        rows = getattr(tbl, 'rows', None) or []
+        if not rows:
+            return False
+        
+        first_num = None
+        if header and header[0].strip():
+            first_num = TableSchema.extract_leading_number(header[0])
+        
+        if first_num is None:
+            first_row_value = ''
+            first_row = rows[0]
+            if getattr(first_row, 'cells', None):
+                first_row_value = first_row.cells[0].value or ''
+            first_num = TableSchema.extract_leading_number(first_row_value)
+        
+        if first_num is None:
+            return False
+        
+        next_num = None
+        for row in rows:
+            cells = getattr(row, 'cells', None) or []
+            if not cells:
+                continue
+            candidate = TableSchema.extract_leading_number(cells[0].value or '')
+            if candidate is not None:
+                next_num = candidate
+                break
+        
+        if next_num is None:
+            return first_num > 1
+        
+        if next_num == first_num or next_num == first_num + 1:
+            return True
+        
+        if first_num > 1 and next_num > first_num:
+            return True
+        
+        return False
+
+    @staticmethod
+    def make_row(values: List[str], row_idx: int) -> TableRow:
+        """Create a TableRow from list of values."""
+        cells = []
+        for col_idx, val in enumerate(values, start=1):
+            cells.append(TableCell(value=val, row=row_idx, col=col_idx, bbox=None, metadata={}))
+        return TableRow(cells=cells, row_idx=row_idx)
+
+    @staticmethod
+    def reindex_rows(rows: List[TableRow]) -> None:
+        """Reindex row and cell indices for consistency."""
+        for r_idx, row in enumerate(rows, start=1):
+            row.row_idx = r_idx
+            for c_idx, cell in enumerate(row.cells, start=1):
+                cell.row = r_idx
+                cell.col = c_idx
+
+    @staticmethod
+    def match_row_to_columns(row: TableRow, target_len: int) -> None:
+        """Adjust row to have exactly target_len columns."""
+        cells = list(getattr(row, "cells", []) or [])
+        if target_len <= 0:
+            return
+        
+        if len(cells) > target_len:
+            merged = " ".join(cell.value for cell in cells[target_len-1:]).strip()
+            new_cells = cells[:target_len-1] + [TableCell(value=merged, row=row.row_idx, col=target_len, bbox=None, metadata={})]
+        elif len(cells) < target_len:
+            new_cells = cells + [TableCell(value='', row=row.row_idx, col=len(cells)+i+1, bbox=None, metadata={}) for i in range(target_len - len(cells))]
+        else:
+            new_cells = cells
+        
+        for idx, cell in enumerate(new_cells, start=1):
+            cell.row = row.row_idx
+            cell.col = idx
+        row.cells = new_cells
+
+    @staticmethod
+    def rebuild_markdown(header: List[str], rows: List[TableRow]) -> str:
+        """Rebuild markdown table from header and rows."""
+        md_lines: List[str] = []
+        if header:
+            md_lines.append('| ' + ' | '.join(header) + ' |')
+            md_lines.append('|' + ('---|' * len(header)))
+        for row in rows:
+            md_lines.append('| ' + ' | '.join(cell.value for cell in row.cells) + ' |')
+        return '\n'.join(md_lines) + ('\n' if md_lines else '')

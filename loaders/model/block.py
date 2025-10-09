@@ -116,3 +116,24 @@ class Block(LoaderBaseModel):
             self.content_sha256 = hashlib.sha256((self.text or "").encode("utf-8")).hexdigest()
         
         return self
+
+@dataclass
+class TableBlock(Block):
+    """
+    Block đại diện cho bảng. Kế thừa từ Block và có thêm table data.
+    """
+    table: Optional['TableSchema'] = None
+    block_type: str = "table"
+
+    def normalize(self, config: Optional[dict] = None) -> 'TableBlock':
+        """
+        Chuẩn hóa TableBlock: gọi normalize của Block và normalize table.
+        """
+        # Gọi normalize của Block trước
+        super().normalize(config)
+        
+        # Normalize table nếu có
+        if self.table and hasattr(self.table, 'normalize'):
+            self.table.normalize(config)
+        
+        return self

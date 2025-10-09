@@ -1,173 +1,162 @@
-# RAG System - Copilot Instructions
+# RAG System – Copilot Development Instructions
 
-## Project Overview
-Đây là hệ thống RAG (Retrieval-Augmented Generation) được thiết kế theo chuẩn OOP với focus vào PDF processing và document loading.
+## 🧠 Overview
+This repository implements a modular **Retrieval-Augmented Generation (RAG)** system designed with **Object-Oriented Programming (OOP)** principles.
 
-## Development Environment Setup
+The pipeline includes:
+1. **Loader Module** → Handles PDF/DOCX ingestion and normalization. ✅ *(Completed)*
+2. **Chunker Module** → Handles text segmentation into embedding-ready chunks. 🚧 *(Current focus)*
 
-### 1. Virtual Environment Setup
+Goal: Transform PDF/DOCX → `NormalizedDocument` → `ChunkSet` → (Embedding → Reranking → Retrieval).
+
+---
+
+## ⚙️ Environment Setup
 ```powershell
 # Activate virtual environment
 & C:/Users/ENGUYEHWC/Downloads/RAG/RAG/.venv/Scripts/Activate.ps1
 
-# Verify activation (should show (.venv) in prompt)
-# Install dependencies if needed
+# Install dependencies
 pip install -r requirements.txt
-```
-
-### 2. Project Structure
-```
+📁 Project Structure
+bash
 RAG/
-├── .venv/                          # Virtual environment
-├── loaders/                        # PDF loading module (CURRENT FOCUS)
-│   ├── __init__.py
-│   ├── pdf_loader.py              # Main PDFLoader class (OOP refactored)
-│   ├── config.py                  # Config management (deprecated)
-│   ├── model/                     # Data models
-│   └── normalizers/               # Data normalization utilities
-├── chunkers/                      # Text chunking (NOT CURRENT FOCUS)
-├── tests/                         # Test directory
-│   └── test_loader.py            # Loader tests
-├── requirements.txt
-└── test_pdfloader_refactor.py    # Manual test file
-```
+├── .venv/                         # Virtual environment
+├── loaders/                       # ✅ PDF/DOCX ingestion
+│   ├── pdf_loader.py
+│   ├── model/
+│   └── normalizers/
+├── chunkers/                      # 🚧 Current focus
+│   ├── hybrid_chunker.py          # Main orchestrator
+│   ├── semantic_chunker.py        # Semantic segmentation
+│   ├── rule_chunker.py            # Rule-based segmentation
+│   ├── fixed_chunker.py           # Fixed-length fallback
+│   ├── model.py                   # Shared data classes
+│   └── utils.py                   # Token estimator & helpers
+├── tests/
+│   ├── test_loader.py
+│   └── test_chunker.py
+└── copilot-instruc.md             # Copilot & developer guidance
+📚 Loader Module Summary (✅ Completed)
+File: loaders/pdf_loader.py
+Purpose: Extract and normalize PDF/DOCX files.
 
-## Current Development Focus: LOADERS ONLY
+Output schema:
 
-### PDFLoader Class (Refactored to OOP)
-- **Location**: `loaders/pdf_loader.py`
-- **Design**: Single class với dependency injection
-- **Config**: No YAML dependencies, all config as constructor parameters
-- **Features**:
-  - PDF text extraction
-  - Table extraction with multiple engines
-  - Block filtering capabilities
-  - Caption assignment
-  - Factory methods for common configurations
+python
+Sao chép mã
+NormalizedDocument {
+  documentId: UUID,
+  metadata: {...},
+  blocks: [
+    {
+      blockId: UUID,
+      type: "paragraph" | "heading" | "list" | "table" | "code",
+      text: str,
+      provenance: { file, page, charRange }
+    }
+  ]
+}
+Key Features
 
-### Key Design Principles Applied:
-1. **Single Responsibility**: PDFLoader chỉ load và parse PDF
-2. **Dependency Injection**: Config được inject qua constructor
-3. **Factory Pattern**: `create_default()`, `create_text_only()`, `create_tables_only()`
-4. **OOP Encapsulation**: Utility functions thành static methods
-5. **Configuration Management**: Runtime config updates
+Dependency injection (config via constructor)
 
-## Testing Guidelines
+Text & table extraction
 
-### Running Tests
-```powershell
-# Make sure venv is activated
-& C:/Users/ENGUYEHWC/Downloads/RAG/RAG/.venv/Scripts/Activate.ps1
+Config validation
 
-# Run pytest from project root
-cd C:\Users\ENGUYEHWC\Downloads\RAG\RAG
-python -m pytest tests/ -v
+Factory methods: create_default(), create_text_only(), create_tables_only()
 
-# Run specific test file
-python -m pytest tests/test_loader.py -v
+OOP encapsulation and static utilities
 
-# Run with coverage
-python -m pytest tests/ --cov=loaders --cov-report=html
-```
+🔧 Chunker Module (🚧 Current Focus)
+🎯 Objective
+Convert a normalized document into semantically meaningful chunks.
+Implements Hybrid Chunking: combining semantic, rule-based, and fixed-size strategies.
 
-### Test Structure
-- **Location**: `tests/test_loader.py`
-- **Framework**: pytest
-- **Design**: Single test class `TestPDFLoader`
-- **Coverage**: PDFLoader initialization, config management, static methods
+🧩 Class Overview
+Class	Responsibility
+HybridChunker	Main orchestrator; selects and manages strategies
+SemanticChunker	Semantic segmentation using text coherence or embeddings
+RuleBasedChunker	Structural segmentation by headings, lists, tables
+FixedSizeChunker	Token-length fallback segmentation
+ChunkSet	Holds list of chunks for a document
+Chunk	Represents one embedding-ready segment
+ProvenanceAgg	Aggregates provenance from all contributing blocks
+BlockSpan	Represents character offsets within source blocks
+Score	Chunk quality metrics
+ChunkStats	Aggregated chunking statistics
 
-### Manual Test
-```powershell
-# Run manual test
-python test_pdfloader_refactor.py
-```
+⚙️ Architecture Flow
+css
 
-## Code Standards
-
-### OOP Guidelines
-1. **Class-First Design**: All functionality trong classes
-2. **No Global Functions**: Utility functions thành static methods
-3. **Clear Interfaces**: Type hints cho all methods
-4. **Validation**: Config validation trong constructor
-5. **Factory Methods**: For common use cases
-
-### Testing Standards
-1. **Single Test Class**: One class per module under test
-2. **Descriptive Names**: Test methods describe what they test
-3. **Setup/Teardown**: Use pytest fixtures
-4. **Mocking**: Mock external dependencies
-5. **Coverage**: Aim for >90% coverage
-
-## Current Development Tasks
-
-### ✅ Completed
-- [x] Refactored PDFLoader to pure OOP
-- [x] Removed YAML config dependency
-- [x] Added factory methods
-- [x] Moved utility functions to static methods
-- [x] Added config validation
-- [x] Updated all usage examples
-
-### 🔄 In Progress
-- [ ] Complete pytest test suite for PDFLoader
-- [ ] Add proper test fixtures
-- [ ] Test coverage reporting
-
-### 📋 TODO (Loader Module Only)
-- [ ] Performance benchmarking
-- [ ] Memory usage optimization
-- [ ] Error handling improvements
-- [ ] Documentation completion
-
-## DO NOT WORK ON
-- chunkers/ module
-- retriever/ module  
-- pipeline.py integration
-- UI components
-- Other modules outside loaders/
-
-## Development Commands Quick Reference
-
-```powershell
-# Environment
-& C:/Users/ENGUYEHWC/Downloads/RAG/RAG/.venv/Scripts/Activate.ps1
-
-# Testing
-python -m pytest tests/test_loader.py -v
-python test_pdfloader_refactor.py
-
-# Code Quality
-python -m pylint loaders/pdf_loader.py
-python -m mypy loaders/pdf_loader.py
-
-# Dependencies
-pip list
-pip install -r requirements.txt
-```
-
-## Usage Examples
-
-### Basic Usage
-```python
-from loaders import PDFLoader
-
-# Default configuration
-loader = PDFLoader.create_default()
-document = loader.load("path/to/file.pdf")
-
-# Custom configuration
-loader = PDFLoader(
-    extract_text=True,
-    extract_tables=False,
-    min_repeated_text_threshold=5
+NormalizedDocument
+      ↓
+ HybridChunker
+ ├─ SemanticChunker
+ ├─ RuleBasedChunker
+ └─ FixedSizeChunker
+      ↓
+   ChunkSet
+    └── [Chunk → ProvenanceAgg → BlockSpan]
+🧠 HybridChunker Parameters
+python
+HybridChunker(
+  targetTokens=200,
+  minTokens=100,
+  maxTokens=400,
+  overlapRatio=0.1,
+  language="en"
 )
-document = loader.load("path/to/file.pdf")
-```
+💡 Core Methods
+Method	Description
+HybridChunker.chunk(doc)	Entry point; orchestrates all strategies
+HybridChunker.evaluateAndRefine(set)	Optional QA step
+SemanticChunker.chunkSegment(blocks)	Splits by semantic boundaries
+RuleBasedChunker.chunkByRules(blocks)	Splits by structural rules
+FixedSizeChunker.chunkByLength(blocks)	Splits evenly by token length
 
-### Testing Usage
-```python
-# In tests
-loader = PDFLoader(extract_text=True, extract_tables=False)
-assert loader.extract_text == True
-assert loader.extract_tables == False
-```
+🧱 Data Models (chunkers/model.py)
+python
+@dataclass
+class BlockSpan:
+    blockId: str
+    charStart: int
+    charEnd: int
+    bbox: Optional[str] = None
+
+@dataclass
+class ProvenanceAgg:
+    file: str
+    sha256Doc: str
+    pageRanges: List[int]
+    blockSpans: List[BlockSpan]
+
+@dataclass
+class Score:
+    cohesion: float = 0
+    topicShift: float = 0
+    structureConf: float = 0
+    boundaryConf: float = 0
+
+@dataclass
+class Chunk:
+    chunkId: str
+    order: int
+    textForEmbedding: str
+    tokensEstimate: int
+    contentType: str
+    scores: Score
+    provenance: ProvenanceAgg
+
+@dataclass
+class ChunkStats:
+    numChunks: int
+    avgTokens: int
+    stdevTokens: float
+
+@dataclass
+class ChunkSet:
+    documentId: str
+    chunks: List[Chunk]
+    stats: Optional[ChunkStats] = None

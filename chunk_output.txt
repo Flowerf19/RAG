@@ -1,0 +1,856 @@
+
+=== Chunk 1 ===
+Tokens: 26
+Content:
+Revision History Date
+Version
+Description
+Author
+Reviewer 10-05-2024
+1.0
+Issued version
+
+Metadata: {'group_type': 'paragraph', 'block_count': 1, 'chunk_index': 0}
+
+Provenance: ProvenanceAgg(source_blocks=['1458e651bec085c4995e86b5'], spans=[BlockSpan(block_id='1458e651bec085c4995e86b5', start_char=0, end_char=87, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 2 ===
+Tokens: 28
+Content:
+date | version | description | author | reviewer
+10-05-2024 | 1.0 | issued version |  | 
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 1, 'table_payload': TableSchema(id='ef83736d-467b-43fa-92a5-3fb705498ba1', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=1, header=['date', 'version', 'description', 'author', 'reviewer'], rows=[TableRow(cells=[TableCell(value='10-05-2024', row=1, col=0, bbox=None, metadata={}), TableCell(value='1.0', row=1, col=1, bbox=None, metadata={}), TableCell(value='issued version', row=1, col=2, bbox=None, metadata={}), TableCell(value='', row=1, col=3, bbox=None, metadata={}), TableCell(value='', row=1, col=4, bbox=None, metadata={})], row_idx=1)], bbox=(73.8910596082353, 133.22001588, 552.9304156344001, 310.0099994), markdown=None, metadata={}, stable_id='6d8b340bf2c1a9a4ba35ed6d', content_sha256='a0d6aed3f3e9b1943fa398244d6e020e50e7f84c6e578962d1e4b7d2b745386f', text_source=None), 'embedding_text': 'date | version | description | author | reviewer\n10-05-2024 | 1.0 | issued version |  | ', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 1, 'included_rows': 1, 'truncated': False, 'row_range': [0, 1], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '10-05-2024', 'page': 1}, {'row': 1, 'col': 1, 'value': '1.0', 'page': 1}, {'row': 1, 'col': 2, 'value': 'issued version', 'page': 1}, {'row': 1, 'col': 3, 'value': '', 'page': 1}, {'row': 1, 'col': 4, 'value': '', 'page': 1}]}
+
+Provenance: ProvenanceAgg(source_blocks=['0b80e483b9cf951be40f7188'], spans=[BlockSpan(block_id='0b80e483b9cf951be40f7188', start_char=0, end_char=86, page_number=1)], page_numbers={1}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['date', 'version', 'description', 'author', 'reviewer']
+Table Rows Count: 1
+Table Caption: None
+Table BBox: (73.8910596082353, 133.22001588, 552.9304156344001, 310.0099994)
+  Row 1: ['10-05-2024', '1.0', 'issued version', '', '']
+
+=== Chunk 3 ===
+Tokens: 135
+Content:
+Page 3/17 Table of Contents
+
+Page 4/17 List of Tables and Figures
+
+Page 5/17 1. INTRODUCTION 1.1 PURPOSE This document defines the service management process which is applied to The Company's services.
+
+1.2 SCOPE This process is used in service delivery realized at The Company.
+
+However, in a certain service, the Delivery Manager can decide whether to apply this entire process or
+
+just a modified version of it or leave it out. It is highly emphasized that all activities tagged as mandatory
+
+shall not be dropped out by team leader.
+
+1.3 DEFINITIONS, ACRONYMS AND ABBREVIATIONS
+
+Metadata: {'group_type': 'paragraph', 'block_count': 8, 'chunk_index': 2}
+
+Provenance: ProvenanceAgg(source_blocks=['d384f5a0b569c7fd465c4ad1', '980215e1ed2db5ad317abc45', 'dcbbc4a2387067f46af43105', 'b9cf0ad65c713c7ae74310ff', 'c5e40188166c9b0cbac539c9', '0a591d68296090514d0ee1e9', 'ceeebc585cd3f62af0de944d', '22076970617c1753ec12f2e7'], spans=[BlockSpan(block_id='d384f5a0b569c7fd465c4ad1', start_char=0, end_char=27, page_number=None), BlockSpan(block_id='980215e1ed2db5ad317abc45', start_char=0, end_char=36, page_number=None), BlockSpan(block_id='dcbbc4a2387067f46af43105', start_char=0, end_char=134, page_number=None), BlockSpan(block_id='b9cf0ad65c713c7ae74310ff', start_char=0, end_char=75, page_number=None), BlockSpan(block_id='c5e40188166c9b0cbac539c9', start_char=0, end_char=102, page_number=None), BlockSpan(block_id='0a591d68296090514d0ee1e9', start_char=0, end_char=110, page_number=None), BlockSpan(block_id='ceeebc585cd3f62af0de944d', start_char=0, end_char=40, page_number=None), BlockSpan(block_id='22076970617c1753ec12f2e7', start_char=0, end_char=43, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 4 ===
+Tokens: 188
+Content:
+No Abbreviations
+Description 1.
+SM
+Service Manager 2.
+DM
+Delivery Manager 3.
+CM
+Competence Manager 4.
+HR
+Human Resource Department 5.
+HRDC
+Human Resource Development Committee 6.
+ISEC
+Information Security Committee 7.
+IT
+IT Unit 8.
+DC
+Delivery Center 9.
+SALES
+Sales and Marketing Unit 10. The Company 11. N/A
+Not Applicable
+
+Table 1.1 – Definitions, Acronyms, and Abbreviations
+
+1.4 REFERENCES No Document
+Code
+Description 1.
+Process_Service Configuration
+
+Management QMS/PR_SCM001
+Configuration Management 2.
+Process_Service Delivery
+QMS/PR_SD001
+Service Delivery
+
+Table 1.2 – References
+
+XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX
+
+Metadata: {'group_type': 'paragraph', 'block_count': 6, 'chunk_index': 3}
+
+Provenance: ProvenanceAgg(source_blocks=['ace48607e6dd7a424b75d200', '70c2b8ab574c6feb98291f33', 'fd72e353842255e3697042fd', '4956a81404d1a07f4ae6f809', '12f013eb6925b142c0ccf6d7', '00b36dd21ce90a636cbe2c36'], spans=[BlockSpan(block_id='ace48607e6dd7a424b75d200', start_char=0, end_char=323, page_number=None), BlockSpan(block_id='70c2b8ab574c6feb98291f33', start_char=0, end_char=52, page_number=None), BlockSpan(block_id='fd72e353842255e3697042fd', start_char=0, end_char=76, page_number=None), BlockSpan(block_id='4956a81404d1a07f4ae6f809', start_char=0, end_char=107, page_number=None), BlockSpan(block_id='12f013eb6925b142c0ccf6d7', start_char=0, end_char=22, page_number=None), BlockSpan(block_id='00b36dd21ce90a636cbe2c36', start_char=0, end_char=63, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 5 ===
+Tokens: 112
+Content:
+no | abbreviations | description
+1. | sm | service manager
+2. | dm | delivery manager
+3. | cm | competence manager
+4. | hr | human resource department
+5. | hrdc | human resource development committee
+6. | isec | information security committee
+7. | it | it unit
+8. | dc | delivery center
+9. | sales | sales and marketing unit
+10. | the company | xxxx-xxxx-xxxx
+11. | n/a | not applicable
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 4, 'table_payload': TableSchema(id='04f3e32e-8f1d-46da-a775-af8c64162716', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=4, header=['no', 'abbreviations', 'description'], rows=[TableRow(cells=[TableCell(value='1.', row=1, col=0, bbox=None, metadata={}), TableCell(value='sm', row=1, col=1, bbox=None, metadata={}), TableCell(value='service manager', row=1, col=2, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='2.', row=2, col=0, bbox=None, metadata={}), TableCell(value='dm', row=2, col=1, bbox=None, metadata={}), TableCell(value='delivery manager', row=2, col=2, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='3.', row=3, col=0, bbox=None, metadata={}), TableCell(value='cm', row=3, col=1, bbox=None, metadata={}), TableCell(value='competence manager', row=3, col=2, bbox=None, metadata={})], row_idx=3), TableRow(cells=[TableCell(value='4.', row=4, col=0, bbox=None, metadata={}), TableCell(value='hr', row=4, col=1, bbox=None, metadata={}), TableCell(value='human resource department', row=4, col=2, bbox=None, metadata={})], row_idx=4), TableRow(cells=[TableCell(value='5.', row=5, col=0, bbox=None, metadata={}), TableCell(value='hrdc', row=5, col=1, bbox=None, metadata={}), TableCell(value='human resource development committee', row=5, col=2, bbox=None, metadata={})], row_idx=5), TableRow(cells=[TableCell(value='6.', row=6, col=0, bbox=None, metadata={}), TableCell(value='isec', row=6, col=1, bbox=None, metadata={}), TableCell(value='information security committee', row=6, col=2, bbox=None, metadata={})], row_idx=6), TableRow(cells=[TableCell(value='7.', row=7, col=0, bbox=None, metadata={}), TableCell(value='it', row=7, col=1, bbox=None, metadata={}), TableCell(value='it unit', row=7, col=2, bbox=None, metadata={})], row_idx=7), TableRow(cells=[TableCell(value='8.', row=8, col=0, bbox=None, metadata={}), TableCell(value='dc', row=8, col=1, bbox=None, metadata={}), TableCell(value='delivery center', row=8, col=2, bbox=None, metadata={})], row_idx=8), TableRow(cells=[TableCell(value='9.', row=9, col=0, bbox=None, metadata={}), TableCell(value='sales', row=9, col=1, bbox=None, metadata={}), TableCell(value='sales and marketing unit', row=9, col=2, bbox=None, metadata={})], row_idx=9), TableRow(cells=[TableCell(value='10.', row=10, col=0, bbox=None, metadata={}), TableCell(value='the company', row=10, col=1, bbox=None, metadata={}), TableCell(value='xxxx-xxxx-xxxx', row=10, col=2, bbox=None, metadata={})], row_idx=10), TableRow(cells=[TableCell(value='11.', row=11, col=0, bbox=None, metadata={}), TableCell(value='n/a', row=11, col=1, bbox=None, metadata={}), TableCell(value='not applicable', row=11, col=2, bbox=None, metadata={})], row_idx=11)], bbox=(73.99543001571429, 257.68999838, 548.607489216, 529.99000976), markdown=None, metadata={'table_caption': 'table 1.1 definitions, acronyms, and abbreviations'}, stable_id='5dda1a9cd7ec0d015d406e1d', content_sha256='678dc750cc14dd14fe759e0329b1518690859db2badd3fdecf7c91ec317c769d', text_source=None), 'embedding_text': 'no | abbreviations | description\n1. | sm | service manager\n2. | dm | delivery manager\n3. | cm | competence manager\n4. | hr | human resource department\n5. | hrdc | human resource development committee\n6. | isec | information security committee\n7. | it | it unit\n8. | dc | delivery center\n9. | sales | sales and marketing unit\n10. | the company | xxxx-xxxx-xxxx\n11. | n/a | not applicable', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 11, 'included_rows': 11, 'truncated': False, 'row_range': [0, 11], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '1.', 'page': 4}, {'row': 1, 'col': 1, 'value': 'sm', 'page': 4}, {'row': 1, 'col': 2, 'value': 'service manager', 'page': 4}, {'row': 2, 'col': 0, 'value': '2.', 'page': 4}, {'row': 2, 'col': 1, 'value': 'dm', 'page': 4}, {'row': 2, 'col': 2, 'value': 'delivery manager', 'page': 4}, {'row': 3, 'col': 0, 'value': '3.', 'page': 4}, {'row': 3, 'col': 1, 'value': 'cm', 'page': 4}, {'row': 3, 'col': 2, 'value': 'competence manager', 'page': 4}, {'row': 4, 'col': 0, 'value': '4.', 'page': 4}, {'row': 4, 'col': 1, 'value': 'hr', 'page': 4}, {'row': 4, 'col': 2, 'value': 'human resource department', 'page': 4}, {'row': 5, 'col': 0, 'value': '5.', 'page': 4}, {'row': 5, 'col': 1, 'value': 'hrdc', 'page': 4}, {'row': 5, 'col': 2, 'value': 'human resource development committee', 'page': 4}, {'row': 6, 'col': 0, 'value': '6.', 'page': 4}, {'row': 6, 'col': 1, 'value': 'isec', 'page': 4}, {'row': 6, 'col': 2, 'value': 'information security committee', 'page': 4}, {'row': 7, 'col': 0, 'value': '7.', 'page': 4}, {'row': 7, 'col': 1, 'value': 'it', 'page': 4}, {'row': 7, 'col': 2, 'value': 'it unit', 'page': 4}, {'row': 8, 'col': 0, 'value': '8.', 'page': 4}, {'row': 8, 'col': 1, 'value': 'dc', 'page': 4}, {'row': 8, 'col': 2, 'value': 'delivery center', 'page': 4}, {'row': 9, 'col': 0, 'value': '9.', 'page': 4}, {'row': 9, 'col': 1, 'value': 'sales', 'page': 4}, {'row': 9, 'col': 2, 'value': 'sales and marketing unit', 'page': 4}, {'row': 10, 'col': 0, 'value': '10.', 'page': 4}, {'row': 10, 'col': 1, 'value': 'the company', 'page': 4}, {'row': 10, 'col': 2, 'value': 'xxxx-xxxx-xxxx', 'page': 4}, {'row': 11, 'col': 0, 'value': '11.', 'page': 4}, {'row': 11, 'col': 1, 'value': 'n/a', 'page': 4}, {'row': 11, 'col': 2, 'value': 'not applicable', 'page': 4}]}
+
+Provenance: ProvenanceAgg(source_blocks=['21d9eac2fb9134e4c4ec055b'], spans=[BlockSpan(block_id='21d9eac2fb9134e4c4ec055b', start_char=0, end_char=386, page_number=4)], page_numbers={4}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['no', 'abbreviations', 'description']
+Table Rows Count: 11
+Table Caption: table 1.1 definitions, acronyms, and abbreviations
+Table BBox: (73.99543001571429, 257.68999838, 548.607489216, 529.99000976)
+  Row 1: ['1.', 'sm', 'service manager']
+  Row 2: ['2.', 'dm', 'delivery manager']
+  Row 3: ['3.', 'cm', 'competence manager']
+  ... (8 more rows)
+
+=== Chunk 6 ===
+Tokens: 44
+Content:
+no | document | code | description
+1. | process_service configuration
+management | qms/pr_scm001 | configuration management
+2. | process_service delivery | qms/pr_sd001 | service delivery
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 5, 'table_payload': TableSchema(id='23e28c59-048c-4797-97c0-182e35f014c7', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=4, header=['no', 'document', 'code', 'description'], rows=[TableRow(cells=[TableCell(value='1.', row=1, col=0, bbox=None, metadata={}), TableCell(value='process_service configuration\nmanagement', row=1, col=1, bbox=None, metadata={}), TableCell(value='qms/pr_scm001', row=1, col=2, bbox=None, metadata={}), TableCell(value='configuration management', row=1, col=3, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='2.', row=2, col=0, bbox=None, metadata={}), TableCell(value='process_service delivery', row=2, col=1, bbox=None, metadata={}), TableCell(value='qms/pr_sd001', row=2, col=2, bbox=None, metadata={}), TableCell(value='service delivery', row=2, col=3, bbox=None, metadata={})], row_idx=2)], bbox=(73.99543001571429, 592.42000838, 548.607489216, 647.74000976), markdown=None, metadata={'table_caption': 'table 1.1 definitions, acronyms, and abbreviations'}, stable_id='27175b1fff4c380e5fa8a5b2', content_sha256='df4fd4c678740ae24af7bdea8d2482aa1a65ed54bf9ee836690e92f21c1c4a17', text_source=None), 'embedding_text': 'no | document | code | description\n1. | process_service configuration\nmanagement | qms/pr_scm001 | configuration management\n2. | process_service delivery | qms/pr_sd001 | service delivery', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 2, 'included_rows': 2, 'truncated': False, 'row_range': [0, 2], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '1.', 'page': 4}, {'row': 1, 'col': 1, 'value': 'process_service configuration\nmanagement', 'page': 4}, {'row': 1, 'col': 2, 'value': 'qms/pr_scm001', 'page': 4}, {'row': 1, 'col': 3, 'value': 'configuration management', 'page': 4}, {'row': 2, 'col': 0, 'value': '2.', 'page': 4}, {'row': 2, 'col': 1, 'value': 'process_service delivery', 'page': 4}, {'row': 2, 'col': 2, 'value': 'qms/pr_sd001', 'page': 4}, {'row': 2, 'col': 3, 'value': 'service delivery', 'page': 4}]}
+
+Provenance: ProvenanceAgg(source_blocks=['a80e54f74cf2f45ac02038a4'], spans=[BlockSpan(block_id='a80e54f74cf2f45ac02038a4', start_char=0, end_char=187, page_number=4)], page_numbers={4}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['no', 'document', 'code', 'description']
+Table Rows Count: 2
+Table Caption: table 1.1 definitions, acronyms, and abbreviations
+Table BBox: (73.99543001571429, 592.42000838, 548.607489216, 647.74000976)
+  Row 1: ['1.', 'process_service configuration\nmanagement', 'qms/pr_scm001', 'configuration management']
+  Row 2: ['2.', 'process_service delivery', 'qms/pr_sd001', 'service delivery']
+
+=== Chunk 7 ===
+Tokens: 103
+Content:
+Page 6/17 2. PROCESS 2.1 PROCESS CHARACTERISTICS Characteristic
+Description
+Requirements
+
+Involved workers
+•
+Service Manager
+•
+Delivery Manager
+•
+Competence Manager
+•
+Human Resource Unit
+•
+Human Resource Development Committee
+•
+Information Security Committee
+•
+IT & Office Management Unit
+•
+N/A Entry criteria
+•
+Customer official service request
+•
+Customer's request presented in written form Exit criteria
+•
+Customer official service request;
+
+Metadata: {'group_type': 'paragraph', 'block_count': 2, 'chunk_index': 6}
+
+Provenance: ProvenanceAgg(source_blocks=['be0cb36b5773aaf397d44566', '4373e197a6e829f208e71b5b'], spans=[BlockSpan(block_id='be0cb36b5773aaf397d44566', start_char=0, end_char=88, page_number=None), BlockSpan(block_id='4373e197a6e829f208e71b5b', start_char=0, end_char=353, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 8 ===
+Tokens: 48
+Content:
+•
+Service termination
+•
+Service termination conditions are reached. Related processes
+•
+Service Delivery Process
+•
+Service Delivery Process
+
+Tool
+•
+N/A
+•
+N/A
+
+Table 2.1 - Process characteristics
+
+Metadata: {'group_type': 'list', 'block_count': 3, 'chunk_index': 7}
+
+Provenance: ProvenanceAgg(source_blocks=['2db8c6d60fccc08dbda7c4a2', '4227360db40175b8f611286b', '785cfdfd72304cd496acfd82'], spans=[BlockSpan(block_id='2db8c6d60fccc08dbda7c4a2', start_char=0, end_char=139, page_number=None), BlockSpan(block_id='4227360db40175b8f611286b', start_char=0, end_char=16, page_number=None), BlockSpan(block_id='785cfdfd72304cd496acfd82', start_char=0, end_char=35, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 9 ===
+Tokens: 124
+Content:
+characteristic | description | requirements
+involved workers | service manager
+delivery manager
+competence manager
+human resource unit
+human resource development
+committee
+information security committee
+it & office management unit |  | n/a | 
+entry criteria | customer official service request |  | customer's request presented in written
+form | 
+exit criteria | customer official service request;
+service termination |  | service termination conditions are
+reached. | 
+related processes | service delivery process |  | service delivery process | 
+tool | n/a |  | n/a | 
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 8, 'table_payload': TableSchema(id='4a73aae2-f8c9-45fa-8528-95aad724bccd', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=5, header=['characteristic', 'description', 'requirements'], rows=[TableRow(cells=[TableCell(value='involved workers', row=1, col=0, bbox=None, metadata={}), TableCell(value='service manager\ndelivery manager\ncompetence manager\nhuman resource unit\nhuman resource development\ncommittee\ninformation security committee\nit & office management unit', row=1, col=1, bbox=None, metadata={}), TableCell(value='', row=1, col=2, bbox=None, metadata={}), TableCell(value='n/a', row=1, col=3, bbox=None, metadata={}), TableCell(value='', row=1, col=4, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='entry criteria', row=2, col=0, bbox=None, metadata={}), TableCell(value='customer official service request', row=2, col=1, bbox=None, metadata={}), TableCell(value='', row=2, col=2, bbox=None, metadata={}), TableCell(value="customer's request presented in written\nform", row=2, col=3, bbox=None, metadata={}), TableCell(value='', row=2, col=4, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='exit criteria', row=3, col=0, bbox=None, metadata={}), TableCell(value='customer official service request;\nservice termination', row=3, col=1, bbox=None, metadata={}), TableCell(value='', row=3, col=2, bbox=None, metadata={}), TableCell(value='service termination conditions are\nreached.', row=3, col=3, bbox=None, metadata={}), TableCell(value='', row=3, col=4, bbox=None, metadata={})], row_idx=3), TableRow(cells=[TableCell(value='related processes', row=4, col=0, bbox=None, metadata={}), TableCell(value='service delivery process', row=4, col=1, bbox=None, metadata={}), TableCell(value='', row=4, col=2, bbox=None, metadata={}), TableCell(value='service delivery process', row=4, col=3, bbox=None, metadata={}), TableCell(value='', row=4, col=4, bbox=None, metadata={})], row_idx=4), TableRow(cells=[TableCell(value='tool', row=5, col=0, bbox=None, metadata={}), TableCell(value='n/a', row=5, col=1, bbox=None, metadata={}), TableCell(value='', row=5, col=2, bbox=None, metadata={}), TableCell(value='n/a', row=5, col=3, bbox=None, metadata={}), TableCell(value='', row=5, col=4, bbox=None, metadata={})], row_idx=5)], bbox=(72.08400137863636, 123.62000337999996, 540.5204852, 374.21000976), markdown=None, metadata={'table_caption': 'table 2.1 - process characteristics'}, stable_id='d920ab8ca783b9df7feb92b3', content_sha256='3c4bdd16db2b875f766c99728a5d469a69bb5d414f156e509695b94614f4680d', text_source=None), 'embedding_text': "characteristic | description | requirements\ninvolved workers | service manager\ndelivery manager\ncompetence manager\nhuman resource unit\nhuman resource development\ncommittee\ninformation security committee\nit & office management unit |  | n/a | \nentry criteria | customer official service request |  | customer's request presented in written\nform | \nexit criteria | customer official service request;\nservice termination |  | service termination conditions are\nreached. | \nrelated processes | service delivery process |  | service delivery process | \ntool | n/a |  | n/a | ", 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 5, 'included_rows': 5, 'truncated': False, 'row_range': [0, 5], 'cell_provenance': [{'row': 1, 'col': 0, 'value': 'involved workers', 'page': 5}, {'row': 1, 'col': 1, 'value': 'service manager\ndelivery manager\ncompetence manager\nhuman resource unit\nhuman resource development\ncommittee\ninformation security committee\nit & office management unit', 'page': 5}, {'row': 1, 'col': 2, 'value': '', 'page': 5}, {'row': 1, 'col': 3, 'value': 'n/a', 'page': 5}, {'row': 1, 'col': 4, 'value': '', 'page': 5}, {'row': 2, 'col': 0, 'value': 'entry criteria', 'page': 5}, {'row': 2, 'col': 1, 'value': 'customer official service request', 'page': 5}, {'row': 2, 'col': 2, 'value': '', 'page': 5}, {'row': 2, 'col': 3, 'value': "customer's request presented in written\nform", 'page': 5}, {'row': 2, 'col': 4, 'value': '', 'page': 5}, {'row': 3, 'col': 0, 'value': 'exit criteria', 'page': 5}, {'row': 3, 'col': 1, 'value': 'customer official service request;\nservice termination', 'page': 5}, {'row': 3, 'col': 2, 'value': '', 'page': 5}, {'row': 3, 'col': 3, 'value': 'service termination conditions are\nreached.', 'page': 5}, {'row': 3, 'col': 4, 'value': '', 'page': 5}, {'row': 4, 'col': 0, 'value': 'related processes', 'page': 5}, {'row': 4, 'col': 1, 'value': 'service delivery process', 'page': 5}, {'row': 4, 'col': 2, 'value': '', 'page': 5}, {'row': 4, 'col': 3, 'value': 'service delivery process', 'page': 5}, {'row': 4, 'col': 4, 'value': '', 'page': 5}, {'row': 5, 'col': 0, 'value': 'tool', 'page': 5}, {'row': 5, 'col': 1, 'value': 'n/a', 'page': 5}, {'row': 5, 'col': 2, 'value': '', 'page': 5}, {'row': 5, 'col': 3, 'value': 'n/a', 'page': 5}, {'row': 5, 'col': 4, 'value': '', 'page': 5}]}
+
+Provenance: ProvenanceAgg(source_blocks=['31e593795dfa7414bb85ac45'], spans=[BlockSpan(block_id='31e593795dfa7414bb85ac45', start_char=0, end_char=598, page_number=5)], page_numbers={5}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['characteristic', 'description', 'requirements']
+Table Rows Count: 5
+Table Caption: table 2.1 - process characteristics
+Table BBox: (72.08400137863636, 123.62000337999996, 540.5204852, 374.21000976)
+  Row 1: ['involved workers', 'service manager\ndelivery manager\ncompetence manager\nhuman resource unit\nhuman resource development\ncommittee\ninformation security committee\nit & office management unit', '', 'n/a', '']
+  Row 2: ['entry criteria', 'customer official service request', '', "customer's request presented in written\nform", '']
+  Row 3: ['exit criteria', 'customer official service request;\nservice termination', '', 'service termination conditions are\nreached.', '']
+  ... (2 more rows)
+
+=== Chunk 10 ===
+Tokens: 115
+Content:
+Page 7/17 2.2 WORKFLOW 2.2.1 GENERAL SERVICE MANAGEMENT
+
+Figure 2.1 – General Service management process
+
+Step
+Task Person in charge Input
+Output
+Templates 1
+Receive service request
+DC Head
+
+Customer official request for service Service request and its related criteria N/A 2
+Go/NoGo decision
+DC Head
+
+Service request and its related criteria.
+
+Staff & resource status Request acceptance or rejection confirmation. In case of acceptance, SM and DM must be Free form for rejection/acceptan ce confirmation.
+
+Metadata: {'group_type': 'paragraph', 'block_count': 6, 'chunk_index': 9}
+
+Provenance: ProvenanceAgg(source_blocks=['50ae261ae33ae92ec12b6e84', 'bf037f31370a95b587e7987b', 'bee865664eaba3a936e7cac7', '3138bbd0e515ccf43f255977', 'ee33b7bd7ec8a1f0c538a6c9', '2241edcbe9dba68fa4e6bc59'], spans=[BlockSpan(block_id='50ae261ae33ae92ec12b6e84', start_char=0, end_char=55, page_number=None), BlockSpan(block_id='bf037f31370a95b587e7987b', start_char=0, end_char=47, page_number=None), BlockSpan(block_id='bee865664eaba3a936e7cac7', start_char=0, end_char=83, page_number=None), BlockSpan(block_id='3138bbd0e515ccf43f255977', start_char=0, end_char=109, page_number=None), BlockSpan(block_id='ee33b7bd7ec8a1f0c538a6c9', start_char=0, end_char=41, page_number=None), BlockSpan(block_id='2241edcbe9dba68fa4e6bc59', start_char=0, end_char=160, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 11 ===
+Tokens: 95
+Content:
+'s SOW templates & examples for Start Go/No-Official client request Manage
+staffing & planning SM, DM, CM, HR, HRDC Manage quality & performance SM, DM, IT, ISEC Manage
+resources Manage
+InfoSec SM, DM, CM, SM, DM, IT DC Head DC Head Receive service request End Service No Yes DC head Scope of Work XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX
+
+Metadata: {'group_type': 'paragraph', 'block_count': 1, 'chunk_index': 10}
+
+Provenance: ProvenanceAgg(source_blocks=['9d9bffd7000449e033fee516'], spans=[BlockSpan(block_id='9d9bffd7000449e033fee516', start_char=0, end_char=345, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 12 ===
+Tokens: 128
+Content:
+step | task | person | input | output | templates
+ |  |  | in |  |  | 
+ |  |  | charge |  |  | 
+1 | receive service request | dc head |  | customer official
+request for service | service request
+and its related
+criteria | n/a
+2 | go/nogo decision | dc head |  | service request and
+its related criteria.
+staff & resource
+status | request
+acceptance or
+rejection
+confirmation.
+in case of
+acceptance, sm
+and dm must be | free form for
+rejection/acceptan
+ce confirmation.
+'s sow
+templates &
+examples for
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 11, 'table_payload': TableSchema(id='0cf4551f-d58f-49c3-a93c-d5ea221ea765', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=6, header=['step', 'task', 'person', 'input', 'output', 'templates'], rows=[TableRow(cells=[TableCell(value='', row=1, col=0, bbox=None, metadata={}), TableCell(value='', row=1, col=1, bbox=None, metadata={}), TableCell(value='', row=1, col=2, bbox=None, metadata={}), TableCell(value='in', row=1, col=3, bbox=None, metadata={}), TableCell(value='', row=1, col=4, bbox=None, metadata={}), TableCell(value='', row=1, col=5, bbox=None, metadata={}), TableCell(value='', row=1, col=6, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='', row=2, col=0, bbox=None, metadata={}), TableCell(value='', row=2, col=1, bbox=None, metadata={}), TableCell(value='', row=2, col=2, bbox=None, metadata={}), TableCell(value='charge', row=2, col=3, bbox=None, metadata={}), TableCell(value='', row=2, col=4, bbox=None, metadata={}), TableCell(value='', row=2, col=5, bbox=None, metadata={}), TableCell(value='', row=2, col=6, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='1', row=3, col=0, bbox=None, metadata={}), TableCell(value='receive service request', row=3, col=1, bbox=None, metadata={}), TableCell(value='dc head', row=3, col=2, bbox=None, metadata={}), TableCell(value='', row=3, col=3, bbox=None, metadata={}), TableCell(value='customer official\nrequest for service', row=3, col=4, bbox=None, metadata={}), TableCell(value='service request\nand its related\ncriteria', row=3, col=5, bbox=None, metadata={}), TableCell(value='n/a', row=3, col=6, bbox=None, metadata={})], row_idx=3), TableRow(cells=[TableCell(value='2', row=4, col=0, bbox=None, metadata={}), TableCell(value='go/nogo decision', row=4, col=1, bbox=None, metadata={}), TableCell(value='dc head', row=4, col=2, bbox=None, metadata={}), TableCell(value='', row=4, col=3, bbox=None, metadata={}), TableCell(value='service request and\nits related criteria.\nstaff & resource\nstatus', row=4, col=4, bbox=None, metadata={}), TableCell(value='request\nacceptance or\nrejection\nconfirmation.\nin case of\nacceptance, sm\nand dm must be', row=4, col=5, bbox=None, metadata={}), TableCell(value="free form for\nrejection/acceptan\nce confirmation.\n's sow\ntemplates &\nexamples for", row=4, col=6, bbox=None, metadata={})], row_idx=4)], bbox=(73.84272819181818, 517.9603189536842, 547.7799925292308, 727.05597925), markdown=None, metadata={'table_caption': 'figure 2.1 general service management process'}, stable_id='1473209d2e518583a350305a', content_sha256='64b5c1e6f6e0bcd476e0539df219b45508bcf9506fba201494b55ecf0c557d5a', text_source=None), 'embedding_text': "step | task | person | input | output | templates\n |  |  | in |  |  | \n |  |  | charge |  |  | \n1 | receive service request | dc head |  | customer official\nrequest for service | service request\nand its related\ncriteria | n/a\n2 | go/nogo decision | dc head |  | service request and\nits related criteria.\nstaff & resource\nstatus | request\nacceptance or\nrejection\nconfirmation.\nin case of\nacceptance, sm\nand dm must be | free form for\nrejection/acceptan\nce confirmation.\n's sow\ntemplates &\nexamples for", 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 4, 'included_rows': 4, 'truncated': False, 'row_range': [0, 4], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '', 'page': 6}, {'row': 1, 'col': 1, 'value': '', 'page': 6}, {'row': 1, 'col': 2, 'value': '', 'page': 6}, {'row': 1, 'col': 3, 'value': 'in', 'page': 6}, {'row': 1, 'col': 4, 'value': '', 'page': 6}, {'row': 1, 'col': 5, 'value': '', 'page': 6}, {'row': 1, 'col': 6, 'value': '', 'page': 6}, {'row': 2, 'col': 0, 'value': '', 'page': 6}, {'row': 2, 'col': 1, 'value': '', 'page': 6}, {'row': 2, 'col': 2, 'value': '', 'page': 6}, {'row': 2, 'col': 3, 'value': 'charge', 'page': 6}, {'row': 2, 'col': 4, 'value': '', 'page': 6}, {'row': 2, 'col': 5, 'value': '', 'page': 6}, {'row': 2, 'col': 6, 'value': '', 'page': 6}, {'row': 3, 'col': 0, 'value': '1', 'page': 6}, {'row': 3, 'col': 1, 'value': 'receive service request', 'page': 6}, {'row': 3, 'col': 2, 'value': 'dc head', 'page': 6}, {'row': 3, 'col': 3, 'value': '', 'page': 6}, {'row': 3, 'col': 4, 'value': 'customer official\nrequest for service', 'page': 6}, {'row': 3, 'col': 5, 'value': 'service request\nand its related\ncriteria', 'page': 6}, {'row': 3, 'col': 6, 'value': 'n/a', 'page': 6}, {'row': 4, 'col': 0, 'value': '2', 'page': 6}, {'row': 4, 'col': 1, 'value': 'go/nogo decision', 'page': 6}, {'row': 4, 'col': 2, 'value': 'dc head', 'page': 6}, {'row': 4, 'col': 3, 'value': '', 'page': 6}, {'row': 4, 'col': 4, 'value': 'service request and\nits related criteria.\nstaff & resource\nstatus', 'page': 6}, {'row': 4, 'col': 5, 'value': 'request\nacceptance or\nrejection\nconfirmation.\nin case of\nacceptance, sm\nand dm must be', 'page': 6}, {'row': 4, 'col': 6, 'value': "free form for\nrejection/acceptan\nce confirmation.\n's sow\ntemplates &\nexamples for", 'page': 6}]}
+
+Provenance: ProvenanceAgg(source_blocks=['6f3f72259e9c62dd7c07abcf'], spans=[BlockSpan(block_id='6f3f72259e9c62dd7c07abcf', start_char=0, end_char=488, page_number=6)], page_numbers={6}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['step', 'task', 'person', 'input', 'output', 'templates']
+Table Rows Count: 4
+Table Caption: figure 2.1 general service management process
+Table BBox: (73.84272819181818, 517.9603189536842, 547.7799925292308, 727.05597925)
+  Row 1: ['', '', '', 'in', '', '', '']
+  Row 2: ['', '', '', 'charge', '', '', '']
+  Row 3: ['1', 'receive service request', 'dc head', '', 'customer official\nrequest for service', 'service request\nand its related\ncriteria', 'n/a']
+  ... (1 more rows)
+
+=== Chunk 13 ===
+Tokens: 132
+Content:
+Page 8/17 appointed and a SOW (Scope of Work) must be defined. resource sharing service (for both Fixed-price and Time & Material models). Any other templates that are agreed with customer. 3.1
+Manage staffing & planning
+
+SM, DM, CM, HR, HRDC Service acceptance. Service request and its related criteria.
+
+See details in Manage staffing & planning workflow See details in Manage staffing & planning workflow 3.2 Manage quality & performance SM DM CM Service acceptance. Service request and its related criteria.
+
+See details in Manage quality & performance workflow See details in Manage quality & performance workflow 3.3
+Manage resources
+
+Metadata: {'group_type': 'paragraph', 'block_count': 4, 'chunk_index': 12}
+
+Provenance: ProvenanceAgg(source_blocks=['4fb421784807ba65537baba0', 'd4eb5b565a65338ae60788cc', '68065874eb17aa34ea12c92d', 'd509c6d66961d9afef30ea20'], spans=[BlockSpan(block_id='4fb421784807ba65537baba0', start_char=0, end_char=220, page_number=None), BlockSpan(block_id='d4eb5b565a65338ae60788cc', start_char=0, end_char=82, page_number=None), BlockSpan(block_id='68065874eb17aa34ea12c92d', start_char=0, end_char=205, page_number=None), BlockSpan(block_id='d509c6d66961d9afef30ea20', start_char=0, end_char=126, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 14 ===
+Tokens: 13
+Content:
+SM DM IT Service acceptance. Service request and its related criteria.
+
+Metadata: {'group_type': 'heading', 'block_count': 1, 'chunk_index': 13}
+
+Provenance: ProvenanceAgg(source_blocks=['726d8356301b5abc7db54c66'], spans=[BlockSpan(block_id='726d8356301b5abc7db54c66', start_char=0, end_char=70, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 15 ===
+Tokens: 104
+Content:
+See details in Manage resources workflow See details in Manage resources workflow 3.4
+Manage InfoSec SM DM IT ISEC Service acceptance. InfoSec related criteria. See details in Manage InfoSec workflow See details in Manage InfoSec workflow 4
+End service SM DM DC Head Service request and its related criteria.
+
+Service consolidation/termi nation message Free form The workflows for sub-processes 3.1, 3.2, 3.3 and 3.4 are detailed in the next pages.
+
+Metadata: {'group_type': 'paragraph', 'block_count': 2, 'chunk_index': 14}
+
+Provenance: ProvenanceAgg(source_blocks=['909df55ba85714034a414bd2', 'c8f19572c3b49a15b71a19b5'], spans=[BlockSpan(block_id='909df55ba85714034a414bd2', start_char=0, end_char=308, page_number=None), BlockSpan(block_id='c8f19572c3b49a15b71a19b5', start_char=0, end_char=138, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 16 ===
+Tokens: 281
+Content:
+appointed and a
+sow (scope of
+work) must be
+defined. | resource sharing
+service (for both
+fixed-price and
+time & material
+models).
+any other
+templates that are
+agreed with
+customer.
+3.1 | manage staffing & planning | sm, dm,
+cm, hr,
+hrdc | service acceptance.
+service request and
+its related criteria. | see details in
+manage staffing &
+planning workflow | see details in
+manage staffing &
+planning workflow
+3.2 | manage quality &
+performance | sm
+dm
+cm | service acceptance.
+service request and
+its related criteria. | see details in
+manage quality &
+performance
+workflow | see details in
+manage quality &
+performance
+workflow
+3.3 | manage resources | sm
+dm
+it | service acceptance.
+service request and
+its related criteria. | see details in
+manage resources
+workflow | see details in
+manage resources
+workflow
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 15, 'table_payload': TableSchema(id='68980269-88f6-4327-9fe0-65cc409937fe', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=7, header=['appointed and a\nsow (scope of\nwork) must be\ndefined.', 'resource sharing\nservice (for both\nfixed-price and\ntime & material\nmodels).\nany other\ntemplates that are\nagreed with\ncustomer.'], rows=[TableRow(cells=[TableCell(value='3.1', row=1, col=0, bbox=None, metadata={}), TableCell(value='manage staffing & planning', row=1, col=1, bbox=None, metadata={}), TableCell(value='sm, dm,\ncm, hr,\nhrdc', row=1, col=2, bbox=None, metadata={}), TableCell(value='service acceptance.\nservice request and\nits related criteria.', row=1, col=3, bbox=None, metadata={}), TableCell(value='see details in\nmanage staffing &\nplanning workflow', row=1, col=4, bbox=None, metadata={}), TableCell(value='see details in\nmanage staffing &\nplanning workflow', row=1, col=5, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='3.2', row=2, col=0, bbox=None, metadata={}), TableCell(value='manage quality &\nperformance', row=2, col=1, bbox=None, metadata={}), TableCell(value='sm\ndm\ncm', row=2, col=2, bbox=None, metadata={}), TableCell(value='service acceptance.\nservice request and\nits related criteria.', row=2, col=3, bbox=None, metadata={}), TableCell(value='see details in\nmanage quality &\nperformance\nworkflow', row=2, col=4, bbox=None, metadata={}), TableCell(value='see details in\nmanage quality &\nperformance\nworkflow', row=2, col=5, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='3.3', row=3, col=0, bbox=None, metadata={}), TableCell(value='manage resources', row=3, col=1, bbox=None, metadata={}), TableCell(value='sm\ndm\nit', row=3, col=2, bbox=None, metadata={}), TableCell(value='service acceptance.\nservice request and\nits related criteria.', row=3, col=3, bbox=None, metadata={}), TableCell(value='see details in\nmanage resources\nworkflow', row=3, col=4, bbox=None, metadata={}), TableCell(value='see details in\nmanage resources\nworkflow', row=3, col=5, bbox=None, metadata={})], row_idx=3), TableRow(cells=[TableCell(value='3.4', row=4, col=0, bbox=None, metadata={}), TableCell(value='manage infosec', row=4, col=1, bbox=None, metadata={}), TableCell(value='sm\ndm\nit\nisec', row=4, col=2, bbox=None, metadata={}), TableCell(value='service acceptance.\ninfosec related\ncriteria.', row=4, col=3, bbox=None, metadata={}), TableCell(value='see details in\nmanage infosec\nworkflow', row=4, col=4, bbox=None, metadata={}), TableCell(value='see details in\nmanage infosec\nworkflow', row=4, col=5, bbox=None, metadata={})], row_idx=4), TableRow(cells=[TableCell(value='4', row=5, col=0, bbox=None, metadata={}), TableCell(value='end service', row=5, col=1, bbox=None, metadata={}), TableCell(value='sm\ndm\ndc head', row=5, col=2, bbox=None, metadata={}), TableCell(value='service request and\nits related criteria.', row=5, col=3, bbox=None, metadata={}), TableCell(value='service\nconsolidation/termi\nnation message', row=5, col=4, bbox=None, metadata={}), TableCell(value='free form', row=5, col=5, bbox=None, metadata={})], row_idx=5)], bbox=(71.8920015165, 74.40000975999999, 547.8599902399999, 488.22999450000003), markdown=None, metadata={'table_caption': 'figure 2.2 manage staffing & planning'}, stable_id='6f158456d12580c0331ab237', content_sha256='ae734990527b4e11423de130be59fe95dc66a9a581d7bdc4942f93309cdb75cf', text_source=None), 'embedding_text': 'appointed and a\nsow (scope of\nwork) must be\ndefined. | resource sharing\nservice (for both\nfixed-price and\ntime & material\nmodels).\nany other\ntemplates that are\nagreed with\ncustomer.\n3.1 | manage staffing & planning | sm, dm,\ncm, hr,\nhrdc | service acceptance.\nservice request and\nits related criteria. | see details in\nmanage staffing &\nplanning workflow | see details in\nmanage staffing &\nplanning workflow\n3.2 | manage quality &\nperformance | sm\ndm\ncm | service acceptance.\nservice request and\nits related criteria. | see details in\nmanage quality &\nperformance\nworkflow | see details in\nmanage quality &\nperformance\nworkflow\n3.3 | manage resources | sm\ndm\nit | service acceptance.\nservice request and\nits related criteria. | see details in\nmanage resources\nworkflow | see details in\nmanage resources\nworkflow', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 5, 'included_rows': 3, 'truncated': True, 'truncation_reason': 'token_budget_exceeded', 'row_range': [0, 3], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '3.1', 'page': 7}, {'row': 1, 'col': 1, 'value': 'manage staffing & planning', 'page': 7}, {'row': 1, 'col': 2, 'value': 'sm, dm,\ncm, hr,\nhrdc', 'page': 7}, {'row': 1, 'col': 3, 'value': 'service acceptance.\nservice request and\nits related criteria.', 'page': 7}, {'row': 1, 'col': 4, 'value': 'see details in\nmanage staffing &\nplanning workflow', 'page': 7}, {'row': 1, 'col': 5, 'value': 'see details in\nmanage staffing &\nplanning workflow', 'page': 7}, {'row': 2, 'col': 0, 'value': '3.2', 'page': 7}, {'row': 2, 'col': 1, 'value': 'manage quality &\nperformance', 'page': 7}, {'row': 2, 'col': 2, 'value': 'sm\ndm\ncm', 'page': 7}, {'row': 2, 'col': 3, 'value': 'service acceptance.\nservice request and\nits related criteria.', 'page': 7}, {'row': 2, 'col': 4, 'value': 'see details in\nmanage quality &\nperformance\nworkflow', 'page': 7}, {'row': 2, 'col': 5, 'value': 'see details in\nmanage quality &\nperformance\nworkflow', 'page': 7}, {'row': 3, 'col': 0, 'value': '3.3', 'page': 7}, {'row': 3, 'col': 1, 'value': 'manage resources', 'page': 7}, {'row': 3, 'col': 2, 'value': 'sm\ndm\nit', 'page': 7}, {'row': 3, 'col': 3, 'value': 'service acceptance.\nservice request and\nits related criteria.', 'page': 7}, {'row': 3, 'col': 4, 'value': 'see details in\nmanage resources\nworkflow', 'page': 7}, {'row': 3, 'col': 5, 'value': 'see details in\nmanage resources\nworkflow', 'page': 7}]}
+
+Provenance: ProvenanceAgg(source_blocks=['2dad4f10716be09976d128f5'], spans=[BlockSpan(block_id='2dad4f10716be09976d128f5', start_char=0, end_char=1119, page_number=7)], page_numbers={7}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['appointed and a\nsow (scope of\nwork) must be\ndefined.', 'resource sharing\nservice (for both\nfixed-price and\ntime & material\nmodels).\nany other\ntemplates that are\nagreed with\ncustomer.']
+Table Rows Count: 5
+Table Caption: figure 2.2 manage staffing & planning
+Table BBox: (71.8920015165, 74.40000975999999, 547.8599902399999, 488.22999450000003)
+  Row 1: ['3.1', 'manage staffing & planning', 'sm, dm,\ncm, hr,\nhrdc', 'service acceptance.\nservice request and\nits related criteria.', 'see details in\nmanage staffing &\nplanning workflow', 'see details in\nmanage staffing &\nplanning workflow']
+  Row 2: ['3.2', 'manage quality &\nperformance', 'sm\ndm\ncm', 'service acceptance.\nservice request and\nits related criteria.', 'see details in\nmanage quality &\nperformance\nworkflow', 'see details in\nmanage quality &\nperformance\nworkflow']
+  Row 3: ['3.3', 'manage resources', 'sm\ndm\nit', 'service acceptance.\nservice request and\nits related criteria.', 'see details in\nmanage resources\nworkflow', 'see details in\nmanage resources\nworkflow']
+  ... (2 more rows)
+
+=== Chunk 17 ===
+Tokens: 149
+Content:
+Page 9/17 2.2.2 MANAGE STAFFING & PLANNING (3.1)
+
+Figure 2.2 – Manage staffing & planning
+
+Step
+Task Person in charge Input
+Output
+Templates 1
+Establish team organization
+SM, DM
+
+Service staffing request or estimation. Team organization Team members identified (profiles, resumes) Team organization sample; Short profile sample 2
+Establish staffing roadmap
+SM, DM,
+HR
+
+Service staffing request or estimation. Staffing roadmap; Recruitment plan; Free form Start Establish team organization Establish
+governance model
+Establish staffing roadmap Establish
+knowledge
+acquisition plan
+
+Follow up &
+maintain staffing plan Perform periodical
+governance actions
+Staff;
+
+Metadata: {'group_type': 'paragraph', 'block_count': 6, 'chunk_index': 16}
+
+Provenance: ProvenanceAgg(source_blocks=['8c355173d17aef9eb62ad504', 'fa781f956d3742de068efd1d', 'f7dde502c2bb13b009f1dd45', '3430f3f306a5b39ebcd67420', 'adf9c922d2c41bfdc2a1c6a2', '11328fc210a53476bdfbbd20'], spans=[BlockSpan(block_id='8c355173d17aef9eb62ad504', start_char=0, end_char=48, page_number=None), BlockSpan(block_id='fa781f956d3742de068efd1d', start_char=0, end_char=39, page_number=None), BlockSpan(block_id='f7dde502c2bb13b009f1dd45', start_char=0, end_char=86, page_number=None), BlockSpan(block_id='3430f3f306a5b39ebcd67420', start_char=0, end_char=188, page_number=None), BlockSpan(block_id='adf9c922d2c41bfdc2a1c6a2', start_char=0, end_char=210, page_number=None), BlockSpan(block_id='11328fc210a53476bdfbbd20', start_char=0, end_char=79, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 18 ===
+Tokens: 67
+Content:
+Allocation; Timesheet; Training records; … Customer
+feedbacks SM DM SM DM HR DM HRDC SM, DM SM DM
+SM, DM, CM, HR, HRDC End Service ends? No Service ends? No Yes
+Yes XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX
+
+Metadata: {'group_type': 'paragraph', 'block_count': 1, 'chunk_index': 17}
+
+Provenance: ProvenanceAgg(source_blocks=['d803060c5176a1645fba0fa8'], spans=[BlockSpan(block_id='d803060c5176a1645fba0fa8', start_char=0, end_char=212, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 19 ===
+Tokens: 106
+Content:
+step | task | person | input | output | templates
+ |  |  | in |  |  | 
+ |  |  | charge |  |  | 
+1 | establish team organization | sm, dm |  | service staffing
+request or
+estimation. | team organization
+team members
+identified (profiles,
+resumes) | team organization
+sample;
+short profile
+sample
+2 | establish staffing roadmap | sm, dm,
+hr |  | service staffing
+request or
+estimation. | staffing roadmap;
+recruitment plan; | free form
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 18, 'table_payload': TableSchema(id='6286f1d7-50a2-4ca0-a512-dfc46755ded1', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=8, header=['step', 'task', 'person', 'input', 'output', 'templates'], rows=[TableRow(cells=[TableCell(value='', row=1, col=0, bbox=None, metadata={}), TableCell(value='', row=1, col=1, bbox=None, metadata={}), TableCell(value='', row=1, col=2, bbox=None, metadata={}), TableCell(value='in', row=1, col=3, bbox=None, metadata={}), TableCell(value='', row=1, col=4, bbox=None, metadata={}), TableCell(value='', row=1, col=5, bbox=None, metadata={}), TableCell(value='', row=1, col=6, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='', row=2, col=0, bbox=None, metadata={}), TableCell(value='', row=2, col=1, bbox=None, metadata={}), TableCell(value='', row=2, col=2, bbox=None, metadata={}), TableCell(value='charge', row=2, col=3, bbox=None, metadata={}), TableCell(value='', row=2, col=4, bbox=None, metadata={}), TableCell(value='', row=2, col=5, bbox=None, metadata={}), TableCell(value='', row=2, col=6, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='1', row=3, col=0, bbox=None, metadata={}), TableCell(value='establish team organization', row=3, col=1, bbox=None, metadata={}), TableCell(value='sm, dm', row=3, col=2, bbox=None, metadata={}), TableCell(value='', row=3, col=3, bbox=None, metadata={}), TableCell(value='service staffing\nrequest or\nestimation.', row=3, col=4, bbox=None, metadata={}), TableCell(value='team organization\nteam members\nidentified (profiles,\nresumes)', row=3, col=5, bbox=None, metadata={}), TableCell(value='team organization\nsample;\nshort profile\nsample', row=3, col=6, bbox=None, metadata={})], row_idx=3), TableRow(cells=[TableCell(value='2', row=4, col=0, bbox=None, metadata={}), TableCell(value='establish staffing roadmap', row=4, col=1, bbox=None, metadata={}), TableCell(value='sm, dm,\nhr', row=4, col=2, bbox=None, metadata={}), TableCell(value='', row=4, col=3, bbox=None, metadata={}), TableCell(value='service staffing\nrequest or\nestimation.', row=4, col=4, bbox=None, metadata={}), TableCell(value='staffing roadmap;\nrecruitment plan;', row=4, col=5, bbox=None, metadata={}), TableCell(value='free form', row=4, col=6, bbox=None, metadata={})], row_idx=4)], bbox=(72.64133445666667, 564.4006354273683, 547.7799925292308, 732.71997925), markdown=None, metadata={'table_caption': 'figure 2.2 manage staffing & planning'}, stable_id='659dd550e8d7dfc020fe08a0', content_sha256='738843575daac54f754438eaf01425118d18754c516b5bba66f57df310c8936c', text_source=None), 'embedding_text': 'step | task | person | input | output | templates\n |  |  | in |  |  | \n |  |  | charge |  |  | \n1 | establish team organization | sm, dm |  | service staffing\nrequest or\nestimation. | team organization\nteam members\nidentified (profiles,\nresumes) | team organization\nsample;\nshort profile\nsample\n2 | establish staffing roadmap | sm, dm,\nhr |  | service staffing\nrequest or\nestimation. | staffing roadmap;\nrecruitment plan; | free form', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 4, 'included_rows': 4, 'truncated': False, 'row_range': [0, 4], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '', 'page': 8}, {'row': 1, 'col': 1, 'value': '', 'page': 8}, {'row': 1, 'col': 2, 'value': '', 'page': 8}, {'row': 1, 'col': 3, 'value': 'in', 'page': 8}, {'row': 1, 'col': 4, 'value': '', 'page': 8}, {'row': 1, 'col': 5, 'value': '', 'page': 8}, {'row': 1, 'col': 6, 'value': '', 'page': 8}, {'row': 2, 'col': 0, 'value': '', 'page': 8}, {'row': 2, 'col': 1, 'value': '', 'page': 8}, {'row': 2, 'col': 2, 'value': '', 'page': 8}, {'row': 2, 'col': 3, 'value': 'charge', 'page': 8}, {'row': 2, 'col': 4, 'value': '', 'page': 8}, {'row': 2, 'col': 5, 'value': '', 'page': 8}, {'row': 2, 'col': 6, 'value': '', 'page': 8}, {'row': 3, 'col': 0, 'value': '1', 'page': 8}, {'row': 3, 'col': 1, 'value': 'establish team organization', 'page': 8}, {'row': 3, 'col': 2, 'value': 'sm, dm', 'page': 8}, {'row': 3, 'col': 3, 'value': '', 'page': 8}, {'row': 3, 'col': 4, 'value': 'service staffing\nrequest or\nestimation.', 'page': 8}, {'row': 3, 'col': 5, 'value': 'team organization\nteam members\nidentified (profiles,\nresumes)', 'page': 8}, {'row': 3, 'col': 6, 'value': 'team organization\nsample;\nshort profile\nsample', 'page': 8}, {'row': 4, 'col': 0, 'value': '2', 'page': 8}, {'row': 4, 'col': 1, 'value': 'establish staffing roadmap', 'page': 8}, {'row': 4, 'col': 2, 'value': 'sm, dm,\nhr', 'page': 8}, {'row': 4, 'col': 3, 'value': '', 'page': 8}, {'row': 4, 'col': 4, 'value': 'service staffing\nrequest or\nestimation.', 'page': 8}, {'row': 4, 'col': 5, 'value': 'staffing roadmap;\nrecruitment plan;', 'page': 8}, {'row': 4, 'col': 6, 'value': 'free form', 'page': 8}]}
+
+Provenance: ProvenanceAgg(source_blocks=['0eef5f6664d455b239d5d646'], spans=[BlockSpan(block_id='0eef5f6664d455b239d5d646', start_char=0, end_char=421, page_number=8)], page_numbers={8}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['step', 'task', 'person', 'input', 'output', 'templates']
+Table Rows Count: 4
+Table Caption: figure 2.2 manage staffing & planning
+Table BBox: (72.64133445666667, 564.4006354273683, 547.7799925292308, 732.71997925)
+  Row 1: ['', '', '', 'in', '', '', '']
+  Row 2: ['', '', '', 'charge', '', '', '']
+  Row 3: ['1', 'establish team organization', 'sm, dm', '', 'service staffing\nrequest or\nestimation.', 'team organization\nteam members\nidentified (profiles,\nresumes)', 'team organization\nsample;\nshort profile\nsample']
+  ... (1 more rows)
+
+=== Chunk 20 ===
+Tokens: 175
+Content:
+Page 10/17 3 Establish knowledge acquisition plan DM,
+HRDC Service request and its related criteria.
+
+Knowledge/compete nce status. Competence/Skill gap report. Knowledge acquisition plan. Free form 4
+Establish governance model
+SM, DM
+
+Service request and its related criteria.
+
+Agreement on governance model/method Team organization sample; 5 Follow up & maintain staffing plan SM, DM,
+HR Staffing plan; Recruitment plan; Knowledge acquisition plan; Team member availability announcements; Team members profiles; Training records; Allocation plan & records; Timesheets; Short profile sample; Allocation table sample; Timesheet record sample; 6 Perform periodical governance actions
+SM, DM Customer feedbacks; Internally-detected issues; Training reports; Quality & performance reports; InfoSec reports; Audit reports; Governance action plans; Action follow-ups reports; Free form
+
+Metadata: {'group_type': 'paragraph', 'block_count': 4, 'chunk_index': 19}
+
+Provenance: ProvenanceAgg(source_blocks=['367f175ec0c1e2cb5f456dee', '3852757e9911315593c4e8fb', '1cf670247d7a13de8c39418f', 'ae1d97880d42dacd64ecb69f'], spans=[BlockSpan(block_id='367f175ec0c1e2cb5f456dee', start_char=0, end_char=100, page_number=None), BlockSpan(block_id='3852757e9911315593c4e8fb', start_char=0, end_char=132, page_number=None), BlockSpan(block_id='1cf670247d7a13de8c39418f', start_char=0, end_char=41, page_number=None), BlockSpan(block_id='ae1d97880d42dacd64ecb69f', start_char=0, end_char=601, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 21 ===
+Tokens: 211
+Content:
+3 | establish knowledge
+acquisition plan | dm,
+hrdc | service request and
+its related criteria.
+knowledge/compete
+nce status. | competence/skill
+gap report.
+knowledge
+acquisition plan. | free form
+4 | establish governance model | sm, dm | service request and
+its related criteria. | agreement on
+governance
+model/method | team organization
+sample;
+5 | follow up & maintain staffing
+plan | sm, dm,
+hr | staffing plan;
+recruitment plan;
+knowledge
+acquisition plan; | team member
+availability
+announcements;
+team members
+profiles;
+training records;
+allocation plan &
+records;
+timesheets; | short profile
+sample;
+allocation table
+sample;
+timesheet record
+sample;
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 20, 'table_payload': TableSchema(id='c30ed9b6-715c-476d-9409-9f475afe5547', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=9, header=['3', 'establish knowledge\nacquisition plan', 'dm,\nhrdc', 'service request and\nits related criteria.\nknowledge/compete\nnce status.', 'competence/skill\ngap report.\nknowledge\nacquisition plan.', 'free form'], rows=[TableRow(cells=[TableCell(value='4', row=1, col=0, bbox=None, metadata={}), TableCell(value='establish governance model', row=1, col=1, bbox=None, metadata={}), TableCell(value='sm, dm', row=1, col=2, bbox=None, metadata={}), TableCell(value='service request and\nits related criteria.', row=1, col=3, bbox=None, metadata={}), TableCell(value='agreement on\ngovernance\nmodel/method', row=1, col=4, bbox=None, metadata={}), TableCell(value='team organization\nsample;', row=1, col=5, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='5', row=2, col=0, bbox=None, metadata={}), TableCell(value='follow up & maintain staffing\nplan', row=2, col=1, bbox=None, metadata={}), TableCell(value='sm, dm,\nhr', row=2, col=2, bbox=None, metadata={}), TableCell(value='staffing plan;\nrecruitment plan;\nknowledge\nacquisition plan;', row=2, col=3, bbox=None, metadata={}), TableCell(value='team member\navailability\nannouncements;\nteam members\nprofiles;\ntraining records;\nallocation plan &\nrecords;\ntimesheets;', row=2, col=4, bbox=None, metadata={}), TableCell(value='short profile\nsample;\nallocation table\nsample;\ntimesheet record\nsample;', row=2, col=5, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='6', row=3, col=0, bbox=None, metadata={}), TableCell(value='perform periodical governance\nactions', row=3, col=1, bbox=None, metadata={}), TableCell(value='sm, dm', row=3, col=2, bbox=None, metadata={}), TableCell(value='customer\nfeedbacks;\ninternally-detected\nissues;\ntraining reports;\nquality &\nperformance\nreports;\ninfosec reports;\naudit reports;', row=3, col=3, bbox=None, metadata={}), TableCell(value='governance action\nplans;\naction follow-ups\nreports;', row=3, col=4, bbox=None, metadata={}), TableCell(value='free form', row=3, col=5, bbox=None, metadata={})], row_idx=3)], bbox=(72.069001474375, 74.40000975999999, 547.8142759542857, 509.58999449999993), markdown=None, metadata={}, stable_id='9ab310e3892434fdbe315371', content_sha256='11a4ce7707a397660600b9fc3c4b5bb69411d87916768e5b49be6aab50f504b2', text_source=None), 'embedding_text': '3 | establish knowledge\nacquisition plan | dm,\nhrdc | service request and\nits related criteria.\nknowledge/compete\nnce status. | competence/skill\ngap report.\nknowledge\nacquisition plan. | free form\n4 | establish governance model | sm, dm | service request and\nits related criteria. | agreement on\ngovernance\nmodel/method | team organization\nsample;\n5 | follow up & maintain staffing\nplan | sm, dm,\nhr | staffing plan;\nrecruitment plan;\nknowledge\nacquisition plan; | team member\navailability\nannouncements;\nteam members\nprofiles;\ntraining records;\nallocation plan &\nrecords;\ntimesheets; | short profile\nsample;\nallocation table\nsample;\ntimesheet record\nsample;', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 3, 'included_rows': 2, 'truncated': True, 'truncation_reason': 'token_budget_exceeded', 'row_range': [0, 2], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '4', 'page': 9}, {'row': 1, 'col': 1, 'value': 'establish governance model', 'page': 9}, {'row': 1, 'col': 2, 'value': 'sm, dm', 'page': 9}, {'row': 1, 'col': 3, 'value': 'service request and\nits related criteria.', 'page': 9}, {'row': 1, 'col': 4, 'value': 'agreement on\ngovernance\nmodel/method', 'page': 9}, {'row': 1, 'col': 5, 'value': 'team organization\nsample;', 'page': 9}, {'row': 2, 'col': 0, 'value': '5', 'page': 9}, {'row': 2, 'col': 1, 'value': 'follow up & maintain staffing\nplan', 'page': 9}, {'row': 2, 'col': 2, 'value': 'sm, dm,\nhr', 'page': 9}, {'row': 2, 'col': 3, 'value': 'staffing plan;\nrecruitment plan;\nknowledge\nacquisition plan;', 'page': 9}, {'row': 2, 'col': 4, 'value': 'team member\navailability\nannouncements;\nteam members\nprofiles;\ntraining records;\nallocation plan &\nrecords;\ntimesheets;', 'page': 9}, {'row': 2, 'col': 5, 'value': 'short profile\nsample;\nallocation table\nsample;\ntimesheet record\nsample;', 'page': 9}]}
+
+Provenance: ProvenanceAgg(source_blocks=['4ba9fa90f0896d4f14ec433c'], spans=[BlockSpan(block_id='4ba9fa90f0896d4f14ec433c', start_char=0, end_char=906, page_number=9)], page_numbers={9}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['3', 'establish knowledge\nacquisition plan', 'dm,\nhrdc', 'service request and\nits related criteria.\nknowledge/compete\nnce status.', 'competence/skill\ngap report.\nknowledge\nacquisition plan.', 'free form']
+Table Rows Count: 3
+Table Caption: None
+Table BBox: (72.069001474375, 74.40000975999999, 547.8142759542857, 509.58999449999993)
+  Row 1: ['4', 'establish governance model', 'sm, dm', 'service request and\nits related criteria.', 'agreement on\ngovernance\nmodel/method', 'team organization\nsample;']
+  Row 2: ['5', 'follow up & maintain staffing\nplan', 'sm, dm,\nhr', 'staffing plan;\nrecruitment plan;\nknowledge\nacquisition plan;', 'team member\navailability\nannouncements;\nteam members\nprofiles;\ntraining records;\nallocation plan &\nrecords;\ntimesheets;', 'short profile\nsample;\nallocation table\nsample;\ntimesheet record\nsample;']
+  Row 3: ['6', 'perform periodical governance\nactions', 'sm, dm', 'customer\nfeedbacks;\ninternally-detected\nissues;\ntraining reports;\nquality &\nperformance\nreports;\ninfosec reports;\naudit reports;', 'governance action\nplans;\naction follow-ups\nreports;', 'free form']
+
+=== Chunk 22 ===
+Tokens: 159
+Content:
+2.2.3 MANAGE QUALITY & PERFORMANCE (3.2)
+
+Figure 2.3 – Manage quality & performance
+
+Establish quality &
+performance criteria
+
+Service ends? Start Establish working methodology Monitor team quality & performance Actions
+needed? Implement actions & follow-up Yes No Yes End No Monitor individual quality & performance Actions
+needed?
+Implement actions & follow-up No Yes DM
+CM CM
+DM DM CM DM SM XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX
+
+Step
+Task Person in charge Input
+Output
+Templates 1 Establish working methodology DM, CM Service request and its related criteria. Service governance model; Service delivery model; Team organization sample (governance model; technology stack; tools…) 2 Establish quality & performance criteria
+
+Metadata: {'group_type': 'paragraph', 'block_count': 5, 'chunk_index': 21}
+
+Provenance: ProvenanceAgg(source_blocks=['bdb7d4b0e90e8610d3995784', 'e82790df6125f156323fb494', 'ae3825de1c56b5a8bab24b69', 'cd9bfc4e0b4db5b9ad4285f0', '7931e251608c884c80d5fe78'], spans=[BlockSpan(block_id='bdb7d4b0e90e8610d3995784', start_char=0, end_char=40, page_number=None), BlockSpan(block_id='e82790df6125f156323fb494', start_char=0, end_char=41, page_number=None), BlockSpan(block_id='ae3825de1c56b5a8bab24b69', start_char=0, end_char=40, page_number=None), BlockSpan(block_id='cd9bfc4e0b4db5b9ad4285f0', start_char=0, end_char=314, page_number=None), BlockSpan(block_id='7931e251608c884c80d5fe78', start_char=0, end_char=293, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 23 ===
+Tokens: 120
+Content:
+DM SM Service request and its related criteria. Quality & performance criteria Free form 3 Monitor team quality & performance DM Quality & performance criteria Team quality & performance assessment; Lessons learned; Free form 4 Monitor individual quality & performance CM Quality & performance criteria Individual quality & performance assessment; Lessons learned; Free form 5 Implement actions & follow-up (team) DM Quality & performance assessment. Lessons learned; Team action plans; Team Action reports; Free form 6 Implement actions & follow-up (individual) CM Individual quality & performance assessment; Lessons learned; Individual action plans; Individual action reports; Free form
+
+Metadata: {'group_type': 'heading', 'block_count': 1, 'chunk_index': 22}
+
+Provenance: ProvenanceAgg(source_blocks=['25b7a2a5601ffab92e42cff8'], spans=[BlockSpan(block_id='25b7a2a5601ffab92e42cff8', start_char=0, end_char=689, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 24 ===
+Tokens: 250
+Content:
+step | task | person in | input | output | templates
+ |  |  | charge |  |  | 
+1 | establish working
+methodology | dm, cm |  | service request
+and its related
+criteria. | service
+governance
+model;
+service delivery
+model; | team organization
+sample
+(governance
+model;
+technology stack;
+tools)
+2 | establish quality &
+performance criteria | dm
+sm |  | service request
+and its related
+criteria. | quality &
+performance
+criteria | free form
+3 | monitor team quality &
+performance | dm |  | quality &
+performance
+criteria | team quality &
+performance
+assessment;
+lessons learned; | free form
+4 | monitor individual quality &
+performance | cm |  | quality &
+performance
+criteria | individual quality
+& performance
+assessment;
+lessons learned; | free form
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 23, 'table_payload': TableSchema(id='7bc32b48-fdc9-4641-979e-051196458196', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=11, header=['step', 'task', 'person in', 'input', 'output', 'templates'], rows=[TableRow(cells=[TableCell(value='', row=1, col=0, bbox=None, metadata={}), TableCell(value='', row=1, col=1, bbox=None, metadata={}), TableCell(value='', row=1, col=2, bbox=None, metadata={}), TableCell(value='charge', row=1, col=3, bbox=None, metadata={}), TableCell(value='', row=1, col=4, bbox=None, metadata={}), TableCell(value='', row=1, col=5, bbox=None, metadata={}), TableCell(value='', row=1, col=6, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='1', row=2, col=0, bbox=None, metadata={}), TableCell(value='establish working\nmethodology', row=2, col=1, bbox=None, metadata={}), TableCell(value='dm, cm', row=2, col=2, bbox=None, metadata={}), TableCell(value='', row=2, col=3, bbox=None, metadata={}), TableCell(value='service request\nand its related\ncriteria.', row=2, col=4, bbox=None, metadata={}), TableCell(value='service\ngovernance\nmodel;\nservice delivery\nmodel;', row=2, col=5, bbox=None, metadata={}), TableCell(value='team organization\nsample\n(governance\nmodel;\ntechnology stack;\ntools)', row=2, col=6, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='2', row=3, col=0, bbox=None, metadata={}), TableCell(value='establish quality &\nperformance criteria', row=3, col=1, bbox=None, metadata={}), TableCell(value='dm\nsm', row=3, col=2, bbox=None, metadata={}), TableCell(value='', row=3, col=3, bbox=None, metadata={}), TableCell(value='service request\nand its related\ncriteria.', row=3, col=4, bbox=None, metadata={}), TableCell(value='quality &\nperformance\ncriteria', row=3, col=5, bbox=None, metadata={}), TableCell(value='free form', row=3, col=6, bbox=None, metadata={})], row_idx=3), TableRow(cells=[TableCell(value='3', row=4, col=0, bbox=None, metadata={}), TableCell(value='monitor team quality &\nperformance', row=4, col=1, bbox=None, metadata={}), TableCell(value='dm', row=4, col=2, bbox=None, metadata={}), TableCell(value='', row=4, col=3, bbox=None, metadata={}), TableCell(value='quality &\nperformance\ncriteria', row=4, col=4, bbox=None, metadata={}), TableCell(value='team quality &\nperformance\nassessment;\nlessons learned;', row=4, col=5, bbox=None, metadata={}), TableCell(value='free form', row=4, col=6, bbox=None, metadata={})], row_idx=4), TableRow(cells=[TableCell(value='4', row=5, col=0, bbox=None, metadata={}), TableCell(value='monitor individual quality &\nperformance', row=5, col=1, bbox=None, metadata={}), TableCell(value='cm', row=5, col=2, bbox=None, metadata={}), TableCell(value='', row=5, col=3, bbox=None, metadata={}), TableCell(value='quality &\nperformance\ncriteria', row=5, col=4, bbox=None, metadata={}), TableCell(value='individual quality\n& performance\nassessment;\nlessons learned;', row=5, col=5, bbox=None, metadata={}), TableCell(value='free form', row=5, col=6, bbox=None, metadata={})], row_idx=5), TableRow(cells=[TableCell(value='5', row=6, col=0, bbox=None, metadata={}), TableCell(value='implement actions & follow-\nup (team)', row=6, col=1, bbox=None, metadata={}), TableCell(value='dm', row=6, col=2, bbox=None, metadata={}), TableCell(value='', row=6, col=3, bbox=None, metadata={}), TableCell(value='quality &\nperformance\nassessment.\nlessons learned;', row=6, col=4, bbox=None, metadata={}), TableCell(value='team action\nplans;\nteam action\nreports;', row=6, col=5, bbox=None, metadata={}), TableCell(value='free form', row=6, col=6, bbox=None, metadata={})], row_idx=6), TableRow(cells=[TableCell(value='6', row=7, col=0, bbox=None, metadata={}), TableCell(value='implement actions & follow-\nup (individual)', row=7, col=1, bbox=None, metadata={}), TableCell(value='cm', row=7, col=2, bbox=None, metadata={}), TableCell(value='', row=7, col=3, bbox=None, metadata={}), TableCell(value='individual quality &\nperformance\nassessment;\nlessons learned;', row=7, col=4, bbox=None, metadata={}), TableCell(value='individual action\nplans;\nindividual action\nreports;', row=7, col=5, bbox=None, metadata={}), TableCell(value='free form', row=7, col=6, bbox=None, metadata={})], row_idx=7)], bbox=(72.00900140416667, 93.82843432210527, 547.8714202285713, 545.11000976), markdown=None, metadata={}, stable_id='9072692546b1615869dbc98f', content_sha256='aaabff64623d5c354423d3699b1654bf33c6df9278ba60d6909bcabd6b421faf', text_source=None), 'embedding_text': 'step | task | person in | input | output | templates\n |  |  | charge |  |  | \n1 | establish working\nmethodology | dm, cm |  | service request\nand its related\ncriteria. | service\ngovernance\nmodel;\nservice delivery\nmodel; | team organization\nsample\n(governance\nmodel;\ntechnology stack;\ntools)\n2 | establish quality &\nperformance criteria | dm\nsm |  | service request\nand its related\ncriteria. | quality &\nperformance\ncriteria | free form\n3 | monitor team quality &\nperformance | dm |  | quality &\nperformance\ncriteria | team quality &\nperformance\nassessment;\nlessons learned; | free form\n4 | monitor individual quality &\nperformance | cm |  | quality &\nperformance\ncriteria | individual quality\n& performance\nassessment;\nlessons learned; | free form', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 7, 'included_rows': 5, 'truncated': True, 'truncation_reason': 'token_budget_exceeded', 'row_range': [0, 5], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '', 'page': 11}, {'row': 1, 'col': 1, 'value': '', 'page': 11}, {'row': 1, 'col': 2, 'value': '', 'page': 11}, {'row': 1, 'col': 3, 'value': 'charge', 'page': 11}, {'row': 1, 'col': 4, 'value': '', 'page': 11}, {'row': 1, 'col': 5, 'value': '', 'page': 11}, {'row': 1, 'col': 6, 'value': '', 'page': 11}, {'row': 2, 'col': 0, 'value': '1', 'page': 11}, {'row': 2, 'col': 1, 'value': 'establish working\nmethodology', 'page': 11}, {'row': 2, 'col': 2, 'value': 'dm, cm', 'page': 11}, {'row': 2, 'col': 3, 'value': '', 'page': 11}, {'row': 2, 'col': 4, 'value': 'service request\nand its related\ncriteria.', 'page': 11}, {'row': 2, 'col': 5, 'value': 'service\ngovernance\nmodel;\nservice delivery\nmodel;', 'page': 11}, {'row': 2, 'col': 6, 'value': 'team organization\nsample\n(governance\nmodel;\ntechnology stack;\ntools)', 'page': 11}, {'row': 3, 'col': 0, 'value': '2', 'page': 11}, {'row': 3, 'col': 1, 'value': 'establish quality &\nperformance criteria', 'page': 11}, {'row': 3, 'col': 2, 'value': 'dm\nsm', 'page': 11}, {'row': 3, 'col': 3, 'value': '', 'page': 11}, {'row': 3, 'col': 4, 'value': 'service request\nand its related\ncriteria.', 'page': 11}, {'row': 3, 'col': 5, 'value': 'quality &\nperformance\ncriteria', 'page': 11}, {'row': 3, 'col': 6, 'value': 'free form', 'page': 11}, {'row': 4, 'col': 0, 'value': '3', 'page': 11}, {'row': 4, 'col': 1, 'value': 'monitor team quality &\nperformance', 'page': 11}, {'row': 4, 'col': 2, 'value': 'dm', 'page': 11}, {'row': 4, 'col': 3, 'value': '', 'page': 11}, {'row': 4, 'col': 4, 'value': 'quality &\nperformance\ncriteria', 'page': 11}, {'row': 4, 'col': 5, 'value': 'team quality &\nperformance\nassessment;\nlessons learned;', 'page': 11}, {'row': 4, 'col': 6, 'value': 'free form', 'page': 11}, {'row': 5, 'col': 0, 'value': '4', 'page': 11}, {'row': 5, 'col': 1, 'value': 'monitor individual quality &\nperformance', 'page': 11}, {'row': 5, 'col': 2, 'value': 'cm', 'page': 11}, {'row': 5, 'col': 3, 'value': '', 'page': 11}, {'row': 5, 'col': 4, 'value': 'quality &\nperformance\ncriteria', 'page': 11}, {'row': 5, 'col': 5, 'value': 'individual quality\n& performance\nassessment;\nlessons learned;', 'page': 11}, {'row': 5, 'col': 6, 'value': 'free form', 'page': 11}]}
+
+Provenance: ProvenanceAgg(source_blocks=['9fb8541fc3dfa59ce1fadcc3'], spans=[BlockSpan(block_id='9fb8541fc3dfa59ce1fadcc3', start_char=0, end_char=1077, page_number=11)], page_numbers={11}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['step', 'task', 'person in', 'input', 'output', 'templates']
+Table Rows Count: 7
+Table Caption: None
+Table BBox: (72.00900140416667, 93.82843432210527, 547.8714202285713, 545.11000976)
+  Row 1: ['', '', '', 'charge', '', '', '']
+  Row 2: ['1', 'establish working\nmethodology', 'dm, cm', '', 'service request\nand its related\ncriteria.', 'service\ngovernance\nmodel;\nservice delivery\nmodel;', 'team organization\nsample\n(governance\nmodel;\ntechnology stack;\ntools)']
+  Row 3: ['2', 'establish quality &\nperformance criteria', 'dm\nsm', '', 'service request\nand its related\ncriteria.', 'quality &\nperformance\ncriteria', 'free form']
+  ... (4 more rows)
+
+=== Chunk 25 ===
+Tokens: 198
+Content:
+Page 13/17 2.2.4 MANAGE RESOURCES (3.3)
+
+Figure 2.4 – Manage resources
+
+Start Approved? Create inventory
+Define resource utilization rules Inventory; Rules of usage; … Allocate resource Approved ? Update inventory Receive resource request
+Add resource
+
+Service ends? Reject
+resource Yes
+Yes No
+No No Release resources Yes End SM DM IT DM, IT SM DM SM DM IT
+IT SM DM SM IT SM, DM XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX
+
+Page 14/17 Step
+Task Person in charge Input
+Output
+Templates 1 Define resource utilization rules SM, DM Resource list; Manuals/Indication /Guidelines; Specific usage instructions; Resource utilization rules/instructions Free form 2
+Create inventory
+IT
+Resource list;
+
+Resource inventory/resourc e control ledger Free form (IT-defined template) 3
+Receive resource request
+DM, IT
+
+Metadata: {'group_type': 'paragraph', 'block_count': 6, 'chunk_index': 24}
+
+Provenance: ProvenanceAgg(source_blocks=['adeb388b97b68c77f8e454c9', '0cb506c2ac698569590e29de', '28ec9a6dbd37a369259a2b86', 'e9e367a1a7da9d50899009c0', 'f742ac8b5e6a4aac60980795', '29620bc569f484629042e1b4'], spans=[BlockSpan(block_id='adeb388b97b68c77f8e454c9', start_char=0, end_char=39, page_number=None), BlockSpan(block_id='0cb506c2ac698569590e29de', start_char=0, end_char=29, page_number=None), BlockSpan(block_id='28ec9a6dbd37a369259a2b86', start_char=0, end_char=179, page_number=None), BlockSpan(block_id='e9e367a1a7da9d50899009c0', start_char=0, end_char=173, page_number=None), BlockSpan(block_id='f742ac8b5e6a4aac60980795', start_char=0, end_char=266, page_number=None), BlockSpan(block_id='29620bc569f484629042e1b4', start_char=0, end_char=109, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 26 ===
+Tokens: 127
+Content:
+Resource allocation request from team members Resource approval/rejection ; Free from 4
+Allocate resource
+IT
+Resource approval
+
+Resource allocation notification Free form 5
+Release resources
+IT
+
+Resource release request Resource release notification Free from 6
+Add resource
+SM, DM
+
+Resource adding request (from customer, SM or DM); Resource availability Resource adding request approved or rejected; Free form 7
+Update inventory
+IT
+
+Approval of resource adding request Inventory updated Free form (IT-defined template) 8
+Release resource
+IT
+
+Resource release request (from SM, DM or customer); Inventory updated Free form (IT-defined template)
+
+Metadata: {'group_type': 'paragraph', 'block_count': 6, 'chunk_index': 25}
+
+Provenance: ProvenanceAgg(source_blocks=['c11e91d452a1dc904b7e0514', 'b351762d7018643f6e70b4c1', 'b026f847a61af0bcb341befa', '2b4c10fe77823708c52cdde8', '46ccc0f6e1094a25f8c1de01', '777b1702a6bf4b9f92f280b9'], spans=[BlockSpan(block_id='c11e91d452a1dc904b7e0514', start_char=0, end_char=126, page_number=None), BlockSpan(block_id='b351762d7018643f6e70b4c1', start_char=0, end_char=65, page_number=None), BlockSpan(block_id='b026f847a61af0bcb341befa', start_char=0, end_char=86, page_number=None), BlockSpan(block_id='2b4c10fe77823708c52cdde8', start_char=0, end_char=150, page_number=None), BlockSpan(block_id='46ccc0f6e1094a25f8c1de01', start_char=0, end_char=107, page_number=None), BlockSpan(block_id='777b1702a6bf4b9f92f280b9', start_char=0, end_char=101, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 27 ===
+Tokens: 265
+Content:
+step | task | person in | input | output | templates
+ |  |  | charge |  |  | 
+1 | define resource utilization
+rules | sm, dm |  | resource list;
+manuals/indication
+/guidelines;
+specific usage
+instructions; | resource
+utilization
+rules/instructions | free form
+2 | create inventory | it |  | resource list; | resource
+inventory/resourc
+e control ledger | free form (it-
+defined template)
+3 | receive resource request | dm, it |  | resource allocation
+request from team
+members | resource
+approval/rejection
+; | free from
+4 | allocate resource | it |  | resource approval | resource
+allocation
+notification | free form
+5 | release resources | it |  | resource release
+request | resource release
+notification | free from
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 26, 'table_payload': TableSchema(id='85e87e4f-bfaf-43c1-bc85-e8889661c209', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=13, header=['step', 'task', 'person in', 'input', 'output', 'templates'], rows=[TableRow(cells=[TableCell(value='', row=1, col=0, bbox=None, metadata={}), TableCell(value='', row=1, col=1, bbox=None, metadata={}), TableCell(value='', row=1, col=2, bbox=None, metadata={}), TableCell(value='charge', row=1, col=3, bbox=None, metadata={}), TableCell(value='', row=1, col=4, bbox=None, metadata={}), TableCell(value='', row=1, col=5, bbox=None, metadata={}), TableCell(value='', row=1, col=6, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='1', row=2, col=0, bbox=None, metadata={}), TableCell(value='define resource utilization\nrules', row=2, col=1, bbox=None, metadata={}), TableCell(value='sm, dm', row=2, col=2, bbox=None, metadata={}), TableCell(value='', row=2, col=3, bbox=None, metadata={}), TableCell(value='resource list;\nmanuals/indication\n/guidelines;\nspecific usage\ninstructions;', row=2, col=4, bbox=None, metadata={}), TableCell(value='resource\nutilization\nrules/instructions', row=2, col=5, bbox=None, metadata={}), TableCell(value='free form', row=2, col=6, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='2', row=3, col=0, bbox=None, metadata={}), TableCell(value='create inventory', row=3, col=1, bbox=None, metadata={}), TableCell(value='it', row=3, col=2, bbox=None, metadata={}), TableCell(value='', row=3, col=3, bbox=None, metadata={}), TableCell(value='resource list;', row=3, col=4, bbox=None, metadata={}), TableCell(value='resource\ninventory/resourc\ne control ledger', row=3, col=5, bbox=None, metadata={}), TableCell(value='free form (it-\ndefined template)', row=3, col=6, bbox=None, metadata={})], row_idx=3), TableRow(cells=[TableCell(value='3', row=4, col=0, bbox=None, metadata={}), TableCell(value='receive resource request', row=4, col=1, bbox=None, metadata={}), TableCell(value='dm, it', row=4, col=2, bbox=None, metadata={}), TableCell(value='', row=4, col=3, bbox=None, metadata={}), TableCell(value='resource allocation\nrequest from team\nmembers', row=4, col=4, bbox=None, metadata={}), TableCell(value='resource\napproval/rejection\n;', row=4, col=5, bbox=None, metadata={}), TableCell(value='free from', row=4, col=6, bbox=None, metadata={})], row_idx=4), TableRow(cells=[TableCell(value='4', row=5, col=0, bbox=None, metadata={}), TableCell(value='allocate resource', row=5, col=1, bbox=None, metadata={}), TableCell(value='it', row=5, col=2, bbox=None, metadata={}), TableCell(value='', row=5, col=3, bbox=None, metadata={}), TableCell(value='resource approval', row=5, col=4, bbox=None, metadata={}), TableCell(value='resource\nallocation\nnotification', row=5, col=5, bbox=None, metadata={}), TableCell(value='free form', row=5, col=6, bbox=None, metadata={})], row_idx=5), TableRow(cells=[TableCell(value='5', row=6, col=0, bbox=None, metadata={}), TableCell(value='release resources', row=6, col=1, bbox=None, metadata={}), TableCell(value='it', row=6, col=2, bbox=None, metadata={}), TableCell(value='', row=6, col=3, bbox=None, metadata={}), TableCell(value='resource release\nrequest', row=6, col=4, bbox=None, metadata={}), TableCell(value='resource release\nnotification', row=6, col=5, bbox=None, metadata={}), TableCell(value='free from', row=6, col=6, bbox=None, metadata={})], row_idx=6), TableRow(cells=[TableCell(value='6', row=7, col=0, bbox=None, metadata={}), TableCell(value='add resource', row=7, col=1, bbox=None, metadata={}), TableCell(value='sm, dm', row=7, col=2, bbox=None, metadata={}), TableCell(value='', row=7, col=3, bbox=None, metadata={}), TableCell(value='resource adding\nrequest (from\ncustomer, sm or\ndm);\nresource\navailability', row=7, col=4, bbox=None, metadata={}), TableCell(value='resource adding\nrequest approved\nor rejected;', row=7, col=5, bbox=None, metadata={}), TableCell(value='free form', row=7, col=6, bbox=None, metadata={})], row_idx=7), TableRow(cells=[TableCell(value='7', row=8, col=0, bbox=None, metadata={}), TableCell(value='update inventory', row=8, col=1, bbox=None, metadata={}), TableCell(value='it', row=8, col=2, bbox=None, metadata={}), TableCell(value='', row=8, col=3, bbox=None, metadata={}), TableCell(value='approval of\nresource adding\nrequest', row=8, col=4, bbox=None, metadata={}), TableCell(value='inventory updated', row=8, col=5, bbox=None, metadata={}), TableCell(value='free form (it-\ndefined template)', row=8, col=6, bbox=None, metadata={})], row_idx=8), TableRow(cells=[TableCell(value='8', row=9, col=0, bbox=None, metadata={}), TableCell(value='release resource', row=9, col=1, bbox=None, metadata={}), TableCell(value='it', row=9, col=2, bbox=None, metadata={}), TableCell(value='', row=9, col=3, bbox=None, metadata={}), TableCell(value='resource release\nrequest (from sm,\ndm or customer);', row=9, col=4, bbox=None, metadata={}), TableCell(value='inventory updated', row=9, col=5, bbox=None, metadata={}), TableCell(value='free form (it-\ndefined template)', row=9, col=6, bbox=None, metadata={})], row_idx=9)], bbox=(71.89114430142857, 74.48694684842104, 547.8951914303999, 579.46000976), markdown=None, metadata={}, stable_id='92c55c42095b16961257ed6b', content_sha256='a733b6728718e6b3245360789f1ecb7bf6dba9a43e682b100208fb0985eaa637', text_source=None), 'embedding_text': 'step | task | person in | input | output | templates\n |  |  | charge |  |  | \n1 | define resource utilization\nrules | sm, dm |  | resource list;\nmanuals/indication\n/guidelines;\nspecific usage\ninstructions; | resource\nutilization\nrules/instructions | free form\n2 | create inventory | it |  | resource list; | resource\ninventory/resourc\ne control ledger | free form (it-\ndefined template)\n3 | receive resource request | dm, it |  | resource allocation\nrequest from team\nmembers | resource\napproval/rejection\n; | free from\n4 | allocate resource | it |  | resource approval | resource\nallocation\nnotification | free form\n5 | release resources | it |  | resource release\nrequest | resource release\nnotification | free from', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 9, 'included_rows': 6, 'truncated': True, 'truncation_reason': 'token_budget_exceeded', 'row_range': [0, 6], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '', 'page': 13}, {'row': 1, 'col': 1, 'value': '', 'page': 13}, {'row': 1, 'col': 2, 'value': '', 'page': 13}, {'row': 1, 'col': 3, 'value': 'charge', 'page': 13}, {'row': 1, 'col': 4, 'value': '', 'page': 13}, {'row': 1, 'col': 5, 'value': '', 'page': 13}, {'row': 1, 'col': 6, 'value': '', 'page': 13}, {'row': 2, 'col': 0, 'value': '1', 'page': 13}, {'row': 2, 'col': 1, 'value': 'define resource utilization\nrules', 'page': 13}, {'row': 2, 'col': 2, 'value': 'sm, dm', 'page': 13}, {'row': 2, 'col': 3, 'value': '', 'page': 13}, {'row': 2, 'col': 4, 'value': 'resource list;\nmanuals/indication\n/guidelines;\nspecific usage\ninstructions;', 'page': 13}, {'row': 2, 'col': 5, 'value': 'resource\nutilization\nrules/instructions', 'page': 13}, {'row': 2, 'col': 6, 'value': 'free form', 'page': 13}, {'row': 3, 'col': 0, 'value': '2', 'page': 13}, {'row': 3, 'col': 1, 'value': 'create inventory', 'page': 13}, {'row': 3, 'col': 2, 'value': 'it', 'page': 13}, {'row': 3, 'col': 3, 'value': '', 'page': 13}, {'row': 3, 'col': 4, 'value': 'resource list;', 'page': 13}, {'row': 3, 'col': 5, 'value': 'resource\ninventory/resourc\ne control ledger', 'page': 13}, {'row': 3, 'col': 6, 'value': 'free form (it-\ndefined template)', 'page': 13}, {'row': 4, 'col': 0, 'value': '3', 'page': 13}, {'row': 4, 'col': 1, 'value': 'receive resource request', 'page': 13}, {'row': 4, 'col': 2, 'value': 'dm, it', 'page': 13}, {'row': 4, 'col': 3, 'value': '', 'page': 13}, {'row': 4, 'col': 4, 'value': 'resource allocation\nrequest from team\nmembers', 'page': 13}, {'row': 4, 'col': 5, 'value': 'resource\napproval/rejection\n;', 'page': 13}, {'row': 4, 'col': 6, 'value': 'free from', 'page': 13}, {'row': 5, 'col': 0, 'value': '4', 'page': 13}, {'row': 5, 'col': 1, 'value': 'allocate resource', 'page': 13}, {'row': 5, 'col': 2, 'value': 'it', 'page': 13}, {'row': 5, 'col': 3, 'value': '', 'page': 13}, {'row': 5, 'col': 4, 'value': 'resource approval', 'page': 13}, {'row': 5, 'col': 5, 'value': 'resource\nallocation\nnotification', 'page': 13}, {'row': 5, 'col': 6, 'value': 'free form', 'page': 13}, {'row': 6, 'col': 0, 'value': '5', 'page': 13}, {'row': 6, 'col': 1, 'value': 'release resources', 'page': 13}, {'row': 6, 'col': 2, 'value': 'it', 'page': 13}, {'row': 6, 'col': 3, 'value': '', 'page': 13}, {'row': 6, 'col': 4, 'value': 'resource release\nrequest', 'page': 13}, {'row': 6, 'col': 5, 'value': 'resource release\nnotification', 'page': 13}, {'row': 6, 'col': 6, 'value': 'free from', 'page': 13}]}
+
+Provenance: ProvenanceAgg(source_blocks=['49e9abb24ff4341c00a66387'], spans=[BlockSpan(block_id='49e9abb24ff4341c00a66387', start_char=0, end_char=1123, page_number=13)], page_numbers={13}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['step', 'task', 'person in', 'input', 'output', 'templates']
+Table Rows Count: 9
+Table Caption: None
+Table BBox: (71.89114430142857, 74.48694684842104, 547.8951914303999, 579.46000976)
+  Row 1: ['', '', '', 'charge', '', '', '']
+  Row 2: ['1', 'define resource utilization\nrules', 'sm, dm', '', 'resource list;\nmanuals/indication\n/guidelines;\nspecific usage\ninstructions;', 'resource\nutilization\nrules/instructions', 'free form']
+  Row 3: ['2', 'create inventory', 'it', '', 'resource list;', 'resource\ninventory/resourc\ne control ledger', 'free form (it-\ndefined template)']
+  ... (6 more rows)
+
+=== Chunk 28 ===
+Tokens: 179
+Content:
+Page 15/17 2.2.5 MANAGE INFOSEC (3.4)
+
+Figure 2.5 – Manage InfoSec
+
+Start Receive InfoSec criteria
+Extract applicable internal
+
+InfoSec criteria SM DM ISEC ISEC Issue service-specific
+InfoSec criteria & plan
+
+Service-specific InfoSec criteria Organize InfoSec trainings
+Implement InfoSec criteria
+
+Monitor InfoSec InfoSec event? Service-specific InfoSec plan Trigger actions according to
+InfoSec plan
+
+Update InfoSec criteria & plan Service ends? Yes No No Yes End ISEC, SM
+ISEC ISEC
+ISEC, IT DM, ISEC, IT DM, ISEC, IT XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX XXX-XXX
+
+Page 16/17 Step
+Task Person in charge Input
+Output
+Templates 1
+Receive InfoSec criteria
+
+Metadata: {'group_type': 'paragraph', 'block_count': 8, 'chunk_index': 27}
+
+Provenance: ProvenanceAgg(source_blocks=['310b62592f03c2d8434b289d', 'c8e7e0f0f49966af7b5cd697', 'c37f68071ce499aecdd17b20', '97f9c99cdf621c0f8d15db39', '2d3424ba6d5528912fd7c1e7', 'b976439097b9985e612e1dbd', '841b07e49305f211c1a03cf8', '5b5ab185254d3a26ec1c3367'], spans=[BlockSpan(block_id='310b62592f03c2d8434b289d', start_char=0, end_char=37, page_number=None), BlockSpan(block_id='c8e7e0f0f49966af7b5cd697', start_char=0, end_char=27, page_number=None), BlockSpan(block_id='c37f68071ce499aecdd17b20', start_char=0, end_char=58, page_number=None), BlockSpan(block_id='97f9c99cdf621c0f8d15db39', start_char=0, end_char=79, page_number=None), BlockSpan(block_id='2d3424ba6d5528912fd7c1e7', start_char=0, end_char=87, page_number=None), BlockSpan(block_id='b976439097b9985e612e1dbd', start_char=0, end_char=102, page_number=None), BlockSpan(block_id='841b07e49305f211c1a03cf8', start_char=0, end_char=164, page_number=None), BlockSpan(block_id='5b5ab185254d3a26ec1c3367', start_char=0, end_char=87, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 29 ===
+Tokens: 172
+Content:
+SM, DM, ISEC InfoSec criteria from customer or partner (if there are) InfoSec criteria available (and signed if mutually agreed); N/A – depending on customer or partner 2 Extract applicable internal
+
+InfoSec criteria ISEC Internal InfoSec criteria Internal InfoSec criteria that are applicable to service N/A – depending on available documentation 3 Issue service-specific
+
+InfoSec criteria & plan
+
+ISEC, SM InfoSec criteria from customer or partner merged with internal InfoSec criteria that are applicable to service InfoSec criteria applicable to service; InfoSec plan (including mitigation & contingency actions) N/A – depending on available documentation 4 Implement InfoSec criteria ISEC, IT InfoSec criteria applicable to service Network/Infrastruc ture configuration data; InfoSec action report; Free form 5
+Organize InfoSec trainings
+ISEC
+
+Metadata: {'group_type': 'paragraph', 'block_count': 4, 'chunk_index': 28}
+
+Provenance: ProvenanceAgg(source_blocks=['ce650e2d6fc0a231dea775a0', '3a7d77db5df145fe8130a543', '4cf4eb61ca4f9a1ab4610897', 'e8fe1a256c393f5147d4b759'], spans=[BlockSpan(block_id='ce650e2d6fc0a231dea775a0', start_char=0, end_char=198, page_number=None), BlockSpan(block_id='3a7d77db5df145fe8130a543', start_char=0, end_char=172, page_number=None), BlockSpan(block_id='4cf4eb61ca4f9a1ab4610897', start_char=0, end_char=23, page_number=None), BlockSpan(block_id='e8fe1a256c393f5147d4b759', start_char=0, end_char=448, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 30 ===
+Tokens: 113
+Content:
+InfoSec criteria applicable to service InfoSec training materials; InfoSec training records; Free form 6
+Monitor InfoSec DM, ISEC, IT InfoSec periodical reports; InfoSec events (if any) InfoSec monitoring records; Free form 7 Trigger actions according to
+
+InfoSec plan DM, ISEC, IT InfoSec events (if any) InfoSec action records; Lessons learned; Free form 8 Update InfoSec criteria & plan ISEC InfoSec action records; Lessons learned; Updated InfoSec criteria & plan (if necessary); Free form
+
+Metadata: {'group_type': 'paragraph', 'block_count': 2, 'chunk_index': 29}
+
+Provenance: ProvenanceAgg(source_blocks=['2583642552591c36704b4dde', 'e577104009d53ce73de12f17'], spans=[BlockSpan(block_id='2583642552591c36704b4dde', start_char=0, end_char=254, page_number=None), BlockSpan(block_id='e577104009d53ce73de12f17', start_char=0, end_char=237, page_number=None)], page_numbers=set(), doc_id='unknown', file_path=None, metadata={})
+
+=== Chunk 31 ===
+Tokens: 409
+Content:
+step | task | person in | input | output | templates
+ |  |  | charge |  |  | 
+1 | receive infosec criteria | sm, dm,
+isec |  | infosec criteria
+from customer or
+partner (if there
+are) | infosec criteria
+available (and
+signed if mutually
+agreed); | n/a depending
+on customer or
+partner
+2 | extract applicable internal
+infosec criteria | isec |  | internal infosec
+criteria | internal infosec
+criteria that are
+applicable to
+service | n/a depending
+on available
+documentation
+
+Metadata: {'group_type': 'table', 'block_count': 1, 'chunk_index': 30, 'table_payload': TableSchema(id='4a09ebd2-94af-4f17-ae7d-d8caaa2c1c7d', file_path='C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\RAG\\data\\pdf\\Process_Service Management.pdf', page_number=15, header=['step', 'task', 'person in', 'input', 'output', 'templates'], rows=[TableRow(cells=[TableCell(value='', row=1, col=0, bbox=None, metadata={}), TableCell(value='', row=1, col=1, bbox=None, metadata={}), TableCell(value='', row=1, col=2, bbox=None, metadata={}), TableCell(value='charge', row=1, col=3, bbox=None, metadata={}), TableCell(value='', row=1, col=4, bbox=None, metadata={}), TableCell(value='', row=1, col=5, bbox=None, metadata={}), TableCell(value='', row=1, col=6, bbox=None, metadata={})], row_idx=1), TableRow(cells=[TableCell(value='1', row=2, col=0, bbox=None, metadata={}), TableCell(value='receive infosec criteria', row=2, col=1, bbox=None, metadata={}), TableCell(value='sm, dm,\nisec', row=2, col=2, bbox=None, metadata={}), TableCell(value='', row=2, col=3, bbox=None, metadata={}), TableCell(value='infosec criteria\nfrom customer or\npartner (if there\nare)', row=2, col=4, bbox=None, metadata={}), TableCell(value='infosec criteria\navailable (and\nsigned if mutually\nagreed);', row=2, col=5, bbox=None, metadata={}), TableCell(value='n/a depending\non customer or\npartner', row=2, col=6, bbox=None, metadata={})], row_idx=2), TableRow(cells=[TableCell(value='2', row=3, col=0, bbox=None, metadata={}), TableCell(value='extract applicable internal\ninfosec criteria', row=3, col=1, bbox=None, metadata={}), TableCell(value='isec', row=3, col=2, bbox=None, metadata={}), TableCell(value='', row=3, col=3, bbox=None, metadata={}), TableCell(value='internal infosec\ncriteria', row=3, col=4, bbox=None, metadata={}), TableCell(value='internal infosec\ncriteria that are\napplicable to\nservice', row=3, col=5, bbox=None, metadata={}), TableCell(value='n/a depending\non available\ndocumentation', row=3, col=6, bbox=None, metadata={})], row_idx=3), TableRow(cells=[TableCell(value='3', row=4, col=0, bbox=None, metadata={}), TableCell(value='issue service-specific\ninfosec criteria & plan', row=4, col=1, bbox=None, metadata={}), TableCell(value='isec, sm', row=4, col=2, bbox=None, metadata={}), TableCell(value='', row=4, col=3, bbox=None, metadata={}), TableCell(value='infosec criteria\nfrom customer or\npartner merged\nwith internal\ninfosec criteria\nthat are applicable\nto service', row=4, col=4, bbox=None, metadata={}), TableCell(value='infosec criteria\napplicable to\nservice;\ninfosec plan\n(including\nmitigation &\ncontingency\nactions)', row=4, col=5, bbox=None, metadata={}), TableCell(value='n/a depending\non available\ndocumentation', row=4, col=6, bbox=None, metadata={})], row_idx=4), TableRow(cells=[TableCell(value='4', row=5, col=0, bbox=None, metadata={}), TableCell(value='implement infosec\ncriteria', row=5, col=1, bbox=None, metadata={}), TableCell(value='isec, it', row=5, col=2, bbox=None, metadata={}), TableCell(value='', row=5, col=3, bbox=None, metadata={}), TableCell(value='infosec criteria\napplicable to\nservice', row=5, col=4, bbox=None, metadata={}), TableCell(value='network/infrastruc\nture configuration\ndata;\ninfosec action\nreport;', row=5, col=5, bbox=None, metadata={}), TableCell(value='free form', row=5, col=6, bbox=None, metadata={})], row_idx=5), TableRow(cells=[TableCell(value='5', row=6, col=0, bbox=None, metadata={}), TableCell(value='organize infosec trainings', row=6, col=1, bbox=None, metadata={}), TableCell(value='isec', row=6, col=2, bbox=None, metadata={}), TableCell(value='', row=6, col=3, bbox=None, metadata={}), TableCell(value='infosec criteria\napplicable to\nservice', row=6, col=4, bbox=None, metadata={}), TableCell(value='infosec training\nmaterials;\ninfosec training\nrecords;', row=6, col=5, bbox=None, metadata={}), TableCell(value='free form', row=6, col=6, bbox=None, metadata={})], row_idx=6), TableRow(cells=[TableCell(value='6', row=7, col=0, bbox=None, metadata={}), TableCell(value='monitor infosec', row=7, col=1, bbox=None, metadata={}), TableCell(value='dm, isec,\nit', row=7, col=2, bbox=None, metadata={}), TableCell(value='', row=7, col=3, bbox=None, metadata={}), TableCell(value='infosec periodical\nreports;\ninfosec events (if\nany)', row=7, col=4, bbox=None, metadata={}), TableCell(value='infosec monitoring\nrecords;', row=7, col=5, bbox=None, metadata={}), TableCell(value='free form', row=7, col=6, bbox=None, metadata={})], row_idx=7), TableRow(cells=[TableCell(value='7', row=8, col=0, bbox=None, metadata={}), TableCell(value='trigger actions according to\ninfosec plan', row=8, col=1, bbox=None, metadata={}), TableCell(value='dm, isec,\nit', row=8, col=2, bbox=None, metadata={}), TableCell(value='', row=8, col=3, bbox=None, metadata={}), TableCell(value='infosec events (if\nany)', row=8, col=4, bbox=None, metadata={}), TableCell(value='infosec action\nrecords;\nlessons learned;', row=8, col=5, bbox=None, metadata={}), TableCell(value='free form', row=8, col=6, bbox=None, metadata={})], row_idx=8), TableRow(cells=[TableCell(value='8', row=9, col=0, bbox=None, metadata={}), TableCell(value='update infosec criteria &\nplan', row=9, col=1, bbox=None, metadata={}), TableCell(value='isec', row=9, col=2, bbox=None, metadata={}), TableCell(value='', row=9, col=3, bbox=None, metadata={}), TableCell(value='infosec action\nrecords;\nlessons learned;', row=9, col=4, bbox=None, metadata={}), TableCell(value='updated infosec\ncriteria & plan (if\nnecessary);', row=9, col=5, bbox=None, metadata={}), TableCell(value='free form', row=9, col=6, bbox=None, metadata={})], row_idx=9)], bbox=(71.89114430142857, 74.48694684842104, 547.8951914303999, 690.58000976), markdown=None, metadata={}, stable_id='abac849649d3346a24240487', content_sha256='85c246c6046266839b9f745fce16be44579c9d1e9e51791d85fc79702ed93840', text_source=None), 'embedding_text': 'step | task | person in | input | output | templates\n |  |  | charge |  |  | \n1 | receive infosec criteria | sm, dm,\nisec |  | infosec criteria\nfrom customer or\npartner (if there\nare) | infosec criteria\navailable (and\nsigned if mutually\nagreed); | n/a depending\non customer or\npartner\n2 | extract applicable internal\ninfosec criteria | isec |  | internal infosec\ncriteria | internal infosec\ncriteria that are\napplicable to\nservice | n/a depending\non available\ndocumentation', 'table_text_mode': 'pipe_separated', 'row_priority': 'sequential', 'header_included': True, 'total_rows': 9, 'included_rows': 3, 'truncated': True, 'truncation_reason': 'token_budget_exceeded', 'row_range': [0, 3], 'cell_provenance': [{'row': 1, 'col': 0, 'value': '', 'page': 15}, {'row': 1, 'col': 1, 'value': '', 'page': 15}, {'row': 1, 'col': 2, 'value': '', 'page': 15}, {'row': 1, 'col': 3, 'value': 'charge', 'page': 15}, {'row': 1, 'col': 4, 'value': '', 'page': 15}, {'row': 1, 'col': 5, 'value': '', 'page': 15}, {'row': 1, 'col': 6, 'value': '', 'page': 15}, {'row': 2, 'col': 0, 'value': '1', 'page': 15}, {'row': 2, 'col': 1, 'value': 'receive infosec criteria', 'page': 15}, {'row': 2, 'col': 2, 'value': 'sm, dm,\nisec', 'page': 15}, {'row': 2, 'col': 3, 'value': '', 'page': 15}, {'row': 2, 'col': 4, 'value': 'infosec criteria\nfrom customer or\npartner (if there\nare)', 'page': 15}, {'row': 2, 'col': 5, 'value': 'infosec criteria\navailable (and\nsigned if mutually\nagreed);', 'page': 15}, {'row': 2, 'col': 6, 'value': 'n/a depending\non customer or\npartner', 'page': 15}, {'row': 3, 'col': 0, 'value': '2', 'page': 15}, {'row': 3, 'col': 1, 'value': 'extract applicable internal\ninfosec criteria', 'page': 15}, {'row': 3, 'col': 2, 'value': 'isec', 'page': 15}, {'row': 3, 'col': 3, 'value': '', 'page': 15}, {'row': 3, 'col': 4, 'value': 'internal infosec\ncriteria', 'page': 15}, {'row': 3, 'col': 5, 'value': 'internal infosec\ncriteria that are\napplicable to\nservice', 'page': 15}, {'row': 3, 'col': 6, 'value': 'n/a depending\non available\ndocumentation', 'page': 15}]}
+
+Provenance: ProvenanceAgg(source_blocks=['6df000dc47546986f693e8c0'], spans=[BlockSpan(block_id='6df000dc47546986f693e8c0', start_char=0, end_char=1534, page_number=15)], page_numbers={15}, doc_id='unknown', file_path=None, metadata={})
+--- Table Schema ---
+Table Header: ['step', 'task', 'person in', 'input', 'output', 'templates']
+Table Rows Count: 9
+Table Caption: None
+Table BBox: (71.89114430142857, 74.48694684842104, 547.8951914303999, 690.58000976)
+  Row 1: ['', '', '', 'charge', '', '', '']
+  Row 2: ['1', 'receive infosec criteria', 'sm, dm,\nisec', '', 'infosec criteria\nfrom customer or\npartner (if there\nare)', 'infosec criteria\navailable (and\nsigned if mutually\nagreed);', 'n/a depending\non customer or\npartner']
+  Row 3: ['2', 'extract applicable internal\ninfosec criteria', 'isec', '', 'internal infosec\ncriteria', 'internal infosec\ncriteria that are\napplicable to\nservice', 'n/a depending\non available\ndocumentation']
+  ... (6 more rows)

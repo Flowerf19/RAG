@@ -3,6 +3,8 @@ import re
 import ftfy
 from dataclasses import dataclass, field
 from typing import Any, Optional, Dict
+
+from .table import TableSchema
 from .base import LoaderBaseModel
 from cleantext import clean
 

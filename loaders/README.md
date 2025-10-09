@@ -4,11 +4,7 @@
 
 Module xử lý và trích xuất dữ liệu từ file PDF theo chuẩn OOP, hỗ trợ trích xuất text và bảng với các tính năng lọc và chuẩn hóa dữ liệu.Module chịu trách nhiệm trích xuất dữ liệu thô từ PDF (loader) và chuẩn hóa/biến đổi (normalizer) qua các class chuyên biệt. Các model trung gian (PDFDocument, PDFPage, Block, TableSchema, ...) đều hỗ trợ mở rộng normalization ở tầng class.
 
-
-
 ## 📁 Cấu trúc thư mục## Cấu trúc
-
-
 
 ``````text
 

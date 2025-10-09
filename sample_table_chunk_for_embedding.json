@@ -1,0 +1,9 @@
+{
+  "chunk_id": "chunk_unknown_0_8abd75c7835d1cd8",
+  "text_for_embedding": "date | version | description | author | reviewer\n10-05-2024 | 1.0 | issued version |  | ",
+  "token_count": 28,
+  "metadata": {
+    "group_type": "table",
+    "table_caption": null
+  }
+}

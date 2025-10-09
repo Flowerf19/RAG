@@ -11,4 +11,4 @@ ftfy
 clean-text
 spacy
 rank_bm25
-FlagEmbedding
+tiktoken

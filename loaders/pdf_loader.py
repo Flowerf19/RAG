@@ -539,16 +539,27 @@ class PDFLoader:
                             logger.debug(f"Extracted caption for table on page {page_idx+1}: {caption}")
                             logger.debug(f"  Metadata after assignment: {table_obj.metadata}")
                         
-                        # Create TableBlock
+                        # Create TableBlock with text representation
+                        # Generate text from table for chunking/filtering
+                        table_text_lines = []
+                        if table_obj.header:
+                            table_text_lines.append(" | ".join(str(h) for h in table_obj.header))
+                        for row in table_obj.rows:
+                            if hasattr(row, "cells"):
+                                row_text = " | ".join(str(c.value) for c in row.cells)
+                                table_text_lines.append(row_text)
+                        table_text = "\n".join(table_text_lines)
+                        
                         table_block = TableBlock(
-                            text="",  # TableBlock không cần text, data ở table
+                            text=table_text,  # Text representation for chunking
                             bbox=bbox,
                             table=table_obj,
-                            metadata={
-                                'doc_id': doc_id,
-                                'page_number': page_idx + 1,
-                                'block_type': 'table'
-                            }
+                                metadata={
+                                    'doc_id': doc_id,
+                                    'page_number': page_idx + 1,
+                                    'block_type': 'table',
+                                    'table_schema': table_obj if table_obj else None
+                                }
                         )
                         
                         # Add to blocks list

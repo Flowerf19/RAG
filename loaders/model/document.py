@@ -67,15 +67,15 @@ class PDFDocument(LoaderBaseModel):
         # 2. Chuẩn hóa meta
         if self.meta:
             self.meta = {k: clean(ftfy.fix_text(str(v)).strip(), fix_unicode=True, lower=False) for k, v in self.meta.items() if k}
-        
+
         # 3. Chuẩn hóa từng page/block/table trước
         if self.pages:
             for p in self.pages:
                 if hasattr(p, 'normalize') and callable(p.normalize):
                     p.normalize(config=config)
-        
+
         # 4. Thu thập block_hash_counter sau khi đã normalize text
-        from loaders.normalizers.block_utils import compute_block_hash
+        from ..normalizers.block_utils import compute_block_hash, should_filter_block
         from collections import Counter
         block_hash_counter = Counter()
         for page in self.pages:
@@ -92,9 +92,8 @@ class PDFDocument(LoaderBaseModel):
                     block_hash = compute_block_hash(text)
                     if block_hash:
                         block_hash_counter[block_hash] += 1
-        
+
         # 5. Lọc blocks dựa trên block_hash_counter
-        from normalizers.block_utils import should_filter_block
         for page in self.pages:
             blocks = getattr(page, 'blocks', [])
             filtered_blocks = []
@@ -124,7 +123,7 @@ class PDFDocument(LoaderBaseModel):
                     filtered_blocks.append(b)
             # Update page blocks
             page.blocks = filtered_blocks
-        
+
         # 6. Chuẩn hóa warnings
         if self.warnings:
             self.warnings = list({clean(ftfy.fix_text(str(w)).strip(), fix_unicode=True, lower=False) for w in self.warnings if w})

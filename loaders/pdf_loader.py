@@ -418,6 +418,20 @@ class PDFLoader:
         pages: List[PDFPage] = []
         doc_id = os.path.basename(file_path)
         doc_title, page_labels, meta, num_pages = PDFDocument.extract_metadata(file_path)
+        
+        # Thêm doc_id và thông tin quan trọng vào document metadata
+        # Tạo meta dict mới với thông tin cần thiết
+        if meta is None:
+            meta_dict = {}
+        else:
+            meta_dict = {str(k): str(v) for k, v in meta.items()}
+        
+        meta_dict['doc_id'] = doc_id
+        meta_dict['doc_title'] = doc_title or ''
+        meta_dict['file_path'] = file_path
+        meta_dict['num_pages'] = str(num_pages)
+        meta = meta_dict
+        
         doc, plumber_pdf, file_warnings = self._open_documents(file_path)
         if doc is None:
             return PDFDocument(
@@ -580,6 +594,13 @@ class PDFLoader:
                 plumber_pdf.close()
         except Exception:
             pass
+        # Đảm bảo meta luôn có doc_id
+        if not isinstance(meta, dict) or 'doc_id' not in meta:
+            if not isinstance(meta, dict):
+                meta = {}
+            meta['doc_id'] = doc_id
+            meta['file_path'] = file_path
+            
         return PDFDocument(
             file_path=file_path,
             num_pages=num_pages if num_pages else doc.page_count,

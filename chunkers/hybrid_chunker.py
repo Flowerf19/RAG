@@ -91,6 +91,11 @@ class HybridChunker(BaseChunker):
             chunk_strategy='hybrid'
         )
         
+        # Set file_path for all sub-chunkers
+        self.semantic_chunker._current_file_path = document.file_path
+        self.rule_based_chunker._current_file_path = document.file_path  
+        self.fixed_size_chunker._current_file_path = document.file_path
+        
         # Collect all blocks
         all_blocks = []
         for page in document.pages:

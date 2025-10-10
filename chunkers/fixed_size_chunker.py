@@ -93,6 +93,9 @@ class FixedSizeChunker(BaseChunker):
     # Public: Chunk entire document
     # ------------------------------
     def chunk(self, document: PDFDocument) -> ChunkSet:
+        # Lưu file_path để sử dụng trong chunk_blocks
+        self._current_file_path = document.file_path
+        
         chunk_set = ChunkSet(
             doc_id=document.meta.get("doc_id", "unknown"),
             file_path=document.file_path,
@@ -180,7 +183,7 @@ class FixedSizeChunker(BaseChunker):
     ) -> Chunk:
         start_char = start_token * 4
         end_char = end_token * 4
-        provenance = ProvenanceAgg(doc_id=doc_id)
+        provenance = ProvenanceAgg(doc_id=doc_id, file_path=getattr(self, '_current_file_path', None))
 
         for s, e, b in block_positions:
             if not (end_char <= s or start_char >= e):

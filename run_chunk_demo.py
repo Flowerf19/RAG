@@ -1,6 +1,11 @@
+# -*- coding: utf-8 -*-
 """
 Demo: Chunk PDF document using HybridChunker
 """
+
+import sys
+import os
+sys.path.insert(0, '.')
 
 from loaders.pdf_loader import PDFLoader
 from chunkers.hybrid_chunker import HybridChunker
@@ -49,7 +54,6 @@ with open("chunk_output.txt", "w", encoding="utf-8") as f:
                     cells = [c.value for c in row.cells] if hasattr(row, "cells") else []
                     f.write(f"  Row {idx+1}: {cells}\n")
                 if len(rows) > 3:
-                    f.write(f"  ... ({len(rows)-3} more rows)\n")
-            else:
-                f.write("Table Payload: None\n")
-print("Đã xuất chi tiết các chunk ra file chunk_output.txt")
+                    f.write(f"  ... ({len(rows) - 3} more rows)\n")
+
+print("Demo completed! Check chunk_output.txt")

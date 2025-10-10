@@ -53,6 +53,9 @@ class RuleBasedChunker(BaseChunker):
     # Public API
     # -------------------------------
     def chunk(self, document: PDFDocument) -> ChunkSet:
+        # Lưu file_path để sử dụng trong chunk_blocks  
+        self._current_file_path = document.file_path
+        
         cs = ChunkSet(
             doc_id=document.meta.get("doc_id", "unknown"),
             file_path=document.file_path,
@@ -203,7 +206,7 @@ class RuleBasedChunker(BaseChunker):
         title: Optional[str],
     ) -> Chunk:
 
-        prov = ProvenanceAgg(doc_id=doc_id)
+        prov = ProvenanceAgg(doc_id=doc_id, file_path=getattr(self, '_current_file_path', None))
         for b in blocks:
             prov.add_span(BlockSpan(
                 block_id=b.stable_id or f"block_{id(b)}",

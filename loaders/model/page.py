@@ -169,11 +169,16 @@ class PDFPage(LoaderBaseModel):
                     block_obj = Block(
                         text=b[4] if len(b) > 4 else "",
                         bbox=(b[0], b[1], b[2], b[3]) if len(b) >= 4 else None,
-                        metadata={}
+                        metadata={"page_number": self.page_number}
                     )
                     block_obj.normalize(config=config)
                     normalized_blocks.append(block_obj)
                 elif not isinstance(b, (list, tuple)) and hasattr(b, 'normalize') and callable(b.normalize):
+                    # Đảm bảo block đã có page_number trong metadata
+                    if hasattr(b, 'metadata') and isinstance(b.metadata, dict):
+                        b.metadata['page_number'] = self.page_number
+                    elif hasattr(b, 'metadata'):
+                        b.metadata = {'page_number': self.page_number}
                     b.normalize(config=config)
                     normalized_blocks.append(b)
                 else:

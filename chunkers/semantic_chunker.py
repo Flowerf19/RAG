@@ -63,6 +63,9 @@ class SemanticChunker(BaseChunker):
     # ---------------- Public API ----------------
 
     def chunk(self, document: PDFDocument) -> ChunkSet:
+        # Lưu file_path để sử dụng trong chunk_blocks
+        self._current_file_path = document.file_path
+        
         cs = ChunkSet(
             doc_id=document.meta.get("doc_id", "unknown"),
             file_path=document.file_path,
@@ -96,7 +99,7 @@ class SemanticChunker(BaseChunker):
         groups = self._group_by_coherence(sentences)
         out: List[Chunk] = []
         for idx, g in enumerate(groups):
-            ch = self._build_chunk_from_group(g, sentences, sent2block, doc_id, idx)
+            ch = self._build_chunk_from_group(g, sentences, sent2block, doc_id, self._current_file_path, idx)
             if ch:
                 out.append(ch)
         return out
@@ -221,6 +224,7 @@ class SemanticChunker(BaseChunker):
         sents: List[str],
         sent2block: List[Block],
         doc_id: str,
+        file_path: str,
         chunk_index: int,
     ) -> Optional[Chunk]:
         if not idxs:
@@ -230,7 +234,7 @@ class SemanticChunker(BaseChunker):
         if not text:
             return None
 
-        prov = ProvenanceAgg(doc_id=doc_id)
+        prov = ProvenanceAgg(doc_id=doc_id, file_path=file_path)
         seen = set()
         for i in idxs:
             b = sent2block[i]

@@ -16,3 +16,4 @@ class EmbedderType(Enum):
     GEMMA = auto()
     BGE3 = auto()
     ROUTER = auto()
+    OLLAMA = auto()

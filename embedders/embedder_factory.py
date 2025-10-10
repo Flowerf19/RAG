@@ -11,8 +11,7 @@ from .embedding_profile import EmbeddingProfile
 from .i_embedder import IEmbedder
 from .provider_router import ProviderRouter
 from .provider_type import ProviderType
-from .providers.bge3_embedder import BGE3Embedder
-from .providers.gemma_embedder import GemmaEmbedder
+from .providers import BGE3Embedder, GemmaEmbedder, OllamaEmbedder
 
 
 class EmbedderFactory:
@@ -42,4 +41,12 @@ class EmbedderFactory:
             router = ProviderRouter(active=None, registry=self._registry.copy())
             router.configure(profile)
             return router
+        if embedder_type == EmbedderType.OLLAMA:
+            return OllamaEmbedder(
+                model_name=profile.model_id,
+                max_tokens=profile.max_tokens,
+                normalize=profile.normalize,
+                endpoint=profile.endpoint,
+                timeout=profile.timeout,
+            )
         raise ValueError(f"Unsupported embedder type: {embedder_type!r}")

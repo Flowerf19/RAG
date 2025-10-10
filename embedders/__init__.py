@@ -13,7 +13,7 @@ from .model.embed_request import EmbedRequest
 from .model.embedding_result import EmbeddingResult
 from .provider_router import ProviderRouter
 from .provider_type import ProviderType
-from .providers import BGE3Embedder, GemmaEmbedder
+from .providers import BGE3Embedder, GemmaEmbedder, OllamaEmbedder
 
 __all__ = [
     'ChunkSetEmbedder',
@@ -27,4 +27,5 @@ __all__ = [
     'ProviderType',
     'BGE3Embedder',
     'GemmaEmbedder',
+    'OllamaEmbedder',
 ]

@@ -17,3 +17,4 @@ class ProviderType(Enum):
     BGE3_LOCAL = auto()
     GEMMA_API = auto()
     BGE3_API = auto()
+    OLLAMA = auto()

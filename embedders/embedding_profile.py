@@ -5,7 +5,7 @@ Specifies model configuration for embedder instantiation.
 """
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 from .provider_type import ProviderType
 
@@ -23,6 +23,9 @@ class EmbeddingProfile:
     pooling: str = "mean"
     normalize: bool = True
     provider_prefs: List[ProviderType] = field(default_factory=list)
+    endpoint: Optional[str] = None
+    timeout: float = 60.0
+    batch_size: int = 8
 
     def prefers(self, provider: ProviderType) -> bool:
         """Check whether a provider is part of the preference list."""

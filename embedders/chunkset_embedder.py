@@ -6,10 +6,11 @@ Transform normalized ChunkSet objects into embedding vectors.
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from chunkers.model.chunk import Chunk
 from chunkers.model.chunk_set import ChunkSet
+from loaders.model.base import LoaderBaseModel
 
 from .embedding_profile import EmbeddingProfile
 from .i_embedder import IEmbedder
@@ -53,12 +54,13 @@ class ChunkSetEmbedder:
         metadata = self._base_metadata(chunk, chunk_set)
         metadata["content_role"] = "chunk"
         lang = chunk.metadata.get("lang") or chunk.metadata.get("language")
+        is_table = self._is_table_chunk(chunk)
         return EmbedRequest(
             text=chunk.textForEmbedding,
             chunk_id=chunk.chunk_id,
             doc_id=chunk_set.doc_id,
             lang=lang,
-            is_table=metadata["provenance"]["group_type"] == "table" if metadata["provenance"] else False,
+            is_table=is_table,
             tokens_estimate=chunk.token_count,
             metadata=metadata,
             title=chunk.section_title,
@@ -136,10 +138,10 @@ class ChunkSetEmbedder:
                 "page_numbers": sorted(list(provenance.page_numbers)),
                 "source_blocks": list(provenance.source_blocks),
                 "spans": [span.to_dict() for span in provenance.spans],
-                "metadata": provenance.metadata,
+                "metadata": self._sanitize_metadata(provenance.metadata),
                 "group_type": chunk.metadata.get("group_type"),
             }
-        chunk_metadata = chunk.metadata.copy()
+        chunk_metadata = self._sanitize_metadata(chunk.metadata)
         return {
             "doc_id": chunk_set.doc_id,
             "file_path": chunk_set.file_path,
@@ -153,12 +155,18 @@ class ChunkSetEmbedder:
             or chunk_metadata.get("md5"),
             "provenance": provenance_payload,
             "profile": self.profile.model_id if self.profile else None,
+            "profile_settings": self._profile_payload(),
         }
 
     @staticmethod
     def _is_table_chunk(chunk: Chunk) -> bool:
-        group_type = chunk.metadata.get("group_type")
-        return group_type == "table"
+        metadata = chunk.metadata or {}
+        group_type = metadata.get("group_type") or metadata.get("block_type")
+        if group_type:
+            return group_type == "table"
+        if "table_payload" in metadata:
+            return True
+        return False
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
@@ -167,3 +175,31 @@ class ChunkSetEmbedder:
         if not cleaned:
             return 0
         return max(1, len(cleaned) // 4)
+
+    def _sanitize_metadata(self, metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Convert LoaderBaseModel instances to dicts to keep metadata JSON-serializable."""
+        if not metadata:
+            return {}
+
+        def convert(value: Any) -> Any:
+            if isinstance(value, LoaderBaseModel):
+                return value.to_dict()
+            if isinstance(value, dict):
+                return {k: convert(v) for k, v in value.items()}
+            if isinstance(value, (list, tuple, set)):
+                return [convert(v) for v in value]
+            return value
+
+        return {key: convert(val) for key, val in metadata.items()}
+
+    def _profile_payload(self) -> Optional[Dict[str, Any]]:
+        if not self.profile:
+            return None
+        return {
+            "model_id": self.profile.model_id,
+            "dimension": self.profile.dimension,
+            "max_tokens": self.profile.max_tokens,
+            "normalize": self.profile.normalize,
+            "pooling": self.profile.pooling,
+            "endpoint": self.profile.endpoint,
+        }

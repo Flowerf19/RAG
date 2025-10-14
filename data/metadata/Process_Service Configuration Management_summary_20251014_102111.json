@@ -1,0 +1,24 @@
+{
+  "document": {
+    "file_name": "Process_Service Configuration Management.pdf",
+    "file_path": "C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\data\\pdf\\Process_Service Configuration Management.pdf",
+    "pages": 7,
+    "processed_date": "2025-10-14T10:21:45.514430"
+  },
+  "processing": {
+    "chunks": 12,
+    "tokens": 1355,
+    "strategy": "hybrid",
+    "embeddings": 12,
+    "dimension": 768,
+    "model": "embeddinggemma:latest"
+  },
+  "files": {
+    "faiss_index": "C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\data\\vectors\\Process_Service Configuration Management_vectors_20251014_102111.faiss",
+    "metadata_map": "C:\\Users\\ENGUYEHWC\\Prototype\\Version_4\\data\\vectors\\Process_Service Configuration Management_metadata_map_20251014_102111.pkl"
+  },
+  "statistics": {
+    "text_chunks": 12,
+    "table_chunks": 0
+  }
+}

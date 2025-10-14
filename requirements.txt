@@ -12,3 +12,8 @@ clean-text
 spacy
 rank_bm25
 tiktoken
+fitz
+faiss-cpu
+numpy
+requests
+cleantext

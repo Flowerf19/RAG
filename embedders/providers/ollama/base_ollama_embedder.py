@@ -1,66 +1,44 @@
 """
-Ollama Embedding Provider
-========================
-Implementation cho Ollama embedding models.
+Base Ollama Embedding Provider
+==============================
+Base class cho tất cả Ollama embedding providers.
 """
 
 import logging
 import requests
 from typing import List, Optional, Dict, Any
 
-from .base_embedder import BaseEmbedder
-from ..model.embedding_profile import EmbeddingProfile
+from ..base_embedder import BaseEmbedder
+from ...model.embedding_profile import EmbeddingProfile
 
 logger = logging.getLogger(__name__)
 
 
-class OllamaEmbedder(BaseEmbedder):
+from abc import ABC, abstractmethod
+
+class BaseOllamaEmbedder(BaseEmbedder, ABC):
     """
-    Generic Ollama embedding provider.
-    Single Responsibility: Tạo embeddings sử dụng Ollama API.
-    
-    Note: Đây là generic class. Sử dụng GemmaEmbedder hoặc BGE3Embedder 
-    cho các models cụ thể với config có sẵn.
+    Base class cho tất cả Ollama embedding providers.
+    Single Responsibility: Cung cấp common functionality cho Ollama embedders.
     """
-    
-    # Default config cho generic Ollama embedder
-    DEFAULT_MODEL_ID = "nomic-embed-text"
-    DEFAULT_DIMENSION = 768
-    DEFAULT_MAX_TOKENS = 8192
 
     def __init__(self,
-                 profile: EmbeddingProfile,
+                 profile: Optional[EmbeddingProfile] = None,
                  base_url: str = "http://localhost:11434"):
         """
-        Initialize Ollama embedder.
+        Initialize base Ollama embedder.
 
         Args:
-            profile: Embedding profile (REQUIRED)
+            profile: Embedding profile, nếu None sẽ dùng default
             base_url: Ollama server URL
         """
+        if profile is None:
+            # Subclass phải override để cung cấp default profile
+            raise ValueError("profile must be provided for BaseOllamaEmbedder")
+
         super().__init__(profile)
         self.base_url = base_url.rstrip('/')
         self._test_connection()
-
-    @classmethod
-    def create_default(cls, base_url: str = "http://localhost:11434") -> 'OllamaEmbedder':
-        """
-        Factory method để tạo Ollama embedder với config mặc định (nomic).
-
-        Args:
-            base_url: Ollama server URL
-
-        Returns:
-            OllamaEmbedder: Configured Ollama embedder
-        """
-        profile = EmbeddingProfile(
-            model_id=cls.DEFAULT_MODEL_ID,
-            provider="ollama",
-            max_tokens=cls.DEFAULT_MAX_TOKENS,
-            dimension=cls.DEFAULT_DIMENSION,
-            normalize=True
-        )
-        return cls(profile=profile, base_url=base_url)
 
     def _test_connection(self) -> None:
         """Test connection to Ollama server."""
@@ -108,32 +86,33 @@ class OllamaEmbedder(BaseEmbedder):
 
         except Exception as e:
             logger.error(f"Error generating Ollama embedding: {e}")
-            raise
-
-    def embed(self, text: str) -> List[float]:
+            return []
+    def _process_batch(self, requests) -> List:
         """
-        Generate embedding cho text.
-        
+        Batch processing cho Ollama - gọi từng request.
+
         Args:
-            text: Text to embed
-            
+            requests: List of EmbedRequests
+
+        Returns:
+            List[EmbeddingResult]: Results
+        """
+        # Ollama thường không hỗ trợ batch embedding tốt, nên xử lý từng cái
+        return [self.embed_single(req) for req in requests]
+
+    @abstractmethod
+    def embed_single(self, req) -> List[float]:
+        """
+        Abstract method để embed một request.
+        Subclass phải implement method này.
+
+        Args:
+            req: EmbedRequest
+
         Returns:
             List[float]: Embedding vector
         """
-        return self._generate_embedding(text)
-    
-    def test_connection(self) -> bool:
-        """
-        Test connection to Ollama server.
-        
-        Returns:
-            bool: True if connected successfully
-        """
-        try:
-            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
-            return response.status_code == 200
-        except Exception:
-            return False
+        pass
 
     def is_available(self) -> bool:
         """
@@ -186,32 +165,6 @@ class OllamaEmbedder(BaseEmbedder):
             logger.error(f"Model {model_name} not available in Ollama")
             return False
 
-    @property
-    def dimension(self) -> int:
-        """
-        Lấy dimension của embedding.
-
-        Returns:
-            int: Embedding dimension
-        """
-        if self.profile.dimension:
-            return self.profile.dimension
-
-        # Known Ollama model dimensions
-        model_dims = {
-            "nomic-embed-text": 768,
-            "all-MiniLM-L6-v2": 384,
-            "all-MiniLM-L12-v2": 384,
-            "paraphrase-MiniLM-L3-v2": 384,
-            "paraphrase-MiniLM-L6-v2": 384,
-            "distiluse-base-multilingual-cased-v1": 512,
-            "distiluse-base-multilingual-cased-v2": 512,
-            "bge-m3:latest": 1024,
-            "embeddinggemma:latest": 2048,  # Conservative estimate
-        }
-
-        return model_dims.get(self.profile.model_id, 768)
-
     def estimate_tokens(self, text: str) -> int:
         """
         Better token estimation cho Ollama models.
@@ -225,3 +178,28 @@ class OllamaEmbedder(BaseEmbedder):
         # Ollama thường dùng tokenizer tương tự như các model gốc
         # Ước lượng đơn giản: ~4 chars per token
         return len(text) // 4
+
+    def embed(self, text: str) -> List[float]:
+        """
+        Tạo embedding cho một text string.
+
+        Args:
+            text: Input text để embed
+
+        Returns:
+            List[float]: Embedding vector
+        """
+        return self._generate_embedding(text)
+
+    def test_connection(self) -> bool:
+        """
+        Test connection tới Ollama server.
+
+        Returns:
+            bool: True nếu connection thành công
+        """
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            return response.status_code == 200
+        except Exception:
+            return False

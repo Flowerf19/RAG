@@ -1,42 +1,62 @@
 """
-Embedding Interface Definition
-==============================
-Defines the contract for all embedding providers.
+Embedder Interface
+==================
+Abstract interface cho tất cả embedding providers.
 """
 
 from abc import ABC, abstractmethod
 from typing import List
 
-from .model.embed_request import EmbedRequest
-from .model.embedding_result import EmbeddingResult
-
 
 class IEmbedder(ABC):
     """
-    Interface that all embedding providers must implement.
-    Single Responsibility: define operations for generating embeddings.
+    Interface cho embedding providers.
+    Single Responsibility: Define contract cho embedding operations.
     """
 
-    model_name: str
-    device: str
-    max_tokens: int
-
+    @property
     @abstractmethod
-    def get_dimensions(self) -> int:
-        """Return the dimension of the embedding vector."""
+    def dimension(self) -> int:
+        """
+        Lấy dimension của embedding vectors.
+
+        Returns:
+            int: Embedding dimension
+        """
+        pass
 
     @abstractmethod
     def embed(self, text: str) -> List[float]:
-        """Embed a single text snippet."""
+        """
+        Tạo embedding cho một text string.
+
+        Args:
+            text: Input text để embed
+
+        Returns:
+            List[float]: Embedding vector
+        """
+        pass
 
     @abstractmethod
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """Embed a batch of text snippets."""
+        """
+        Tạo embeddings cho một batch của texts.
+
+        Args:
+            texts: List của input texts
+
+        Returns:
+            List[List[float]]: List của embedding vectors
+        """
+        pass
 
     @abstractmethod
-    def embed_request(self, req: EmbedRequest) -> EmbeddingResult:
-        """Embed using an EmbedRequest structure."""
+    def test_connection(self) -> bool:
+        """
+        Test connection tới embedding service.
 
-    @abstractmethod
-    def embed_batch_req(self, reqs: List[EmbedRequest]) -> List[EmbeddingResult]:
-        """Embed a batch of EmbedRequest objects."""
+        Returns:
+            bool: True nếu connection thành công
+        """
+        pass

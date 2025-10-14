@@ -1,38 +1,59 @@
 """
-Embed Request Model
-===================
-Normalization-ready request payload for embedding providers.
+Embedding Request Model
+======================
+Đại diện cho một yêu cầu embedding từ chunk.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, Optional
-
+from typing import Dict, Any, Optional
 from loaders.model.base import LoaderBaseModel
 
 
 @dataclass
 class EmbedRequest(LoaderBaseModel):
     """
-    Dataclass representing normalized embedding inputs.
-    Single Responsibility: carry all information about the text chunk to embed.
+    Yêu cầu embedding cho một chunk.
+    Single Responsibility: Đóng gói thông tin cần thiết để tạo embedding.
     """
+    chunk_id: str                                    # ID của chunk
+    text: str                                        # Nội dung cần embedding
+    chunk_type: str = "text"                         # Loại chunk (text, table, etc)
+    priority: int = 1                                # Độ ưu tiên (1=cao, 5=thấp)
+    context: Optional[str] = None                    # Context bổ sung nếu có
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Metadata bổ sung
 
-    text: str
-    chunk_id: str
-    doc_id: str
-    lang: Optional[str] = None
-    is_table: bool = False
-    tokens_estimate: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    title: Optional[str] = None
-    section_path: Optional[str] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    def __post_init__(self):
+        """Validate request after initialization"""
+        if not self.chunk_id:
+            raise ValueError("chunk_id cannot be empty")
+        if not self.text:
+            raise ValueError("text cannot be empty")
+        if self.priority < 1 or self.priority > 5:
+            raise ValueError("priority must be between 1 and 5")
 
-    def validate(self) -> bool:
-        """Basic validation to ensure request is ready for embedding."""
-        if not self.text or not self.text.strip():
-            return False
-        if not self.chunk_id or not self.doc_id:
-            return False
-        return True
+    def get_embedding_text(self) -> str:
+        """
+        Lấy text cuối cùng để embedding, có thể kết hợp với context.
+        """
+        if self.context:
+            return f"{self.context}\n\n{self.text}"
+        return self.text
+
+    def normalize(self) -> 'EmbedRequest':
+        """
+        Chuẩn hóa request (clean text, remove extra whitespace, etc.)
+        """
+        # Import clean từ package cleantext
+        from cleantext import clean
+
+        normalized_text = clean(self.text) if self.text else ""
+        normalized_context = clean(self.context) if self.context else None
+
+        return EmbedRequest(
+            chunk_id=self.chunk_id,
+            text=normalized_text,
+            chunk_type=self.chunk_type,
+            priority=self.priority,
+            context=normalized_context,
+            metadata=self.metadata.copy()
+        )

@@ -1,0 +1,24 @@
+{
+  "document": {
+    "file_name": "datapdfprocessservic configur managementpdf",
+    "file_path": "datapdfprocessservic configur managementpdf",
+    "pages": 7,
+    "processed_date": "2025-10-15T17:36:10.489374"
+  },
+  "processing": {
+    "chunks": 15,
+    "tokens": 1372,
+    "strategy": "hybrid",
+    "embeddings": 0,
+    "dimension": 0,
+    "model": "unknown"
+  },
+  "files": {
+    "faiss_index": "data\\vectors\\Process_Service Configuration Management_vectors_20251015_173608.faiss",
+    "metadata_map": "data\\vectors\\Process_Service Configuration Management_metadata_map_20251015_173608.pkl"
+  },
+  "statistics": {
+    "text_chunks": 0,
+    "table_chunks": 0
+  }
+}

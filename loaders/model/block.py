@@ -6,7 +6,6 @@ from typing import Any, Optional, Dict
 
 from .table import TableSchema
 from .base import LoaderBaseModel
-from cleantext import clean
 
 def calc_stable_id(doc_id: str, page_number: int, norm_text: str, bbox: Any) -> str:
     # Băm dựa trên doc_id, page_number, text[:N], bbox (làm tròn)
@@ -51,29 +50,8 @@ class Block(LoaderBaseModel):
             # Fix unicode và encoding issues
             text = ftfy.fix_text(text)
             
-            # Clean text using cleantext library
-            text = clean(
-                text,
-                fix_unicode=True,
-                to_ascii=False,
-                lower=False,
-                no_line_breaks=False,  # Keep line breaks for now, normalize later
-                no_urls=True,
-                no_emails=True,
-                no_phone_numbers=True,
-                no_numbers=False,
-                no_digits=False,
-                no_currency_symbols=True,
-                no_punct=False,  # Keep punctuation
-                no_emoji=True,  # Remove emoji
-                replace_with_url="",
-                replace_with_email="",
-                replace_with_phone_number="",
-                replace_with_number="",
-                replace_with_digit="",
-                replace_with_currency_symbol="",
-                lang="vi"
-            )
+            # REMOVED: Clean text using cleantext library (was corrupting text)
+            # text = clean(text)
             
             # De-hyphenation: nối từ bị ngắt dòng bởi dấu gạch ngang cuối dòng
             text = re.sub(r"(\w+)-\n(\w+)", r"\1\2", text)

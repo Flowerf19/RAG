@@ -150,7 +150,7 @@ class PDFPage(LoaderBaseModel):
         """
         # 1. Chuẩn hóa text
         if self.text:
-            self.text = clean(ftfy.fix_text(self.text.strip()), fix_unicode=True)
+            self.text = clean(ftfy.fix_text(self.text.strip()))
                 # Tách câu bằng spaCy nếu text đủ dài
             if len(self.text) > 40:
                     try:
@@ -193,13 +193,13 @@ class PDFPage(LoaderBaseModel):
         if self.warnings:
             norm_warn = set()
             for w in self.warnings:
-                w1 = clean(ftfy.fix_text(str(w)).strip(), fix_unicode=True)
+                w1 = clean(ftfy.fix_text(str(w)).strip())
                 if w1:
                     norm_warn.add(w1)
             self.warnings = list(norm_warn)
         # 5. Chuẩn hóa source
         if self.source:
-            self.source = {k: clean(ftfy.fix_text(str(v)).strip(), fix_unicode=True) for k, v in self.source.items() if k}
+            self.source = {k: clean(ftfy.fix_text(str(v)).strip()) for k, v in self.source.items() if k}
         # 6. Chuẩn hóa normalized_tables
         if hasattr(self, 'normalized_tables') and self.normalized_tables:
             for t in self.normalized_tables:

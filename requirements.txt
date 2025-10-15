@@ -16,3 +16,5 @@ faiss-cpu
 numpy
 requests
 cleantext
+hashlib
+numpy

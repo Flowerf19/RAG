@@ -7,6 +7,7 @@ Chunker chia text theo độ dài token cố định, sử dụng tiktoken.
 
 import hashlib
 import re
+import time
 from typing import List, Optional, Tuple
 from .base_chunker import BaseChunker
 from .model import (
@@ -49,8 +50,6 @@ class TokenizerAdapter:
             return self.encoder.decode(tokens)
         except Exception:
             return ""
-
-
 # ============================================================
 # Utility: Score computation
 # ============================================================
@@ -181,12 +180,20 @@ class FixedSizeChunker(BaseChunker):
         doc_id: str,
         index: int,
     ) -> Chunk:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.debug(f"Creating chunk {index}: text_len={len(text)}, start_token={start_token}, end_token={end_token}")
+
         start_char = start_token * 4
         end_char = end_token * 4
         provenance = ProvenanceAgg(doc_id=doc_id, file_path=getattr(self, '_current_file_path', None))
 
+        # Simplified provenance tracking - avoid expensive overlap checks
+        # Just track all blocks that contribute to this chunk
         for s, e, b in block_positions:
-            if not (end_char <= s or start_char >= e):
+            # Simple check: if block overlaps with chunk character range
+            if not (e <= start_char or s >= end_char):
                 span = BlockSpan(
                     block_id=b.stable_id or f"block_{id(b)}",
                     start_char=max(0, start_char - s),
@@ -195,7 +202,13 @@ class FixedSizeChunker(BaseChunker):
                 )
                 provenance.add_span(span)
 
-        token_count = self.tokenizer.count(text)
+        # Fast token counting - avoid potential hangs
+        try:
+            token_count = self.tokenizer.count(text)
+        except Exception as e:
+            logger.warning(f"Token counting failed for chunk {index}, using estimate: {e}")
+            token_count = len(text) // 4  # Fallback estimate
+
         score = compute_score(text, token_count, self.max_tokens)
         chunk_id = self._generate_chunk_id(doc_id, index, text)
 

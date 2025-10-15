@@ -41,13 +41,17 @@ class EmbedRequest(LoaderBaseModel):
 
     def normalize(self) -> 'EmbedRequest':
         """
-        Chuẩn hóa request (clean text, remove extra whitespace, etc.)
+        Chuẩn hóa request (remove extra whitespace, etc.)
         """
-        # Import clean từ package cleantext
-        from cleantext import clean
+        # REMOVED: Clean text using cleantext library (was corrupting text)
+        # from cleantext import clean
 
-        normalized_text = clean(self.text) if self.text else ""
-        normalized_context = clean(self.context) if self.context else None
+        # normalized_text = clean(self.text) if self.text else ""
+        # normalized_context = clean(self.context) if self.context else None
+        
+        # Simple normalization without clean-text
+        normalized_text = self.text.strip() if self.text else ""
+        normalized_context = self.context.strip() if self.context else None
 
         return EmbedRequest(
             chunk_id=self.chunk_id,

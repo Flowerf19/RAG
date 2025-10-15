@@ -1,0 +1,24 @@
+{
+  "document": {
+    "file_name": "cusersenguyehwcprototypeversionragdatapdfprocessservic configur managementpdf",
+    "file_path": "cusersenguyehwcprototypeversionragdatapdfprocessservic configur managementpdf",
+    "pages": 7,
+    "processed_date": "2025-10-15T17:13:07.873133"
+  },
+  "processing": {
+    "chunks": 15,
+    "tokens": 1372,
+    "strategy": "hybrid",
+    "embeddings": 15,
+    "dimension": 768,
+    "model": "embeddinggemma:latest"
+  },
+  "files": {
+    "faiss_index": "C:\\Users\\ENGUYEHWC\\Prototype\\Version_03\\RAG\\data\\vectors\\Process_Service Configuration Management_vectors_20251015_171230.faiss",
+    "metadata_map": "C:\\Users\\ENGUYEHWC\\Prototype\\Version_03\\RAG\\data\\vectors\\Process_Service Configuration Management_metadata_map_20251015_171230.pkl"
+  },
+  "statistics": {
+    "text_chunks": 15,
+    "table_chunks": 0
+  }
+}

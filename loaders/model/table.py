@@ -18,7 +18,7 @@ class TableCell(LoaderBaseModel):
         import ftfy
         # Chuẩn hóa value
         if self.value:
-            self.value = clean(ftfy.fix_text(str(self.value)).strip(), fix_unicode=True)
+            self.value = clean(ftfy.fix_text(str(self.value)).strip())
                 # Tách câu bằng spaCy nếu value đủ dài
             if len(self.value) > 40:
                     try:
@@ -31,7 +31,7 @@ class TableCell(LoaderBaseModel):
             self.bbox = tuple(round(float(x), 2) for x in self.bbox)
         # Chuẩn hóa metadata
         if self.metadata:
-            self.metadata = {k: clean(ftfy.fix_text(str(v)).strip(), fix_unicode=True) for k, v in self.metadata.items() if k}
+            self.metadata = {k: clean(ftfy.fix_text(str(v)).strip()) for k, v in self.metadata.items() if k}
         return self
 @dataclass
 class TableRow(LoaderBaseModel):
@@ -86,7 +86,7 @@ class TableSchema(LoaderBaseModel):
         
         # 1. Chuẩn hóa header
         if self.header:
-            self.header = [clean(ftfy.fix_text(str(h)).strip(), fix_unicode=True) for h in self.header if h]
+            self.header = [clean(ftfy.fix_text(str(h)).strip()) for h in self.header if h]
                 # Tách câu cho từng header nếu đủ dài
             try:
                 from loaders.normalizers.spacy_utils import sent_tokenize
@@ -100,10 +100,10 @@ class TableSchema(LoaderBaseModel):
                     r.normalize(config=config)
         # 3. Chuẩn hóa metadata
         if self.metadata:
-            self.metadata = {k: clean(ftfy.fix_text(str(v)).strip(), fix_unicode=True) for k, v in self.metadata.items() if k}
+            self.metadata = {k: clean(ftfy.fix_text(str(v)).strip()) for k, v in self.metadata.items() if k}
         # 4. Chuẩn hóa markdown
         if self.markdown:
-            self.markdown = clean(ftfy.fix_text(str(self.markdown)).strip(), fix_unicode=True)
+            self.markdown = clean(ftfy.fix_text(str(self.markdown)).strip())
         # 5. Tính lại stable_id, content_sha256 nếu có đủ thông tin
         if hasattr(self, 'file_path') and hasattr(self, 'page_number'):
             from ..ids import table_stable_id

@@ -41,7 +41,7 @@ class PDFLoader:
         enable_block_merging: bool = True,
         min_block_length: int = 50,
         enable_block_normalization: bool = True,
-        enable_sentence_segmentation: bool = False
+        enable_sentence_segmentation: bool = True
     ) -> None:
         """
         Khởi tạo PDFLoader với các thuộc tính cấu hình.

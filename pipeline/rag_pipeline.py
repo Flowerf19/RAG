@@ -9,18 +9,22 @@ Output: Tất cả dữ liệu được lưu vào data folder
 import json
 import logging
 import os
+import hashlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import numpy as np
 
 from loaders.pdf_loader import PDFLoader
 from chunkers.hybrid_chunker import HybridChunker
 from embedders.embedder_factory import EmbedderFactory
 from embedders.providers.ollama import OllamaModelSwitcher, OllamaModelType
 from pipeline.vector_store import VectorStore
-from pipeline.vector_store import VectorStore
 from pipeline.summary_generator import SummaryGenerator
 from pipeline.retriever import Retriever
+from pipeline.data_quality_analyzer import DataQualityAnalyzer
+from pipeline.data_integrity_checker import DataIntegrityChecker
+from pipeline.chunk_cache_manager import ChunkCacheManager
 
 # Configure logging
 logging.basicConfig(
@@ -37,7 +41,7 @@ class RAGPipeline:
     """
     
     def __init__(self, 
-                 output_dir: str = r"C:\Users\ENGUYEHWC\Prototype\Version_4\data",
+                 output_dir: str = "data",
                  model_type: OllamaModelType = OllamaModelType.GEMMA):
         """
         Initialize RAG Pipeline.
@@ -54,11 +58,15 @@ class RAGPipeline:
         self.embeddings_dir = self.output_dir / "embeddings"
         self.vectors_dir = self.output_dir / "vectors"
         self.metadata_dir = self.output_dir / "metadata"
+        self.cache_dir = self.output_dir / "cache"
         
         # Create all directories
         for directory in [self.chunks_dir, self.embeddings_dir, 
-                         self.vectors_dir, self.metadata_dir]:
+                         self.vectors_dir, self.metadata_dir, self.cache_dir]:
             directory.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize cache for processed chunks
+        self.processed_chunks_cache = self.cache_dir / "processed_chunks.json"
         
         # Initialize components
         logger.info("Initializing RAG Pipeline...")
@@ -76,12 +84,115 @@ class RAGPipeline:
         self.vector_store = VectorStore(self.vectors_dir)
         self.summary_generator = SummaryGenerator(self.metadata_dir, self.output_dir)
         self.retriever = Retriever(self.embedder)
+
+        # Initialize specialized components using composition
+        self.quality_analyzer = DataQualityAnalyzer(
+            loader=self.loader,
+            chunker=self.chunker,
+            embedder=self.embedder,
+            output_dir=self.output_dir
+        )
+
+        self.integrity_checker = DataIntegrityChecker(
+            chunks_dir=self.chunks_dir,
+            embeddings_dir=self.embeddings_dir,
+            vectors_dir=self.vectors_dir,
+            metadata_dir=self.metadata_dir
+        )
+
+        self.chunk_cache = ChunkCacheManager(
+            cache_file=self.processed_chunks_cache
+        )
         
         logger.info(f"Loader: PDFLoader")
         logger.info(f"Chunker: HybridChunker (max_tokens=200)")
         logger.info(f"Embedder: {self.embedder.profile.model_id}")
         logger.info(f"Dimension: {self.embedder.dimension}")
         logger.info(f"Output: {self.output_dir}")
+    
+    def is_chunk_processed(self, chunk_id: str, content_hash: str) -> bool:
+        """
+        Check if chunk has already been processed.
+
+        Args:
+            chunk_id: Unique chunk identifier
+            content_hash: Hash of chunk content for verification
+
+        Returns:
+            True if chunk was already processed, False otherwise
+        """
+        return self.chunk_cache.is_chunk_processed(chunk_id, content_hash)
+
+    def mark_chunk_processed(self, chunk_id: str, content_hash: str, metadata: Dict[str, Any]):
+        """
+        Mark chunk as processed and save to cache.
+
+        Args:
+            chunk_id: Unique chunk identifier
+            content_hash: Hash of chunk content
+            metadata: Additional metadata to store
+        """
+        self.chunk_cache.mark_chunk_processed(chunk_id, content_hash, metadata)
+    
+    def analyze_data_quality(self, pdf_path: str | Path) -> Dict[str, Any]:
+        """
+        Analyze data quality throughout the RAG pipeline.
+
+        Args:
+            pdf_path: Path to PDF file
+
+        Returns:
+            Dict with quality analysis results
+        """
+        return self.quality_analyzer.analyze_data_quality(pdf_path)
+
+    def save_quality_report(self, quality_report: Dict[str, Any], output_path: Optional[str | Path] = None) -> Path:
+        """
+        Save quality analysis report to JSON file.
+
+        Args:
+            quality_report: Quality analysis results
+            output_path: Optional output path, defaults to data/quality_reports/
+
+        Returns:
+            Path to saved report file
+        """
+        return self.quality_analyzer.save_quality_report(quality_report, output_path)
+
+    def compare_quality_reports(self, report1: Dict[str, Any], report2: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Compare two quality reports and show differences.
+
+        Args:
+            report1: First quality report
+            report2: Second quality report
+
+        Returns:
+            Dict with comparison results
+        """
+        return self.quality_analyzer.compare_quality_reports(report1, report2)
+    
+    def check_data_integrity(self, pdf_path: str | Path, 
+                           chunks_file: Optional[str | Path] = None,
+                           embeddings_file: Optional[str | Path] = None,
+                           faiss_index_file: Optional[str | Path] = None,
+                           metadata_file: Optional[str | Path] = None) -> Dict[str, Any]:
+        """
+        Check data integrity across all pipeline outputs.
+        
+        Args:
+            pdf_path: Path to original PDF file
+            chunks_file: Path to chunks file (auto-detect if None)
+            embeddings_file: Path to embeddings file (auto-detect if None)
+            faiss_index_file: Path to FAISS index file (auto-detect if None)
+            metadata_file: Path to metadata file (auto-detect if None)
+            
+        Returns:
+            Dict with integrity check results
+        """
+        return self.integrity_checker.check_data_integrity(
+            pdf_path, chunks_file, embeddings_file, faiss_index_file, metadata_file
+        )
     
     def process_pdf(self, pdf_path: str | Path) -> Dict[str, Any]:
         """
@@ -109,12 +220,21 @@ class RAGPipeline:
         logger.info("Chunking document...")
         chunk_set = self.chunker.chunk(pdf_doc)
         logger.info(f"Created {len(chunk_set.chunks)} chunks, strategy: {chunk_set.chunk_strategy}, tokens: {chunk_set.total_tokens}")
-        
         # Step 3: Generate embeddings
         logger.info("Generating embeddings...")
         embeddings_data = []
+        skipped_chunks = 0
         
         for idx, chunk in enumerate(chunk_set.chunks, 1):
+            # Create content hash for duplicate checking
+            content_hash = hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
+            
+            # Check if chunk already processed
+            if self.is_chunk_processed(chunk.chunk_id, content_hash):
+                logger.info(f"Skipping already processed chunk {idx}/{len(chunk_set.chunks)}: {chunk.chunk_id}")
+                skipped_chunks += 1
+                continue
+            
             # Test connection on first chunk
             if idx == 1 and not self.embedder.test_connection():
                 raise ConnectionError("Cannot connect to Ollama server!")
@@ -174,16 +294,63 @@ class RAGPipeline:
             
             embeddings_data.append(chunk_embedding)
             
-            if idx % 10 == 0:
-                logger.info(f"Processed {idx}/{len(chunk_set.chunks)} chunks...")
+            # Mark chunk as processed
+            self.mark_chunk_processed(chunk.chunk_id, content_hash, {
+                'page_number': chunk_embedding['page_number'],
+                'token_count': chunk.token_count,
+                'is_table': chunk_embedding['is_table']
+            })
+            
+            if (idx - skipped_chunks) % 10 == 0:
+                logger.info(f"Processed {idx}/{len(chunk_set.chunks)} chunks ({skipped_chunks} skipped)...")
         
-        logger.info(f"Generated {len(embeddings_data)} embeddings")
+        logger.info(f"Generated {len(embeddings_data)} embeddings ({skipped_chunks} chunks skipped)")
         
-        # Step 4: Create FAISS index and save
-        logger.info("Creating FAISS vector index...")
-        faiss_file, metadata_map_file = self.vector_store.create_index(
-            embeddings_data, file_name, timestamp
-        )
+        # Step 3.5: Save chunks and embeddings to files
+        logger.info("Saving chunks and embeddings...")
+        
+        # Save chunks as simple text file (for debugging)
+        chunks_file = self.chunks_dir / f"{file_name}_chunks_{timestamp}.txt"
+        with open(chunks_file, 'w', encoding='utf-8') as f:
+            f.write(f'Document: {pdf_path.name}\n')
+            f.write(f'Total chunks: {len(chunk_set.chunks)}\n')
+            f.write(f'New chunks processed: {len(embeddings_data)}\n')
+            f.write(f'Skipped chunks: {skipped_chunks}\n')
+            f.write(f'Timestamp: {timestamp}\n')
+            f.write('=' * 80 + '\n\n')
+            
+            for i, chunk in enumerate(chunk_set.chunks, 1):
+                # Only write chunks that were actually processed (have embeddings)
+                if any(e['chunk_id'] == chunk.chunk_id for e in embeddings_data):
+                    f.write(f'CHUNK {i}: {chunk.chunk_id}\n')
+                    page = list(chunk.provenance.page_numbers)[0] if chunk.provenance and chunk.provenance.page_numbers else 'N/A'
+                    f.write(f'Page: {page} | Tokens: {chunk.token_count} | Type: {chunk.chunk_type.value}\n')
+                    f.write('-' * 40 + '\n')
+                    f.write(chunk.text.strip())
+                    f.write('\n\n' + '=' * 80 + '\n\n')
+        
+        # Save embeddings
+        embeddings_file = self.embeddings_dir / f"{file_name}_embeddings_{timestamp}.json"
+        with open(embeddings_file, 'w', encoding='utf-8') as f:
+            json.dump(embeddings_data, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"Saved chunks to: {chunks_file}")
+        logger.info(f"Saved embeddings to: {embeddings_file}")
+        
+        # Step 4: Create FAISS index and save (only if we have new embeddings)
+        if embeddings_data:
+            logger.info("Creating FAISS vector index...")
+            faiss_file, metadata_map_file = self.vector_store.create_index(
+                embeddings_data, file_name, timestamp
+            )
+        else:
+            logger.info("No new embeddings - skipping FAISS index creation")
+            # Use placeholder paths for skipped processing
+            faiss_file = self.vectors_dir / f"{file_name}_vectors_{timestamp}.faiss"
+            metadata_map_file = self.vectors_dir / f"{file_name}_metadata_map_{timestamp}.pkl"
+            # Create empty files to indicate processing was attempted
+            faiss_file.touch()
+            metadata_map_file.touch()
         
         # Step 5: Save document summary (lightweight)
         logger.info("Creating document summary...")
@@ -196,7 +363,7 @@ class RAGPipeline:
         )
         
         # Summary
-        logger.info(f"Pipeline completed - Pages: {len(pdf_doc.pages)}, Chunks: {len(chunk_set.chunks)}, Embeddings: {len(embeddings_data)}")
+        logger.info(f"Pipeline completed - Pages: {len(pdf_doc.pages)}, Chunks: {len(chunk_set.chunks)}, Embeddings: {len(embeddings_data)}, Skipped: {skipped_chunks}")
         
         return {
             "success": True,
@@ -204,8 +371,11 @@ class RAGPipeline:
             "pages": len(pdf_doc.pages),
             "chunks": len(chunk_set.chunks),
             "embeddings": len(embeddings_data),
+            "skipped_chunks": skipped_chunks,
             "dimension": self.embedder.dimension,
             "files": {
+                "chunks": str(chunks_file),
+                "embeddings": str(embeddings_file),
                 "faiss_index": str(faiss_file),
                 "metadata_map": str(metadata_map_file),
                 "summary": str(summary_file)
@@ -282,21 +452,12 @@ def main():
     
     # Initialize pipeline với Gemma embedder
     pipeline = RAGPipeline(
-        output_dir=r"C:\Users\ENGUYEHWC\Prototype\Version_4\data",
+        output_dir="data",
         model_type=OllamaModelType.GEMMA
     )
     
-    # Process all PDFs in data/pdf directory
-    try:
-        results = pipeline.process_directory()
-        
-        logger.info("All processing completed successfully")
-        logger.info(f"Output files saved to: {pipeline.output_dir}")
-        
-    except Exception as e:
-        logger.error(f"Pipeline error: {e}")
-        import traceback
-        traceback.print_exc()
+    logger.info("RAG Pipeline initialized and ready to use")
+    logger.info("Use pipeline.process_pdf() or pipeline.process_directory() to process documents")
 
 
 if __name__ == "__main__":

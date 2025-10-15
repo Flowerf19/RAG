@@ -23,20 +23,29 @@ Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument 
 # Process all PDFs in data/pdf/ to FAISS indexes
 python -m pipeline.rag_pipeline
 
-# Test search functionality
-python demo_faiss_search.py
+# Test chunking functionality (available demo)
+python chunkers/chunk_pdf_demo.py
+
+# Alternative: Use RAGPipeline directly in Python
+python -c "from pipeline import RAGPipeline; p = RAGPipeline(); print('Pipeline ready')"
 ```
 
 ### Testing & Validation
 ```powershell
-# Run all tests with coverage
+# Run all tests with coverage (configured in pyproject.toml)
 python -m pytest -v --cov=loaders
 
-# Individual module tests
+# Run tests by module
+python -m pytest test/loaders/ -v        # PDF loading tests
+python -m pytest test/chunkers/ -v       # Chunking tests  
+python -m pytest test/embedders/ -v      # Embedding tests
+python -m pytest test/pipeline/ -v       # Pipeline tests
+
+# Individual chunker tests
 python -m pytest chunkers/test_fixed_size_chunker.py -v
 
-# Integration test
-python chunkers/chunk_pdf_demo.py
+# Integration demos
+python chunkers/chunk_pdf_demo.py         # Chunking demo with actual PDFs
 ```
 
 ### Ollama Setup (Required)
@@ -91,6 +100,20 @@ pdf_doc = loader.load("doc.pdf")
 pdf_doc = pdf_doc.normalize()  # Deduplication, text cleaning, etc.
 ```
 
+### 4. Modular Chunking Strategies  
+**HybridChunker orchestrates multiple chunking approaches:**
+```python
+# Configure chunker with multiple strategies
+chunker = HybridChunker(
+    max_tokens=200, 
+    overlap_tokens=20,
+    mode=ChunkerMode.AUTO  # Auto-selects best strategy per document section
+)
+
+# Available strategies: semantic, rule-based, fixed-size, structural-first
+chunk_set = chunker.chunk(pdf_document)
+```
+
 ### 5. Composition over Inheritance
 **RAGPipeline uses composition with specialized classes:**
 ```python
@@ -123,10 +146,35 @@ camelot-py[cv]      # Advanced table parsing
 ```
 
 ### Data Output Structure
-Each processed PDF generates:
-- **`.faiss`**: Binary vector index (compact, fast)
-- **`.pkl`**: Metadata mapping (page numbers, provenance)
-- **`_summary.json`**: Document info (human-readable)
+Each processed PDF generates three files:
+```
+data/
+├── vectors/
+│   ├── Document_vectors_20251015_143022.faiss      # Binary FAISS index
+│   └── Document_metadata_map_20251015_143022.pkl   # Chunk metadata (pages, provenance)
+└── metadata/
+    └── Document_summary_20251015_143022.json       # Human-readable document info
+```
+
+### Search & Retrieval
+```python
+# Direct pipeline usage for search
+from pipeline import RAGPipeline
+pipeline = RAGPipeline()
+
+# Search against specific FAISS index
+results = pipeline.search_similar(
+    faiss_file=Path("data/vectors/Doc_vectors_20251015.faiss"),
+    metadata_map_file=Path("data/vectors/Doc_metadata_map_20251015.pkl"),
+    query_text="your search query",
+    top_k=5
+)
+
+# Results include cosine similarity scores, text content, and page numbers
+for result in results:
+    print(f"Score: {result['cosine_similarity']:.4f}")
+    print(f"Page: {result['page_number']}")
+```
 
 ---
 

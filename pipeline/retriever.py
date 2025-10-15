@@ -59,12 +59,14 @@ class Retriever:
         # Format results (similarities are already cosine similarities for normalized vectors)
         results = []
         for idx, similarity in zip(indices[0], similarities[0]):
-            if idx < len(metadata_map):
+            if idx >= 0 and idx < len(metadata_map):  # Check for valid index
                 result = metadata_map[idx].copy()
                 result["cosine_similarity"] = float(similarity)
                 result["distance"] = 1.0 - float(similarity)  # Convert to distance for compatibility
                 result["similarity_score"] = float(similarity)  # Cosine similarity as score
                 results.append(result)
+            else:
+                logger.warning(f"Invalid index {idx} returned by FAISS search")
 
         logger.info(f"Cosine similarity search completed: found {len(results)} results for query")
         return results

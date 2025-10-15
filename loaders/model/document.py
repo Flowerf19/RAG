@@ -63,10 +63,10 @@ class PDFDocument(LoaderBaseModel):
     def normalize(self, config: Optional[dict] = None) -> 'PDFDocument':
         # 1. Chuẩn hóa file_path
         if self.file_path:
-            self.file_path = clean(ftfy.fix_text(str(self.file_path)).strip(), fix_unicode=True, lower=False)
+            self.file_path = clean(ftfy.fix_text(str(self.file_path)).strip())
         # 2. Chuẩn hóa meta
         if self.meta:
-            self.meta = {k: clean(ftfy.fix_text(str(v)).strip(), fix_unicode=True, lower=False) for k, v in self.meta.items() if k}
+            self.meta = {k: clean(ftfy.fix_text(str(v)).strip()) for k, v in self.meta.items() if k}
 
         # 3. Chuẩn hóa từng page/block/table trước
         if self.pages:
@@ -126,7 +126,7 @@ class PDFDocument(LoaderBaseModel):
 
         # 6. Chuẩn hóa warnings
         if self.warnings:
-            self.warnings = list({clean(ftfy.fix_text(str(w)).strip(), fix_unicode=True, lower=False) for w in self.warnings if w})
+            self.warnings = list({clean(ftfy.fix_text(str(w)).strip()) for w in self.warnings if w})
         # 7. Chuẩn hóa repeated_block_hashes
         if self.repeated_block_hashes:
             self.repeated_block_hashes = set([str(h).strip() for h in self.repeated_block_hashes if h])

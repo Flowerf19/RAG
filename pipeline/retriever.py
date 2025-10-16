@@ -32,7 +32,7 @@ class Retriever:
         self.embedder = embedder
 
     def search_similar(self, faiss_file: Path, metadata_map_file: Path,
-                      query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:
+                      query_text: str, top_k: int = 10) -> List[Dict[str, Any]]:
         """
         Search for similar chunks using cosine similarity with FAISS.
 
@@ -56,19 +56,20 @@ class Retriever:
         # Perform search using inner product (cosine similarity for normalized vectors)
         similarities, indices = index.search(query_normalized, top_k)  # type: ignore[call-arg]
 
-        # Format results (similarities are already cosine similarities for normalized vectors)
+        # Format results (similarities are cosine similarities for normalized vectors)
         results = []
         for idx, similarity in zip(indices[0], similarities[0]):
             if idx >= 0 and idx < len(metadata_map):  # Check for valid index
                 result = metadata_map[idx].copy()
-                result["cosine_similarity"] = float(similarity)
-                result["distance"] = 1.0 - float(similarity)  # Convert to distance for compatibility
-                result["similarity_score"] = float(similarity)  # Cosine similarity as score
+                result["similarity_score"] = float(similarity)
                 results.append(result)
             else:
                 logger.warning(f"Invalid index {idx} returned by FAISS search")
 
-        logger.info(f"Cosine similarity search completed: found {len(results)} results for query")
+        # Sort results by similarity score (descending) to ensure correct ordering
+        results.sort(key=lambda x: x["similarity_score"], reverse=True)
+
+        logger.info(f"Similarity search completed: found {len(results)} results for query")
         return results
 
     def _load_index_and_metadata(self, faiss_file: Path, metadata_map_file: Path) -> tuple[faiss.Index, Dict[int, Dict[str, Any]]]:

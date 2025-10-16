@@ -120,18 +120,89 @@ class RAGPipeline:
         logger.info(f"Dimension: {self.embedder.dimension}")
         logger.info(f"Output: {self.output_dir}")
     
-    def is_chunk_processed(self, chunk_id: str, content_hash: str) -> bool:
+    def is_chunk_processed(self, chunk_id: str, content_hash: str, chunk_text: str = "") -> bool:
         """
-        Check if chunk has already been processed.
+        Check if chunk has already been processed and meets quality standards.
 
         Args:
             chunk_id: Unique chunk identifier
             content_hash: Hash of chunk content for verification
+            chunk_text: Text content of the chunk for quality check
 
         Returns:
-            True if chunk was already processed, False otherwise
+            True if chunk was already processed and meets quality standards, False otherwise
         """
-        return self.chunk_cache.is_chunk_processed(chunk_id, content_hash)
+        # First check if chunk exists in cache
+        if not self.chunk_cache.is_chunk_processed(chunk_id, content_hash):
+            return False
+
+        # If chunk exists, check quality - if poor quality, remove from cache and reprocess
+        if not self._check_chunk_quality(chunk_text):
+            logger.warning(f"Chunk {chunk_id} failed quality check, removing from cache for reprocessing")
+            self.chunk_cache.remove_chunk(chunk_id)
+            return False
+
+        return True
+
+    def _is_pdf_already_processed(self, pdf_path: Path) -> bool:
+        """
+        Check if PDF has already been processed (has FAISS index).
+
+        Args:
+            pdf_path: Path to PDF file
+
+        Returns:
+            True if PDF already has FAISS index, False otherwise
+        """
+        file_name = pdf_path.stem
+        vectors_dir = self.output_dir / "vectors"
+
+        if not vectors_dir.exists():
+            return False
+
+        # Look for FAISS index files that match this PDF
+        for faiss_file in vectors_dir.glob(f"{file_name}_vectors_*.faiss"):
+            if faiss_file.exists():
+                logger.info(f"PDF {pdf_path.name} already processed, skipping embedding")
+                return True
+
+        return False
+
+    def _check_chunk_quality(self, chunk_text: str) -> bool:
+        """
+        Check if chunk meets quality standards.
+
+        Args:
+            chunk_text: Text content of the chunk
+
+        Returns:
+            True if chunk meets quality standards, False otherwise
+        """
+        if not chunk_text or not chunk_text.strip():
+            logger.warning("Chunk is empty or contains only whitespace")
+            return False
+
+        # Check minimum length (after stripping whitespace)
+        text_length = len(chunk_text.strip())
+        if text_length < 10:  # Too short
+            logger.warning(f"Chunk too short: {text_length} characters")
+            return False
+
+        # Check for excessive special characters (might indicate parsing errors)
+        special_chars = sum(1 for c in chunk_text if not c.isalnum() and not c.isspace() and c not in '.,!?-:;()[]{}')
+        if special_chars / len(chunk_text) > 0.3:  # More than 30% special characters
+            logger.warning(f"Chunk has too many special characters: {special_chars}/{len(chunk_text)}")
+            return False
+
+        # Check for repetitive content (simple heuristic)
+        words = chunk_text.lower().split()
+        if len(words) > 10:
+            unique_words = set(words)
+            if len(unique_words) / len(words) < 0.3:  # Less than 30% unique words
+                logger.warning("Chunk appears to have repetitive content")
+                return False
+
+        return True
 
     def mark_chunk_processed(self, chunk_id: str, content_hash: str, metadata: Dict[str, Any]):
         """
@@ -252,6 +323,16 @@ class RAGPipeline:
         file_name = pdf_path.stem
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
+        # Check if PDF already processed - skip embedding if FAISS index exists
+        if self._is_pdf_already_processed(pdf_path):
+            logger.info(f"PDF {pdf_path.name} already has FAISS index, skipping processing")
+            return {
+                "status": "skipped",
+                "message": "PDF already processed",
+                "pdf_path": str(pdf_path),
+                "file_name": file_name
+            }
+        
         logger.info(f"Processing PDF: {pdf_path.name}")
         
         # Step 1: Load PDF
@@ -274,7 +355,7 @@ class RAGPipeline:
             content_hash = hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
             
             # Check if chunk already processed
-            if self.is_chunk_processed(chunk.chunk_id, content_hash):
+            if self.is_chunk_processed(chunk.chunk_id, content_hash, chunk.text):
                 logger.info(f"Skipping already processed chunk {idx}/{len(chunk_set.chunks)}: {chunk.chunk_id}")
                 skipped_chunks += 1
                 continue

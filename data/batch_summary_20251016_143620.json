@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-10-16T14:36:20.941947",
+  "total_files": 1,
+  "successful": 1,
+  "failed": 0,
+  "total_chunks": 40,
+  "total_embeddings": 40,
+  "results": [
+    {
+      "success": true,
+      "file_name": "medium-com-RAG is Hard Until I Know these  Techniques  RAG Pipeline to  Accuracy.pdf",
+      "pages": 20,
+      "chunks": 40,
+      "embeddings": 40,
+      "skipped_chunks": 0,
+      "dimension": 768,
+      "files": {
+        "chunks": "data\\chunks\\medium-com-RAG is Hard Until I Know these  Techniques  RAG Pipeline to  Accuracy_chunks_20251016_143427.txt",
+        "embeddings": "data\\embeddings\\medium-com-RAG is Hard Until I Know these  Techniques  RAG Pipeline to  Accuracy_embeddings_20251016_143427.json",
+        "faiss_index": "data\\vectors\\medium-com-RAG is Hard Until I Know these  Techniques  RAG Pipeline to  Accuracy_vectors_20251016_143427.faiss",
+        "metadata_map": "data\\vectors\\medium-com-RAG is Hard Until I Know these  Techniques  RAG Pipeline to  Accuracy_metadata_map_20251016_143427.pkl",
+        "summary": "data\\metadata\\medium-com-RAG is Hard Until I Know these  Techniques  RAG Pipeline to  Accuracy_summary_20251016_143427.json"
+      }
+    }
+  ]
+}

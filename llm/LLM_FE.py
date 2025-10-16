@@ -1,5 +1,11 @@
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.append(os.path.dirname(__file__))  # Add current directory
+
+# Debug: Print paths
+print("Current working directory:", os.getcwd())
+print("Script directory:", os.path.dirname(__file__))
+print("Python path:", sys.path)
 
 from pathlib import Path
 import streamlit as st
@@ -21,7 +27,21 @@ except ImportError:
     from LLM_LOCAL import call_lmstudio
     from config_loader import ui_default_backend, paths_data_dir
 
-from pipeline.pipeline_qa import fetch_retrieval
+# Import pipeline_qa
+try:
+    from pipeline.pipeline_qa import fetch_retrieval
+    print("Successfully imported fetch_retrieval")
+except ImportError as e:
+    print(f"Failed to import fetch_retrieval: {e}")
+    print("Trying alternative import...")
+    try:
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+        from pipeline.pipeline_qa import fetch_retrieval
+        print("Successfully imported fetch_retrieval with alternative path")
+    except ImportError as e2:
+        print(f"Still failed: {e2}")
+        raise
+
 
 # === PAGE CONFIG ===
 st.set_page_config(page_title="AI Chatbot", page_icon=":speech_balloon:", layout="wide")
@@ -37,6 +57,14 @@ with st.sidebar:
     # New Chat button
     if st.button("New Chat"):
         st.session_state["messages"] = []
+        st.session_state["is_generating"] = False
+        st.session_state["pending_prompt"] = None
+        st.session_state["last_sources"] = []
+        st.rerun()
+    
+    # Clear Cache button
+    if st.button("Clear Cache"):
+        st.session_state.clear()
         st.rerun()
     
     st.button("Recent Chats")
@@ -157,7 +185,7 @@ def ask_backend(prompt_text: str) -> str:
         # Build messages bằng chat_handler
         # Lấy context từ Retrieval (nếu có) và lưu nguồn để hiển thị.
         try:
-            ret = fetch_retrieval(prompt_text, top_k=5, max_chars=4000)
+            ret = fetch_retrieval(prompt_text, top_k=10, max_chars=4000)  # Giảm xuống 1000 để đảm bảo không vượt limit
             context = ret.get("context", "") or ""
             st.session_state["last_sources"] = ret.get("sources", [])
         except Exception:

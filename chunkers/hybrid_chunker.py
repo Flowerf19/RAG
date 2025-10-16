@@ -73,6 +73,9 @@ class HybridChunker(BaseChunker):
             max_tokens=max_tokens,
             overlap_tokens=overlap_tokens
         )
+
+    def __str__(self) -> str:
+        return f"HybridChunker (max_tokens={self.max_tokens}, overlap_tokens={self.overlap_tokens}, mode={self.mode.value})"
     
     def chunk(self, document: PDFDocument) -> ChunkSet:
         """

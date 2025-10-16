@@ -179,3 +179,14 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Streamlit secrets and config
+.streamlit/
+
+# Generated data files (chunks, embeddings, vectors, etc.)
+data/chunks/
+data/embeddings/
+data/vectors/
+data/metadata/
+data/quality_reports/
+# Keep: data/pdf/ (source PDFs), data/README.md, data/cache/processed_chunks.json (might be useful)

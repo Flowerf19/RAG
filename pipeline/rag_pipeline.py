@@ -42,15 +42,18 @@ class RAGPipeline:
     
     def __init__(self, 
                  output_dir: str = "data",
+                 pdf_dir: Optional[str | Path] = None,
                  model_type: OllamaModelType = OllamaModelType.GEMMA):
         """
         Initialize RAG Pipeline.
         
         Args:
             output_dir: Directory để lưu output files
+            pdf_dir: Directory chứa PDF files (default: output_dir/pdf)
             model_type: Ollama model type (GEMMA hoặc BGE_M3)
         """
         self.output_dir = Path(output_dir)
+        self.pdf_dir = Path(pdf_dir) if pdf_dir else self.output_dir / "pdf"
         self.model_type = model_type
         
         # Create output subdirectories
@@ -71,7 +74,7 @@ class RAGPipeline:
         # Initialize components
         logger.info("Initializing RAG Pipeline...")
         self.loader = PDFLoader.create_default()
-        self.chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
+        self.chunker = HybridChunker(max_tokens=500, overlap_tokens=50)
         
         # Initialize embedder with model switcher
         self.model_switcher = OllamaModelSwitcher()
@@ -105,7 +108,7 @@ class RAGPipeline:
         )
         
         logger.info(f"Loader: PDFLoader")
-        logger.info(f"Chunker: HybridChunker (max_tokens=200)")
+        logger.info(f"Chunker: {self.chunker}")
         logger.info(f"Embedder: {self.embedder.profile.model_id}")
         logger.info(f"Dimension: {self.embedder.dimension}")
         logger.info(f"Output: {self.output_dir}")
@@ -193,6 +196,40 @@ class RAGPipeline:
         return self.integrity_checker.check_data_integrity(
             pdf_path, chunks_file, embeddings_file, faiss_index_file, metadata_file
         )
+    
+    def switch_model(self, model_type: OllamaModelType) -> None:
+        """
+        Switch the embedding model.
+        
+        Args:
+            model_type: New model type to switch to
+        """
+        if model_type == OllamaModelType.GEMMA:
+            self.embedder = self.model_switcher.switch_to_gemma()
+        else:
+            self.embedder = self.model_switcher.switch_to_bge_m3()
+        
+        self.model_type = model_type
+        logger.info(f"Switched to model: {self.embedder.profile.model_id}")
+    
+    def get_info(self) -> Dict[str, Any]:
+        """
+        Get information about the current pipeline configuration.
+        
+        Returns:
+            Dict with pipeline information
+        """
+        return {
+            "output_dir": str(self.output_dir),
+            "pdf_dir": str(self.pdf_dir),
+            "model_type": self.model_type.value,
+            "embedder_model": self.embedder.profile.model_id,
+            "embedder_dimension": self.embedder.dimension,
+            "loader": "PDFLoader",
+            "chunker": str(self.chunker),
+            "vector_store": "FAISS",
+            "cache_enabled": True
+        }
     
     def process_pdf(self, pdf_path: str | Path) -> Dict[str, Any]:
         """
@@ -387,13 +424,13 @@ class RAGPipeline:
         Process all PDFs in a directory.
         
         Args:
-            pdf_dir: Directory containing PDFs (default: data/pdf)
+            pdf_dir: Directory containing PDFs (default: self.pdf_dir)
             
         Returns:
             List of processing results
         """
         if pdf_dir is None:
-            pdf_dir = self.output_dir / "pdf"
+            pdf_dir = self.pdf_dir
         else:
             pdf_dir = Path(pdf_dir)
         
@@ -428,6 +465,19 @@ class RAGPipeline:
         self.summary_generator.save_batch_summary(batch_summary)
         
         return results
+    
+    def load_index(self, faiss_file: Path, metadata_map_file: Path) -> tuple:
+        """
+        Load existing FAISS index and metadata map.
+        
+        Args:
+            faiss_file: Path to FAISS index file
+            metadata_map_file: Path to metadata map file
+            
+        Returns:
+            Tuple of (faiss_index, metadata_map)
+        """
+        return self.vector_store.load_index(faiss_file, metadata_map_file)
     
     def search_similar(self, faiss_file: Path, metadata_map_file: Path,
                       query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:

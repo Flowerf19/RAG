@@ -15,6 +15,6 @@ tiktoken
 faiss-cpu
 numpy
 requests
-cleantext
-hashlib
-numpy
+streamlit
+google-generativeai
+openai

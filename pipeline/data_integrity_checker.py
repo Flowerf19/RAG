@@ -103,9 +103,14 @@ class DataIntegrityChecker:
             if chunks_file and isinstance(chunks_file, Path):
                 with open(chunks_file, 'r', encoding='utf-8') as f:
                     content = f.read()
-                    # Parse chunks from text file
-                    chunk_blocks = content.split('=' * 80)[1:-1]  # Skip header and empty end
+                    # Parse chunks from text file - split by separator with newlines
+                    separator = '=' * 80 + '\n\n'
+                    chunk_blocks = content.split(separator)[1:]  # Skip header
+
                     for block in chunk_blocks:
+                        if not block.strip():  # Skip empty blocks
+                            continue
+
                         if 'CHUNK' in block:
                             lines = block.strip().split('\n')
                             chunk_info = {}
@@ -113,14 +118,24 @@ class DataIntegrityChecker:
                             for i, line in enumerate(lines):
                                 if line.startswith('CHUNK'):
                                     parts = line.split('|')
-                                    chunk_info['chunk_id'] = parts[0].split(':')[1].strip()
-                                    chunk_info['page'] = int(parts[1].split(':')[1].strip()) if 'Page:' in parts[1] else None
-                                    chunk_info['tokens'] = int(parts[2].split(':')[1].strip()) if 'Tokens:' in parts[2] else None
-                                    chunk_info['type'] = parts[3].split(':')[1].strip() if len(parts) > 3 else None
+                                    if len(parts) >= 1:
+                                        chunk_info['chunk_id'] = parts[0].split(':')[1].strip()
+                                    if len(parts) >= 2 and 'Page:' in parts[1]:
+                                        try:
+                                            chunk_info['page'] = int(parts[1].split(':')[1].strip())
+                                        except (ValueError, IndexError):
+                                            chunk_info['page'] = None
+                                    if len(parts) >= 3 and 'Tokens:' in parts[2]:
+                                        try:
+                                            chunk_info['tokens'] = int(parts[2].split(':')[1].strip())
+                                        except (ValueError, IndexError):
+                                            chunk_info['tokens'] = None
+                                    if len(parts) >= 4 and 'Type:' in parts[3]:
+                                        chunk_info['type'] = parts[3].split(':')[1].strip()
                                 elif line.startswith('-' * 40):
                                     text_start = i + 1
                                     break
-                            if text_start > 0:
+                            if text_start > 0 and text_start < len(lines):
                                 chunk_info['text'] = '\n'.join(lines[text_start:]).strip()
                                 chunks_data.append(chunk_info)
 

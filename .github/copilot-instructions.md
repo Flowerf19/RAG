@@ -7,6 +7,7 @@ Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument 
 - **`loaders/`** - Raw PDF extraction (text/tables) with factory patterns
 - **`chunkers/`** - Multi-strategy text segmentation (semantic/rule-based/fixed-size)
 - **`embedders/`** - Ollama-only embeddings (Gemma:2048-dim, BGE-M3:1024-dim)
+- **`llm/`** - LLM integration with configuration loading and API handlers
 - **`pipeline/`** - RAG pipeline package with composition architecture
   - **`rag_pipeline.py`** - Main orchestrator using composition
   - **`vector_store.py`** - FAISS index management
@@ -37,7 +38,7 @@ python -m pytest -v --cov=loaders
 
 # Run tests by module
 python -m pytest test/loaders/ -v        # PDF loading tests
-python -m pytest test/chunkers/ -v       # Chunking tests  
+python -m pytest test/chunkers/ -v       # Chunking tests
 python -m pytest test/embedders/ -v      # Embedding tests
 python -m pytest test/pipeline/ -v       # Pipeline tests
 
@@ -46,6 +47,12 @@ python -m pytest chunkers/test_fixed_size_chunker.py -v
 
 # Integration demos
 python chunkers/chunk_pdf_demo.py         # Chunking demo with actual PDFs
+```
+
+### LLM Integration Testing
+```powershell
+# Test LLM API connections
+python -c "from llm.LLM_API import LLMAPI; api = LLMAPI(); print('LLM ready')"
 ```
 
 ### Ollama Setup (Required)
@@ -90,7 +97,17 @@ loader = PDFLoader(extract_tables=True, min_text_length=15)
 # loader = PDFLoader()  # Would load preprocessing.yaml
 ```
 
-### 3. Data Model Normalization
+### 3. Configuration Loading Pattern
+**Centralized config loading with caching:**
+```python
+from llm.config_loader import get_config
+
+# Load app configuration (cached singleton)
+config = get_config()
+model_settings = config.get('llm', {}).get('models', {})
+```
+
+### 4. Data Model Normalization
 **Raw extraction separated from cleaning:**
 ```python
 # Load raw data
@@ -100,12 +117,12 @@ pdf_doc = loader.load("doc.pdf")
 pdf_doc = pdf_doc.normalize()  # Deduplication, text cleaning, etc.
 ```
 
-### 4. Modular Chunking Strategies  
+### 5. Modular Chunking Strategies
 **HybridChunker orchestrates multiple chunking approaches:**
 ```python
 # Configure chunker with multiple strategies
 chunker = HybridChunker(
-    max_tokens=200, 
+    max_tokens=200,
     overlap_tokens=20,
     mode=ChunkerMode.AUTO  # Auto-selects best strategy per document section
 )
@@ -114,7 +131,7 @@ chunker = HybridChunker(
 chunk_set = chunker.chunk(pdf_document)
 ```
 
-### 5. Composition over Inheritance
+### 6. Composition over Inheritance
 **RAGPipeline uses composition with specialized classes:**
 ```python
 from pipeline import RAGPipeline, VectorStore, SummaryGenerator, Retriever
@@ -125,7 +142,7 @@ class RAGPipeline:
         self.chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
         self.embedder = embedder_factory.create_gemma()
         self.vector_store = VectorStore(self.vectors_dir)      # Separate class
-        self.summary_generator = SummaryGenerator(...)         # Separate class  
+        self.summary_generator = SummaryGenerator(...)         # Separate class
         self.retriever = Retriever(self.embedder)              # Separate class
 ```
 
@@ -144,6 +161,11 @@ fitz (PyMuPDF)      # Primary text extraction
 pdfplumber          # Table extraction fallback
 camelot-py[cv]      # Advanced table parsing
 ```
+
+### LLM Integration
+- **Local LLM**: Ollama-based models via `llm/LLM_LOCAL.py`
+- **API LLM**: External API integration via `llm/LLM_API.py`
+- **Config Loading**: YAML-based configuration in `config/app.yaml`
 
 ### Data Output Structure
 Each processed PDF generates three files:
@@ -189,6 +211,7 @@ for result in results:
 - **Loaders**: Raw extraction only (no chunking/normalization)
 - **Chunkers**: Document → chunks only (no embedding)
 - **Embedders**: Chunks → vectors only (Ollama-only)
+- **LLM**: Model integration and API handling only
 - **VectorStore**: FAISS index management only
 - **SummaryGenerator**: Summary creation and persistence only
 - **Retriever**: Search operations only
@@ -203,6 +226,15 @@ if chunk.metadata.get("block_type") == "table":
     rows = table_payload.rows
 ```
 
+### Configuration Management
+```python
+# Use config_loader for centralized configuration
+from llm.config_loader import get_config
+
+config = get_config()  # Cached singleton pattern
+llm_config = config.get('llm', {})
+```
+
 ### Testing Structure
 ```python
 # One test class per module
@@ -212,6 +244,13 @@ class TestPDFLoader:
 
     def test_factory_create_default(self):
         """Test factory method patterns"""
+
+# Test file organization mirrors source structure
+test/
+├── loaders/test_pdf_loader.py
+├── chunkers/test_hybrid_chunker.py
+├── embedders/test_embedder_factory.py
+└── pipeline/test_rag_pipeline.py
 ```
 
 ---
@@ -222,5 +261,7 @@ class TestPDFLoader:
 - **Dimension Mismatch**: Gemma (2048) ≠ BGE-M3 (1024) - choose based on use case
 - **Memory Usage**: FAISS indexes can be large; monitor disk space in `data/vectors/`
 - **PDF Encoding**: Use UTF-8 handling; some PDFs have encoding issues
+- **Config Loading**: Use `get_config()` from `llm.config_loader` instead of direct YAML loading
+- **Model Switching**: Use `OllamaModelSwitcher` for runtime model changes, not recreating embedders
 
 Use these patterns when extending the system or adding new modules.

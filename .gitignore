@@ -189,4 +189,5 @@ data/embeddings/
 data/vectors/
 data/metadata/
 data/quality_reports/
-# Keep: data/pdf/ (source PDFs), data/README.md, data/cache/processed_chunks.json (might be useful)
+data/cache/
+# Keep: data/pdf/ (source PDFs), data/README.md

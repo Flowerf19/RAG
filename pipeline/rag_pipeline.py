@@ -568,7 +568,7 @@ class RAGPipeline:
         return self.vector_store.load_index(faiss_file, metadata_map_file)
     
     def search_similar(self, faiss_file: Path, metadata_map_file: Path,
-                      query_text: str, top_k: int = 5) -> List[Dict[str, Any]]:
+                      query_text: str, top_k: int = 10) -> List[Dict[str, Any]]:
         """
         Search for similar chunks using FAISS index.
         
@@ -588,7 +588,7 @@ def main():
     """Main entry point for RAG Pipeline."""
     logger.info("Starting RAG Pipeline")
     
-    # Initialize pipeline với Gemma embedder
+    # Initialize pipeline với Gemma embedder (có FAISS index hiện tại)
     pipeline = RAGPipeline(
         output_dir="data",
         model_type=OllamaModelType.GEMMA

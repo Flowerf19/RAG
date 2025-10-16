@@ -185,7 +185,7 @@ def ask_backend(prompt_text: str) -> str:
         # Build messages bằng chat_handler
         # Lấy context từ Retrieval (nếu có) và lưu nguồn để hiển thị.
         try:
-            ret = fetch_retrieval(prompt_text, top_k=10, max_chars=4000)  # Giảm xuống 1000 để đảm bảo không vượt limit
+            ret = fetch_retrieval(prompt_text, top_k=10, max_chars=8000)  # Tăng lên 8000
             context = ret.get("context", "") or ""
             st.session_state["last_sources"] = ret.get("sources", [])
         except Exception:

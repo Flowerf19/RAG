@@ -1,4 +1,4 @@
-# RAG System – Copilot Development Instructions
+# RAG System – AI Coding Agent Instructions
 
 ## 🎯 System Architecture
 Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument → HybridChunker → ChunkSet → OllamaEmbedder → FAISS`
@@ -6,13 +6,13 @@ Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument 
 **Key Modules:**
 - **`loaders/`** - Raw PDF extraction (text/tables) with factory patterns
 - **`chunkers/`** - Multi-strategy text segmentation (semantic/rule-based/fixed-size)
-- **`embedders/`** - Ollama-only embeddings (Gemma:2048-dim, BGE-M3:1024-dim)
+- **`embedders/`** - Ollama-only embeddings (Gemma:768-dim, BGE-M3:1024-dim)
 - **`llm/`** - LLM integration with configuration loading and API handlers
 - **`pipeline/`** - RAG pipeline package with composition architecture
   - **`rag_pipeline.py`** - Main orchestrator using composition
-  - **`vector_store.py`** - FAISS index management
+  - **`vector_store.py`** - FAISS index management with IndexFlatIP
   - **`summary_generator.py`** - Document/batch summaries
-  - **`retriever.py`** - Vector similarity search using cosine similarity
+  - **`retriever.py`** - Cosine similarity search using normalized vectors
 - **`data/`** - FAISS indexes (.faiss), metadata maps (.pkl), summaries (.json)
 
 ---
@@ -22,13 +22,16 @@ Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument 
 ### Core Pipeline Execution
 ```powershell
 # Process all PDFs in data/pdf/ to FAISS indexes
+python run_pipeline.py
+
+# Alternative: Direct module execution
 python -m pipeline.rag_pipeline
 
 # Test chunking functionality (available demo)
 python chunkers/chunk_pdf_demo.py
 
-# Alternative: Use RAGPipeline directly in Python
-python -c "from pipeline import RAGPipeline; p = RAGPipeline(); print('Pipeline ready')"
+# Test retrieval system
+python test_retrieval.py
 ```
 
 ### Testing & Validation
@@ -36,18 +39,27 @@ python -c "from pipeline import RAGPipeline; p = RAGPipeline(); print('Pipeline 
 # Run all tests with coverage (configured in pyproject.toml)
 python -m pytest -v --cov=loaders
 
-# Run tests by module
+# Run tests by module (note: embedders typo in path)
 python -m pytest test/loaders/ -v        # PDF loading tests
 python -m pytest test/chunkers/ -v       # Chunking tests
-python -m pytest test/embedders/ -v      # Embedding tests
+python -m pytest test/embeders/ -v       # Embedding tests (note: "embeders" not "embedders")
 python -m pytest test/pipeline/ -v       # Pipeline tests
 
 # Individual chunker tests
 python -m pytest chunkers/test_fixed_size_chunker.py -v
 
-# Integration demos
-python chunkers/chunk_pdf_demo.py         # Chunking demo with actual PDFs
+# Manual pipeline integration test
+python test/pipeline/test_pipeline_manual.py
+
+# Real PDF integration test
+python test/pipeline/test_real_pdf.py
 ```
+
+### Chunk Caching Behavior
+The pipeline maintains a cache of processed chunks (`data/cache/processed_chunks.json`):
+- **First run**: Generates embeddings for all chunks
+- **Subsequent runs**: Skips chunks with identical content hash (no re-embedding)
+- **To force re-processing**: Delete `data/cache/processed_chunks.json` before running
 
 ### LLM Integration Testing
 ```powershell
@@ -78,7 +90,7 @@ loader = PDFLoader.create_text_only()      # Text only
 
 # Embedding (Ollama-only)
 factory = EmbedderFactory()
-gemma = factory.create_gemma()             # 2048-dim semantic search
+gemma = factory.create_gemma()             # 768-dim semantic search
 bge3 = factory.create_bge_m3()             # 1024-dim multilingual
 
 # Fast model switching
@@ -248,8 +260,26 @@ class TestPDFLoader:
 # Test file organization mirrors source structure
 test/
 ├── loaders/test_pdf_loader.py
-├── chunkers/test_hybrid_chunker.py
-├── embedders/test_embedder_factory.py
+├── chunkers/test_chunkers.py
+├── embeders/test_embedders.py
+└── pipeline/test_rag_pipeline.py
+```
+
+### Testing Structure
+```python
+# One test class per module
+class TestPDFLoader:
+    def test_initialization_default_params(self):
+        """Test constructor with defaults"""
+
+    def test_factory_create_default(self):
+        """Test factory method patterns"""
+
+# Test file organization mirrors source structure
+test/
+├── loaders/test_pdf_loader.py
+├── chunkers/test_chunkers.py
+├── embeders/test_embedders.py
 └── pipeline/test_rag_pipeline.py
 ```
 
@@ -258,7 +288,7 @@ test/
 ## 🚨 Common Pitfalls
 
 - **Ollama Connection**: Always test connection before embedding operations
-- **Dimension Mismatch**: Gemma (2048) ≠ BGE-M3 (1024) - choose based on use case
+- **Dimension Mismatch**: Gemma (768) ≠ BGE-M3 (1024) - choose based on use case
 - **Memory Usage**: FAISS indexes can be large; monitor disk space in `data/vectors/`
 - **PDF Encoding**: Use UTF-8 handling; some PDFs have encoding issues
 - **Config Loading**: Use `get_config()` from `llm.config_loader` instead of direct YAML loading

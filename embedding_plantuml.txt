@@ -1,0 +1,161 @@
+@startuml
+title RAG ChatBot - Embedding System Architecture
+skinparam linetype ortho
+
+'================== CORE INTERFACE ==================
+interface IEmbedder {
+  +dimension: int
+  --
+  +embed(text: String): List<float>
+  +embed_batch(texts: List<String>): List<List<float>>
+  +test_connection(): bool
+}
+
+'================== DATA MODEL ==================
+class EmbeddingProfile <<dataclass>> {
+  +model_id: String
+  +provider: String
+  +max_tokens: int = 512
+  +dimension: Optional<int> = None
+  +normalize: bool = True
+  --
+  +get_config_dict(): Dict<String, Any>
+}
+
+'================== BASE CLASSES ==================
+abstract class BaseEmbedder {
+  #profile: EmbeddingProfile
+  --
+  +dimension: int
+  +embed_batch(texts: List<String>): List<List<float>>
+  #_validate_profile(): void
+}
+
+abstract class BaseOllamaEmbedder {
+  #base_url: String
+  --
+  #_test_connection(): void
+  #_generate_embedding(text: String): List<float>
+  #_process_batch(requests): List
+  +embed(text: String): List<float>
+  +test_connection(): bool
+  +is_available(): bool
+  +get_available_models(): List<String>
+  +switch_model(model_name: String): bool
+  +estimate_tokens(text: String): int
+  {abstract} +embed_single(req): List<float>
+}
+
+'================== CONCRETE PROVIDERS ==================
+class OllamaEmbedder {
+  <<Generic Ollama Provider>>
+  +DEFAULT_MODEL_ID = "nomic-embed-text"
+  +DEFAULT_DIMENSION = 768
+  +DEFAULT_MAX_TOKENS = 8192
+  --
+  +create_default(base_url: String): OllamaEmbedder
+  +switch_model(model_name: String): bool
+  +get_available_models(): List<String>
+  +estimate_tokens(text: String): int
+}
+
+class GemmaEmbedder {
+  <<Gemma Embedding Provider>>
+  +MODEL_ID = "embeddinggemma:latest"
+  +DIMENSION = 768
+  +MAX_TOKENS = 2048
+  +PROVIDER = "ollama"
+  --
+  +create_default(base_url: String): GemmaEmbedder
+  +get_config(): dict
+  -_create_profile(): EmbeddingProfile
+}
+
+class BGE3Embedder {
+  <<BGE-M3 Embedding Provider>>
+  +MODEL_ID = "bge-m3:latest"
+  +DIMENSION = 1024
+  +MAX_TOKENS = 8192
+  +PROVIDER = "ollama"
+  --
+  +create_default(base_url: String): BGE3Embedder
+  +embed_single(req): List<float>
+  +get_config(): dict
+  -_create_profile(): EmbeddingProfile
+}
+
+'================== FACTORY ==================
+enum EmbedderType {
+  OLLAMA
+}
+
+class EmbedderFactory {
+  -_registry: Dict<EmbedderType, type>
+  --
+  +create(type: EmbedderType, profile: EmbeddingProfile, **kwargs): IEmbedder
+  +create_ollama_nomic(base_url: String): OllamaEmbedder
+  +create_bge_m3(base_url: String): BGE3Embedder
+  +create_gemma(base_url: String): GemmaEmbedder
+}
+
+'================== RELATIONSHIPS ==================
+
+' Interface Implementation
+IEmbedder <|.. BaseEmbedder
+BaseEmbedder <|-- BaseOllamaEmbedder
+
+' Ollama Hierarchy
+BaseOllamaEmbedder <|-- OllamaEmbedder
+BaseOllamaEmbedder <|-- GemmaEmbedder
+BaseOllamaEmbedder <|-- BGE3Embedder
+
+' Composition
+BaseEmbedder *-- "1" EmbeddingProfile : uses
+
+' Factory Relationships
+EmbedderFactory ..> EmbedderType : uses
+EmbedderFactory ..> EmbeddingProfile : reads
+EmbedderFactory --> IEmbedder : creates
+EmbedderFactory ..> OllamaEmbedder : creates
+EmbedderFactory ..> GemmaEmbedder : creates
+EmbedderFactory ..> BGE3Embedder : creates
+
+' Profile Creation
+GemmaEmbedder ..> EmbeddingProfile : creates via\n_create_profile()
+BGE3Embedder ..> EmbeddingProfile : creates via\n_create_profile()
+
+'================== NOTES ==================
+note right of GemmaEmbedder
+  Config is stored as class constants:
+  - MODEL_ID
+  - DIMENSION
+  - MAX_TOKENS
+  - PROVIDER
+  
+  No external config needed!
+end note
+
+note right of BGE3Embedder
+  Higher dimension (1024) and
+  larger context (8192 tokens)
+  compared to Gemma
+end note
+
+note bottom of EmbedderFactory
+  Factory provides convenient
+  create_* methods for each
+  concrete embedder type
+end note
+
+note top of BaseOllamaEmbedder
+  Handles Ollama API communication:
+  - POST /api/embeddings
+  - GET /api/tags
+  
+  Provides common functionality:
+  - Connection testing
+  - Model switching
+  - Token estimation
+end note
+
+@enduml

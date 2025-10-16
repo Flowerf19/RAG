@@ -1,3 +1,14 @@
+
+# Thêm các package Python cần thiết cho dự án vào đây
+# Ví dụ:
+# numpy
+# pandas
+# langchain
+# sentence-transformers
+# faiss-cpu
+# transformers
+streamlit
+google-generativeai
 PyMuPDF
 pdfminer.six
 PyPDF2
@@ -15,6 +26,5 @@ tiktoken
 faiss-cpu
 numpy
 requests
-cleantext
-hashlib
-numpy
+pyyaml
+openai

@@ -16,19 +16,20 @@ def main():
     print('=' * 60)
 
     try:
-        from pipeline.rag_pipeline import RAGPipeline
-        from embedders.providers.ollama import OllamaModelType
+        from RAG_system.pipeline.rag_pipeline import RAGPipeline
+        from RAG_system.EMBEDDERS.providers.ollama import OllamaModelType
 
         # Initialize pipeline
         print('📋 Initializing RAG Pipeline...')
         pipeline = RAGPipeline(model_type=OllamaModelType.GEMMA)
-
+        print(0)
         # Process the PDF
-        pdf_path = r'C:\Users\ENGUYEHWC\Prototype\Version_4\data\pdf\Process_Service Configuration Management.pdf'
+        pdf_path = r'C:\Users\ENGUYEMOX\OneDrive - NTT DATA EMEAL\Desktop\RAG_ChatBot\data\pdf\Process_Service Configuration Management.pdf'
         print(f'📄 Processing PDF: {Path(pdf_path).name}')
-
+        print(1)
         result = pipeline.process_pdf(pdf_path)
-
+        ###### sai o tren
+        print(111)
         print('✅ PDF Processing Complete!')
         print(f'📊 Status: {"success" if result.get("success") else "failed"}')
         print(f'📄 Filename: {result.get("file_name", "unknown")}')
@@ -36,7 +37,7 @@ def main():
         print(f'🔢 Chunks: {result.get("chunks", "unknown")}')
         print(f'🎯 Embeddings: {result.get("embeddings", "unknown")}')
         print(f'📐 Dimension: {result.get("dimension", "unknown")}')
-
+        print(2)
         # Test search functionality
         print('\n🔍 Testing Search Functionality...')
 

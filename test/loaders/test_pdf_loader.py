@@ -8,8 +8,8 @@ from unittest.mock import patch, MagicMock
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from loaders.pdf_loader import PDFLoader
-from loaders.model.document import PDFDocument
+from RAG_system.LOADER.pdf_loader import PDFLoader
+from RAG_system.LOADER.model.document import PDFDocument
 
 
 class TestPDFLoader:

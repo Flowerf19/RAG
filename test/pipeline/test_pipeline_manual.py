@@ -16,7 +16,7 @@ def test_vector_store():
     print("🧪 Testing VectorStore...")
 
     try:
-        from pipeline.vector_store import VectorStore
+        from RAG_system.pipeline.vector_store import VectorStore
         import tempfile
         import numpy as np
         import faiss
@@ -81,8 +81,8 @@ def test_retriever():
     print("🧪 Testing Retriever...")
 
     try:
-        from pipeline.retriever import Retriever
-        from embedders.providers.ollama.gemma_embedder import GemmaEmbedder
+        from RAG_system.pipeline.retriever import Retriever
+        from RAG_system.EMBEDDERS.providers.ollama.gemma_embedder import GemmaEmbedder
         from unittest.mock import patch
 
         # Mock the embedder
@@ -107,7 +107,7 @@ def test_summary_generator():
     print("🧪 Testing SummaryGenerator...")
 
     try:
-        from pipeline.summary_generator import SummaryGenerator
+        from RAG_system.pipeline.summary_generator import SummaryGenerator
         import tempfile
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -140,8 +140,8 @@ def test_rag_pipeline():
     print("🧪 Testing RAGPipeline...")
 
     try:
-        from pipeline.rag_pipeline import RAGPipeline
-        from embedders.providers.ollama import OllamaModelType
+        from RAG_system.pipeline.rag_pipeline import RAGPipeline
+        from RAG_system.EMBEDDERS.providers.ollama import OllamaModelType
 
         # Test initialization only (don't process actual PDF)
         pipeline = RAGPipeline(model_type=OllamaModelType.GEMMA)

@@ -7,12 +7,12 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from embedders.embedder_factory import EmbedderFactory
-from embedders.embedder_type import EmbedderType
-from embedders.model.embedding_profile import EmbeddingProfile
-from embedders.providers.ollama.gemma_embedder import GemmaEmbedder
-from embedders.providers.ollama.bge3_embedder import BGE3Embedder
-from embedders.providers.ollama_embedder import OllamaEmbedder
+from RAG_system.EMBEDDERS.embedder_factory import EmbedderFactory
+from RAG_system.EMBEDDERS.embedder_type import EmbedderType
+from RAG_system.EMBEDDERS.model.embedding_profile import EmbeddingProfile
+from RAG_system.EMBEDDERS.providers.ollama.gemma_embedder import GemmaEmbedder
+from RAG_system.EMBEDDERS.providers.ollama.bge3_embedder import BGE3Embedder
+from RAG_system.EMBEDDERS.providers.ollama_embedder import OllamaEmbedder
 
 
 class TestEmbedderFactory:

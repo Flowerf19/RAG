@@ -4,15 +4,17 @@
 Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument → HybridChunker → ChunkSet → OllamaEmbedder → FAISS`
 
 **Key Modules:**
-- **`loaders/`** - Raw PDF extraction (text/tables) with factory patterns
-- **`chunkers/`** - Multi-strategy text segmentation (semantic/rule-based/fixed-size)
-- **`embedders/`** - Ollama-only embeddings (Gemma:2048-dim, BGE-M3:1024-dim)
-- **`pipeline/`** - RAG pipeline package with composition architecture
+- **`RAG_system/LOADER/`** - Raw PDF extraction (text/tables) with factory patterns
+- **`RAG_system/CHUNKERS/`** - Multi-strategy text segmentation (semantic/rule-based/fixed-size)
+- **`RAG_system/EMBEDDERS/`** - Ollama-only embeddings (Gemma:2048-dim, BGE-M3:1024-dim)
+- **`RAG_system/pipeline/`** - RAG pipeline package with composition architecture
   - **`rag_pipeline.py`** - Main orchestrator using composition
   - **`vector_store.py`** - FAISS index management
   - **`summary_generator.py`** - Document/batch summaries
   - **`retriever.py`** - Vector similarity search using cosine similarity
+- **`RAG_system/LLM/`** - Local LLM integration (Ollama + Gemini API support)
 - **`data/`** - FAISS indexes (.faiss), metadata maps (.pkl), summaries (.json)
+- **`test/`** - Comprehensive test suite with unit and integration tests
 
 ---
 
@@ -20,32 +22,31 @@ Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument 
 
 ### Core Pipeline Execution
 ```powershell
-# Process all PDFs in data/pdf/ to FAISS indexes
-python -m pipeline.rag_pipeline
+# Process all PDFs in data/pdf/ to FAISS indexes (run from project root)
+python RAG_system/pipeline/rag_pipeline.py
 
-# Test chunking functionality (available demo)
-python chunkers/chunk_pdf_demo.py
+# Alternative: Use as module
+cd RAG_system && python -m pipeline.rag_pipeline
 
-# Alternative: Use RAGPipeline directly in Python
-python -c "from pipeline import RAGPipeline; p = RAGPipeline(); print('Pipeline ready')"
+# Test complete RAG query workflow
+python test_query.py
 ```
 
 ### Testing & Validation
 ```powershell
-# Run all tests with coverage (configured in pyproject.toml)
-python -m pytest -v --cov=loaders
+# Run all tests with coverage (from project root)
+python -m pytest -v --cov=RAG_system test/
 
-# Run tests by module
-python -m pytest test/loaders/ -v        # PDF loading tests
-python -m pytest test/chunkers/ -v       # Chunking tests  
-python -m pytest test/embedders/ -v      # Embedding tests
-python -m pytest test/pipeline/ -v       # Pipeline tests
+# Individual module tests
+python -m pytest test/loaders/test_pdf_loader.py -v
+python -m pytest RAG_system/CHUNKERS/test_fixed_size_chunker.py -v
 
-# Individual chunker tests
-python -m pytest chunkers/test_fixed_size_chunker.py -v
+# Integration tests
+python test/pipeline/test_real_pdf.py
+python test/pipeline/test_pipeline_manual.py
 
-# Integration demos
-python chunkers/chunk_pdf_demo.py         # Chunking demo with actual PDFs
+# Manual component demos
+python RAG_system/CHUNKERS/chunk_pdf_demo.py
 ```
 
 ### Ollama Setup (Required)
@@ -53,9 +54,23 @@ python chunkers/chunk_pdf_demo.py         # Chunking demo with actual PDFs
 # Check available models
 ollama list
 
-# Required models
+# Required embedding models
 ollama pull embeddinggemma:latest
 ollama pull bge-m3:latest
+
+# Required LLM models
+ollama pull gemma3:1b
+```
+
+### Environment Setup
+```powershell
+# Install dependencies
+pip install -r requirements.txt
+
+# Verify Ollama connection
+curl http://localhost:11434/api/tags
+
+# Run from project root directory - imports depend on pythonpath
 ```
 
 ---
@@ -63,70 +78,65 @@ ollama pull bge-m3:latest
 ## 🏗️ Critical Code Patterns
 
 ### 1. Factory Pattern (Universal)
-**Every major class uses factories for common configs:**
+**Every major class uses factories for common configurations:**
 ```python
 # PDF Loading
 loader = PDFLoader.create_default()        # Text + tables, normalization enabled
-loader = PDFLoader.create_text_only()      # Text only
+loader = PDFLoader.create_text_only()      # Text extraction only
+loader = PDFLoader.create_tables_only()    # Table extraction only
 
-# Embedding (Ollama-only)
-factory = EmbedderFactory()
-gemma = factory.create_gemma()             # 2048-dim semantic search
-bge3 = factory.create_bge_m3()             # 1024-dim multilingual
-
-# Fast model switching
+# Embedding (Ollama-only architecture)
 switcher = OllamaModelSwitcher()
-switcher.switch_to_gemma()
-embedder = switcher.current_embedder
+gemma_embedder = switcher.switch_to_gemma()    # 2048-dim semantic search
+bge3_embedder = switcher.switch_to_bge_m3()    # 1024-dim multilingual
+
+# Embedder factory alternative
+factory = EmbedderFactory()
+embedder = factory.create_ollama_nomic()
 ```
 
 ### 2. Constructor Injection (No Global Config)
-**All configuration via constructor - no YAML dependencies:**
+**All configuration via constructor parameters - limited YAML usage:**
 ```python
-# ✅ Current pattern
+# ✅ Explicit configuration pattern
 loader = PDFLoader(extract_tables=True, min_text_length=15)
+chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
 
-# ❌ Deprecated (YAML auto-loading)
-# loader = PDFLoader()  # Would load preprocessing.yaml
+# ⚠️ YAML only for UI/LLM config (config/app.yaml)
+# Core pipeline components avoid YAML dependencies
 ```
 
 ### 3. Data Model Normalization
-**Raw extraction separated from cleaning:**
+**Raw extraction separated from cleaning/processing:**
 ```python
-# Load raw data
-pdf_doc = loader.load("doc.pdf")
+# Load raw data first
+pdf_doc = loader.load("document.pdf")
 
 # Apply normalization when needed
-pdf_doc = pdf_doc.normalize()  # Deduplication, text cleaning, etc.
+pdf_doc = pdf_doc.normalize()  # Deduplication, text cleaning, encoding fixes
 ```
 
-### 4. Modular Chunking Strategies  
-**HybridChunker orchestrates multiple chunking approaches:**
+### 4. Composition over Inheritance
+**RAGPipeline orchestrates specialized components:**
 ```python
-# Configure chunker with multiple strategies
-chunker = HybridChunker(
-    max_tokens=200, 
-    overlap_tokens=20,
-    mode=ChunkerMode.AUTO  # Auto-selects best strategy per document section
-)
-
-# Available strategies: semantic, rule-based, fixed-size, structural-first
-chunk_set = chunker.chunk(pdf_document)
-```
-
-### 5. Composition over Inheritance
-**RAGPipeline uses composition with specialized classes:**
-```python
-from pipeline import RAGPipeline, VectorStore, SummaryGenerator, Retriever
-
 class RAGPipeline:
-    def __init__(self, ...):
+    def __init__(self, model_type=OllamaModelType.GEMMA):
         self.loader = PDFLoader.create_default()
         self.chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
-        self.embedder = embedder_factory.create_gemma()
-        self.vector_store = VectorStore(self.vectors_dir)      # Separate class
-        self.summary_generator = SummaryGenerator(...)         # Separate class  
-        self.retriever = Retriever(self.embedder)              # Separate class
+        self.model_switcher = OllamaModelSwitcher()
+        self.embedder = self.model_switcher.switch_to_gemma()
+        self.vector_store = VectorStore(self.vectors_dir)
+        self.summary_generator = SummaryGenerator(...)
+        self.retriever = Retriever(self.embedder)
+```
+
+### 5. Triple Output Pattern
+**Each PDF processing generates exactly 3 files:**
+```python
+# Every processed document creates:
+# 1. {doc}_vectors_{timestamp}.faiss     - Binary vector index
+# 2. {doc}_metadata_map_{timestamp}.pkl  - Metadata mapping 
+# 3. {doc}_summary_{timestamp}.json      - Human-readable summary
 ```
 
 ---
@@ -134,46 +144,27 @@ class RAGPipeline:
 ## 🔧 Integration Points & Dependencies
 
 ### External Services
-- **Ollama Server**: `http://localhost:11434` (required for all embeddings)
-- **FAISS**: Vector storage and cosine similarity search (IndexFlatIP with normalized vectors)
+- **Ollama Server**: `http://localhost:11434` (required for all embeddings + LLM)
+- **Google Gemini API**: Configurable via `config/app.yaml` (optional LLM backend)
+- **FAISS**: Vector storage with IndexFlatIP + cosine similarity (normalized vectors)
 
-### PDF Processing Libraries
+### PDF Processing Stack
 ```python
 # Multiple engines for robustness
 fitz (PyMuPDF)      # Primary text extraction
-pdfplumber          # Table extraction fallback
+pdfplumber          # Table extraction fallback  
 camelot-py[cv]      # Advanced table parsing
 ```
 
-### Data Output Structure
-Each processed PDF generates three files:
-```
-data/
-├── vectors/
-│   ├── Document_vectors_20251015_143022.faiss      # Binary FAISS index
-│   └── Document_metadata_map_20251015_143022.pkl   # Chunk metadata (pages, provenance)
-└── metadata/
-    └── Document_summary_20251015_143022.json       # Human-readable document info
-```
-
-### Search & Retrieval
+### LLM Integration Points
 ```python
-# Direct pipeline usage for search
-from pipeline import RAGPipeline
-pipeline = RAGPipeline()
+# Dual LLM support
+llm_client = LLMClient(model="gemma3:1b")  # Ollama local
+# OR configured via config/app.yaml for Gemini API
 
-# Search against specific FAISS index
-results = pipeline.search_similar(
-    faiss_file=Path("data/vectors/Doc_vectors_20251015.faiss"),
-    metadata_map_file=Path("data/vectors/Doc_metadata_map_20251015.pkl"),
-    query_text="your search query",
-    top_k=5
-)
-
-# Results include cosine similarity scores, text content, and page numbers
-for result in results:
-    print(f"Score: {result['cosine_similarity']:.4f}")
-    print(f"Page: {result['page_number']}")
+# RAG query workflow
+results = pipeline.search_similar(query, top_k=5)
+response = llm_client.generate(query, context=results)
 ```
 
 ---
@@ -181,46 +172,71 @@ for result in results:
 ## ⚠️ Project-Specific Conventions
 
 ### Vietnamese Documentation
-- Code comments and docstrings in Vietnamese
-- README files in Vietnamese
-- Maintain consistency for team collaboration
+- Code comments and docstrings primarily in Vietnamese
+- README files in Vietnamese with English technical terms
+- Maintain linguistic consistency for team collaboration
 
 ### Strict Single Responsibility
-- **Loaders**: Raw extraction only (no chunking/normalization)
-- **Chunkers**: Document → chunks only (no embedding)
-- **Embedders**: Chunks → vectors only (Ollama-only)
+- **Loaders**: PDF → PDFDocument (no chunking/embedding)
+- **Chunkers**: PDFDocument → ChunkSet (no embedding/storage)
+- **Embedders**: ChunkSet → embeddings (Ollama-only, no storage)
 - **VectorStore**: FAISS index management only
-- **SummaryGenerator**: Summary creation and persistence only
-- **Retriever**: Search operations only
 - **RAGPipeline**: Orchestration and composition only
+- **LLM**: Query processing and response generation
 
-### Table Handling
+### Table-Aware Processing
 ```python
-# Tables include schema in chunk metadata
+# Tables preserved in chunk metadata with full schema
 if chunk.metadata.get("block_type") == "table":
     table_payload = chunk.metadata.get("table_payload")
     headers = table_payload.header
     rows = table_payload.rows
+    # Table content embedded as structured text
 ```
 
-### Testing Structure
+### Module Import Patterns
 ```python
-# One test class per module
-class TestPDFLoader:
-    def test_initialization_default_params(self):
-        """Test constructor with defaults"""
+# Always import from RAG_system root
+from RAG_system.LOADER.pdf_loader import PDFLoader
+from RAG_system.CHUNKERS.hybrid_chunker import HybridChunker
+from RAG_system.EMBEDDERS.providers.ollama import OllamaModelSwitcher
+from RAG_system.pipeline.rag_pipeline import RAGPipeline
 
-    def test_factory_create_default(self):
-        """Test factory method patterns"""
+# Test files require sys.path adjustment
+sys.path.insert(0, str(Path(__file__).parent.parent))
+```
+
+### File Organization Convention
+```python
+# Output structure in data/
+data/
+├── pdf/           # Source PDFs
+├── vectors/       # .faiss + .pkl files
+├── metadata/      # .json summaries
+└── batch_summary_{timestamp}.json  # Batch processing summary
 ```
 
 ---
 
-## 🚨 Common Pitfalls
+## 🚨 Common Pitfalls & Solutions
 
-- **Ollama Connection**: Always test connection before embedding operations
-- **Dimension Mismatch**: Gemma (2048) ≠ BGE-M3 (1024) - choose based on use case
-- **Memory Usage**: FAISS indexes can be large; monitor disk space in `data/vectors/`
-- **PDF Encoding**: Use UTF-8 handling; some PDFs have encoding issues
+- **Ollama Connection**: Always verify `http://localhost:11434` before pipeline execution
+- **Model Dimensions**: Gemma(2048) ≠ BGE-M3(1024) - incompatible indexes
+- **Memory Management**: FAISS indexes scale with document size - monitor `data/vectors/`
+- **Import Paths**: Project root must be in pythonpath - use absolute imports
+- **PDF Encoding**: Use UTF-8 normalization; some PDFs have encoding issues
+- **Test Configuration**: `pyproject.toml` configures pythonpath=["."] for tests
 
-Use these patterns when extending the system or adding new modules.
+### Quick Debugging Commands
+```powershell
+# Test Ollama connectivity
+curl http://localhost:11434/api/tags
+
+# Verify pipeline components
+python -c "from RAG_system.pipeline.rag_pipeline import RAGPipeline; print('✓ Pipeline OK')"
+
+# Check available models
+ollama list
+```
+
+Use these patterns when extending functionality or adding new components to maintain architectural consistency.

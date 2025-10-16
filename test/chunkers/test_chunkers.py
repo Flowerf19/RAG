@@ -6,12 +6,12 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from chunkers.fixed_size_chunker import FixedSizeChunker
-from chunkers.hybrid_chunker import HybridChunker, ChunkerMode
-from chunkers.semantic_chunker import SemanticChunker
-from chunkers.rule_based_chunker import RuleBasedChunker
-from chunkers.model import Chunk, ChunkSet
-from loaders.model.block import Block
+from RAG_system.CHUNKERS.fixed_size_chunker import FixedSizeChunker
+from RAG_system.CHUNKERS.hybrid_chunker import HybridChunker, ChunkerMode
+from RAG_system.CHUNKERS.semantic_chunker import SemanticChunker
+from RAG_system.CHUNKERS.rule_based_chunker import RuleBasedChunker
+from RAG_system.CHUNKERS.model import Chunk, ChunkSet
+from RAG_system.LOADER.model.block import Block
 
 
 class TestFixedSizeChunker:
@@ -37,8 +37,8 @@ class TestFixedSizeChunker:
         blocks = [Block(text=test_text)]
 
         # Create PDFDocument
-        from loaders.model.document import PDFDocument
-        from loaders.model.page import PDFPage
+        from RAG_system.LOADER.model.document import PDFDocument
+        from RAG_system.LOADER.model.page import PDFPage
         page = PDFPage(page_number=1, blocks=blocks)
         document = PDFDocument(file_path="test.pdf", num_pages=1, pages=[page])
 
@@ -72,7 +72,7 @@ class TestHybridChunker:
         chunker = HybridChunker()
 
         # Create empty PDFDocument
-        from loaders.model.document import PDFDocument
+        from RAG_system.LOADER.model.document import PDFDocument
         document = PDFDocument(file_path="test.pdf", num_pages=0, pages=[])
 
         result = chunker.chunk(document)
@@ -87,8 +87,8 @@ class TestHybridChunker:
         blocks = [Block(text=test_text)]
 
         # Create PDFDocument
-        from loaders.model.document import PDFDocument
-        from loaders.model.page import PDFPage
+        from RAG_system.LOADER.model.document import PDFDocument
+        from RAG_system.LOADER.model.page import PDFPage
         page = PDFPage(page_number=1, blocks=blocks)
         document = PDFDocument(file_path="test.pdf", num_pages=1, pages=[page])
 
@@ -115,8 +115,8 @@ class TestSemanticChunker:
         blocks = [Block(text=test_text)]
 
         # Create PDFDocument
-        from loaders.model.document import PDFDocument
-        from loaders.model.page import PDFPage
+        from RAG_system.LOADER.model.document import PDFDocument
+        from RAG_system.LOADER.model.page import PDFPage
         page = PDFPage(page_number=1, blocks=blocks)
         document = PDFDocument(file_path="test.pdf", num_pages=1, pages=[page])
 
@@ -156,8 +156,8 @@ class TestRuleBasedChunker:
         blocks = [Block(text=test_text)]
 
         # Create PDFDocument
-        from loaders.model.document import PDFDocument
-        from loaders.model.page import PDFPage
+        from RAG_system.LOADER.model.document import PDFDocument
+        from RAG_system.LOADER.model.page import PDFPage
         page = PDFPage(page_number=1, blocks=blocks)
         document = PDFDocument(file_path="test.pdf", num_pages=1, pages=[page])
 

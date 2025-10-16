@@ -26,5 +26,4 @@ tiktoken
 faiss-cpu
 numpy
 requests
-pyyaml
 openai

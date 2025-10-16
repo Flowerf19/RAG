@@ -13,7 +13,8 @@ def _repo_root() -> Path:
 def _load_yaml(path: Path) -> Dict[str, Any]:
     try:
         import yaml  # type: ignore
-    except Exception:
+    except ImportError:
+        print("Warning: PyYAML is not installed. Cannot load YAML configuration.")
         return {}
 
     if not path.exists():
@@ -25,7 +26,11 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
             if isinstance(data, dict):
                 return data
             return {}
-    except Exception:
+    except yaml.YAMLError as e:
+        print(f"Warning: Error parsing YAML file {path}: {e}")
+        return {}
+    except IOError as e:
+        print(f"Warning: Could not read file {path}: {e}")
         return {}
 
 

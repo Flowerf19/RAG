@@ -74,7 +74,14 @@ class RAGPipeline:
         # Initialize components
         logger.info("Initializing RAG Pipeline...")
         self.loader = PDFLoader.create_default()
-        self.chunker = HybridChunker(max_tokens=500, overlap_tokens=50)
+        
+        # Improved chunking configuration for better retrieval accuracy
+        from chunkers.hybrid_chunker import ChunkerMode
+        self.chunker = HybridChunker(
+            max_tokens=250,  # Smaller chunks for better precision
+            overlap_tokens=35,  # Maintain context
+            mode=ChunkerMode.SEMANTIC_FIRST  # Prioritize semantic boundaries
+        )
         
         # Initialize embedder with model switcher
         self.model_switcher = OllamaModelSwitcher()

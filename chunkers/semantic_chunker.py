@@ -102,7 +102,77 @@ class SemanticChunker(BaseChunker):
             ch = self._build_chunk_from_group(g, sentences, sent2block, doc_id, self._current_file_path, idx)
             if ch:
                 out.append(ch)
+        
+        # Apply overlap between chunks
+        if self.overlap_tokens > 0:
+            out = self._apply_overlap(out)
+        
         return out
+
+    def _apply_overlap(self, chunks: List[Chunk]) -> List[Chunk]:
+        """
+        Apply overlap between consecutive chunks by adding overlapping text.
+        Uses sentence-boundary overlap to avoid splitting mid-sentence.
+        """
+        if not chunks or len(chunks) <= 1:
+            return chunks
+        
+        overlapped = [chunks[0]]  # First chunk unchanged
+        
+        for i in range(1, len(chunks)):
+            prev_chunk = chunks[i-1]
+            curr_chunk = chunks[i]
+            
+            prev_text = prev_chunk.text
+            prev_len = len(prev_text)
+            
+            if prev_len > 0 and self.overlap_tokens > 0:
+                # Estimate character count for overlap_tokens (~5 chars per token)
+                target_overlap_char = self.overlap_tokens * 5
+                
+                # Get candidate overlap text from end of previous chunk
+                candidate_overlap = prev_text[-min(target_overlap_char, prev_len):]
+                
+                # Find a good sentence/clause boundary within the overlap
+                # Prefer sentence-end punctuation, then newline, then space
+                overlap_text = None
+                
+                # 1. Try to find last sentence boundary
+                for punct in ['.', '!', '?']:
+                    idx = candidate_overlap.rfind(punct)
+                    if idx > 0 and idx > len(candidate_overlap) * 0.3:  # At least 30% of overlap
+                        overlap_text = candidate_overlap[:idx+1].strip()
+                        break
+                
+                # 2. If no sentence boundary, try newline or semicolon
+                if not overlap_text:
+                    for delim in ['\n\n', '\n', ';']:
+                        idx = candidate_overlap.rfind(delim)
+                        if idx > 0 and idx > len(candidate_overlap) * 0.3:
+                            overlap_text = candidate_overlap[:idx].strip()
+                            break
+                
+                # 3. Fall back to finding last complete word
+                if not overlap_text:
+                    idx = candidate_overlap.rfind(' ')
+                    if idx > 0 and idx > len(candidate_overlap) * 0.3:
+                        overlap_text = candidate_overlap[:idx].strip()
+                
+                # 4. Use full candidate if no good boundary found
+                if not overlap_text:
+                    overlap_text = candidate_overlap.strip()
+                
+                # Only apply overlap if we have meaningful text
+                if overlap_text and len(overlap_text.strip()) > 3:
+                    # Add overlap to current chunk
+                    new_text = overlap_text + ' ' + curr_chunk.text
+                    curr_chunk.text = new_text
+                    curr_chunk.token_count = self.estimate_tokens(new_text)
+                    curr_chunk.char_count = len(new_text)
+            
+            overlapped.append(curr_chunk)
+        
+        return overlapped
 
     # ---------------- Sentence splitting ----------------
 
@@ -127,7 +197,7 @@ class SemanticChunker(BaseChunker):
             return merged
 
         # Regex fallback (EN+VI cơ bản)
-        patt = r'(?<=[.!?])\s+(?=[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ])'
+        patt = r'(?<=[.!?])\s+(?=[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỬỮỰỲÝỶỸỴĐ])'
         return [s.strip() for s in re.split(patt, text) if s.strip()]
 
     # ---------------- Grouping by coherence ----------------

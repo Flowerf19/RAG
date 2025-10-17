@@ -20,8 +20,8 @@ from loaders.model.block import Block
 class SemanticChunker(BaseChunker):
     def __init__(
         self,
-        max_tokens: int = 512,
-        overlap_tokens: int = 50,
+        max_tokens: int = 250,
+        overlap_tokens: int = 35,
         min_sentences_per_chunk: int = 3,
         spacy_model: Optional[str] = "en_core_web_sm",
         nlp=None,                 # inject sẵn nlp (khuyên dùng)
@@ -71,9 +71,9 @@ class SemanticChunker(BaseChunker):
             file_path=document.file_path,
             chunk_strategy="semantic",
         )
+        # No filtering - loader already cleaned blocks
         blocks: List[Block] = [
             b for p in document.pages for b in p.blocks
-            if isinstance(b, Block) and b.text and b.text.strip()
         ]
         if not blocks:
             return cs

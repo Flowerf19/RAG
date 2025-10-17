@@ -40,8 +40,8 @@ class HybridChunker(BaseChunker):
     
     def __init__(
         self,
-        max_tokens: int = 512,
-        overlap_tokens: int = 50,
+        max_tokens: int = 250,
+        overlap_tokens: int = 35,
         mode: ChunkerMode = ChunkerMode.AUTO,
         config: Optional[Dict[str, Any]] = None
     ):
@@ -99,12 +99,11 @@ class HybridChunker(BaseChunker):
         self.rule_based_chunker._current_file_path = document.file_path  
         self.fixed_size_chunker._current_file_path = document.file_path
         
-        # Collect all blocks
+        # Collect all blocks - no filtering, loader already cleaned
         all_blocks = []
         for page in document.pages:
             for block in page.blocks:
-                if isinstance(block, Block) and block.text.strip():
-                    all_blocks.append(block)
+                all_blocks.append(block)
         
         if not all_blocks:
             return chunk_set

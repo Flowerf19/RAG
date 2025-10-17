@@ -21,8 +21,8 @@ class RuleBasedChunker(BaseChunker):
 
     def __init__(
         self,
-        max_tokens: int = 512,
-        overlap_tokens: int = 50,
+        max_tokens: int = 250,
+        overlap_tokens: int = 35,
         use_spacy: bool = False,
         spacy_model: str = "en_core_web_sm"
     ):
@@ -61,7 +61,8 @@ class RuleBasedChunker(BaseChunker):
             file_path=document.file_path,
             chunk_strategy="rule_based",
         )
-        blocks = [b for p in document.pages for b in p.blocks if b.text.strip()]
+        # No filtering - loader already cleaned blocks
+        blocks = [b for p in document.pages for b in p.blocks]
         for ch in self.chunk_blocks(blocks, cs.doc_id):
             cs.add_chunk(ch)
         cs.link_chunks()

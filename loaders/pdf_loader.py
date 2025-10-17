@@ -240,6 +240,75 @@ class PDFLoader:
             page_height=page_height
         )
 
+    def _deduplicate_text_and_tables(self, blocks: List[Block]) -> List[Block]:
+        """
+        Remove text blocks that overlap with table blocks (prefer tables for structured data).
+        Uses text similarity to detect duplicates.
+        """
+        from .model.block import TableBlock
+        import difflib
+        
+        text_blocks = []
+        table_blocks = []
+        
+        for block in blocks:
+            if isinstance(block, TableBlock):
+                table_blocks.append(block)
+            else:
+                text_blocks.append(block)
+        
+        if not table_blocks:
+            return blocks
+        
+        logger.debug(f"Deduplication: {len(text_blocks)} text blocks, {len(table_blocks)} table blocks")
+        
+        # Keep non-duplicate text blocks
+        deduplicated_blocks = []
+        
+        for text_block in text_blocks:
+            is_duplicate = False
+            text_content = text_block.text.lower().strip()
+            # Remove extra whitespace for better comparison
+            text_normalized = ' '.join(text_content.split())
+            
+            # Check if table content is contained within text block
+            for table_block in table_blocks:
+                table_content = table_block.text.lower().strip()
+                table_normalized = ' '.join(table_content.split())
+                
+                # Skip very short tables
+                if len(table_normalized) < 50:
+                    continue
+                
+                # Method 1: Substring containment (fast check)
+                # Check if TEXT content is contained WITHIN table (not the reverse!)
+                if text_normalized in table_normalized:
+                    is_duplicate = True
+                    logger.debug(f"Removing duplicate text block (text contained in table)")
+                    break
+                
+                # Method 2: SequenceMatcher for partial matches
+                # Calculate how much of TEXT appears in table (check if table "covers" the text)
+                # Use find_longest_match to see if significant portion of text is in table
+                matcher = difflib.SequenceMatcher(None, text_normalized, table_normalized)
+                match = matcher.find_longest_match(0, len(text_normalized), 0, len(table_normalized))
+                
+                # If >60% of text block appears consecutively in table, it's a duplicate
+                coverage_ratio = match.size / len(text_normalized) if len(text_normalized) > 0 else 0
+                
+                if coverage_ratio > 0.60:
+                    is_duplicate = True
+                    logger.debug(f"Removing duplicate text block (coverage={coverage_ratio:.2f} in table)")
+                    break
+            
+            if not is_duplicate:
+                deduplicated_blocks.append(text_block)
+        
+        # Add all table blocks
+        deduplicated_blocks.extend(table_blocks)
+        
+        return deduplicated_blocks
+
     def _open_documents(self, file_path: str) -> Tuple[Optional[Any], Optional[Any], List[str]]:
         """Open PDF documents with proper error handling."""
         file_warnings: List[str] = []
@@ -610,6 +679,10 @@ class PDFLoader:
                                 blocks.append(table_block)
                             except Exception as e:
                                 logger.debug(f"Table block creation failed on page {page_idx+1}: {e}")
+                    
+                    # Remove text blocks that overlap with tables (prefer structured table data)
+                    if tables:
+                        blocks = self._deduplicate_text_and_tables(blocks)
                     
                     pages.append(PDFPage(
                         page_number=page_idx + 1,

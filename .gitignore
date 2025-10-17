@@ -47,8 +47,8 @@ env/
 htmlcov/
 
 # Streamlit (local config, not project-specific)
-.streamlit/
-secrets.toml
+.streamlit/config.toml
+.streamlit/secrets.toml
 
 # Data & Cache (Large files, generated)
 data/cache/

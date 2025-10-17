@@ -29,14 +29,14 @@ except ImportError:
 
 # Import pipeline_qa
 try:
-    from pipeline.pipeline_qa import fetch_retrieval
+    from pipeline.backend_connector import fetch_retrieval
     print("Successfully imported fetch_retrieval")
 except ImportError as e:
     print(f"Failed to import fetch_retrieval: {e}")
     print("Trying alternative import...")
     try:
         sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-        from pipeline.pipeline_qa import fetch_retrieval
+        from pipeline.backend_connector import fetch_retrieval
         print("Successfully imported fetch_retrieval with alternative path")
     except ImportError as e2:
         print(f"Still failed: {e2}")
@@ -152,20 +152,26 @@ chat_html_parts.append("</div>")
 st.markdown("".join(chat_html_parts), unsafe_allow_html=True)
 
 # === RETRIEVAL SOURCES (UI) ===
-if st.session_state.get("last_sources"):
+sources = st.session_state.get("last_sources", [])
+if sources:
     st.markdown("### Nguồn tham khảo")
-    for i, src in enumerate(st.session_state["last_sources"], 1):
+    for i, src in enumerate(sources, 1):
         file_name = src.get("file_name", "?")
         page = src.get("page_number", "?")
         try:
             score = float(src.get("similarity_score", 0.0))
         except Exception:
             score = 0.0
-        text = src.get("text", "") or ""
+        text = src.get("snippet", "") or ""  # Sử dụng 'snippet' thay vì 'text'
         snippet = text if len(text) <= 500 else text[:500] + "..."
         st.markdown(f"- [{i}] {file_name} - trang {page} (điểm {score:.3f})")
         with st.expander(f"Xem trích đoạn {i}"):
-            st.markdown(snippet)
+            if snippet.strip():
+                st.markdown(snippet)
+            else:
+                st.write("Không có nội dung trích đoạn")
+else:
+    st.info("Chưa có nguồn tham khảo nào được tìm thấy. Hãy đặt câu hỏi để hệ thống tìm kiếm tài liệu liên quan.")
 
 # === BACKEND CALL ===
 def ask_backend(prompt_text: str) -> str:

@@ -180,3 +180,54 @@ class RAGRetrievalService:
                 }
             )
         return ui_items
+
+
+def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000) -> Dict[str, Any]:
+    """
+    Hàm tiện ích để retrieval từ FAISS indexes.
+    Tự động tìm FAISS index mới nhất và thực hiện search.
+
+    Args:
+        query_text: Câu hỏi cần tìm
+        top_k: Số lượng kết quả trả về
+        max_chars: Độ dài tối đa của context
+
+    Returns:
+        Dict với keys: "context" (str), "sources" (list)
+    """
+    try:
+        # Khởi tạo pipeline và retriever
+        from pipeline.rag_pipeline import RAGPipeline
+        pipeline = RAGPipeline()
+        retriever = RAGRetrievalService(pipeline)
+
+        # Lấy cặp FAISS index mới nhất
+        index_pair = retriever.get_latest_index_pair()
+        if not index_pair:
+            logger.warning("Không tìm thấy FAISS index nào")
+            return {"context": "", "sources": []}
+
+        faiss_file, metadata_file = index_pair
+
+        # Thực hiện search
+        results = pipeline.search_similar(
+            faiss_file=faiss_file,
+            metadata_map_file=metadata_file,
+            query_text=query_text,
+            top_k=top_k
+        )
+
+        # Build context
+        context = retriever.build_context(results, max_chars=max_chars)
+
+        # Convert to UI format
+        sources = retriever.to_ui_items(results)
+
+        return {
+            "context": context,
+            "sources": sources
+        }
+
+    except Exception as e:
+        logger.error(f"Lỗi trong fetch_retrieval: {e}")
+        return {"context": "", "sources": []}

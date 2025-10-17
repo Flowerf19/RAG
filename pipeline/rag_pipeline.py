@@ -22,7 +22,7 @@ from embedders.providers.ollama import OllamaModelSwitcher, OllamaModelType
 from pipeline.vector_store import VectorStore
 from pipeline.summary_generator import SummaryGenerator
 from pipeline.retriever import Retriever
- 
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -72,7 +72,7 @@ class RAGPipeline:
         logger.info("Initializing RAG Pipeline...")
         self.loader = PDFLoader.create_default()
         self.chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
-       
+
         # Initialize embedder with model switcher
         self.model_switcher = OllamaModelSwitcher()
         if model_type == OllamaModelType.GEMMA:
@@ -84,14 +84,14 @@ class RAGPipeline:
         self.vector_store = VectorStore(self.vectors_dir)
         self.summary_generator = SummaryGenerator(self.metadata_dir, self.output_dir)
         self.retriever = Retriever(self.embedder)
-       
+
+
         logger.info(f"Loader: PDFLoader")
         logger.info(f"Chunker: HybridChunker")
         logger.info(f"Embedder: {self.embedder.profile.model_id}")
         logger.info(f"Dimension: {self.embedder.dimension}")
         logger.info(f"Output: {self.output_dir}")
-   
-   
+
     def switch_model(self, model_type: OllamaModelType) -> None:
         """
         Switch the embedding model.
@@ -125,7 +125,7 @@ class RAGPipeline:
             "vector_store": "FAISS",
             "cache_enabled": True
         }
-   
+
     def process_pdf(self, pdf_path: str | Path, chunk_callback=None) -> Dict[str, Any]:
         """
         Process single PDF through complete pipeline.
@@ -133,14 +133,14 @@ class RAGPipeline:
         Args:
             pdf_path: Path to PDF file (str or Path)
             chunk_callback: Optional callback function(current, total) for progress
-           
+
         Returns:
             Dict with processing results and file paths
         """
         pdf_path = Path(pdf_path)
         file_name = pdf_path.stem
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-       
+
         logger.info(f"Processing PDF: {pdf_path.name}")
        
         # Step 1: Load PDF
@@ -153,22 +153,21 @@ class RAGPipeline:
         logger.info("Chunking document...")
         chunk_set = self.chunker.chunk(pdf_doc)
         logger.info(f"Created {len(chunk_set.chunks)} chunks, strategy: {chunk_set.chunk_strategy}, tokens: {chunk_set.total_tokens}")
-       
+
         # Step 3: Generate embeddings
         logger.info("Generating embeddings...")
         embeddings_data = []
         skipped_chunks = 0
         total_chunks = len(chunk_set.chunks)
-       
+
         # Call callback with initial state
         if chunk_callback:
             chunk_callback(0, total_chunks)
-       
+        
         for idx, chunk in enumerate(chunk_set.chunks, 1):
             # Create content hash for duplicate checking
             content_hash = hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
- 
-           
+
             # Test connection on first chunk
             if idx == 1 and not self.embedder.test_connection():
                 raise ConnectionError("Cannot connect to Ollama server!")
@@ -227,11 +226,11 @@ class RAGPipeline:
                     }
            
             embeddings_data.append(chunk_embedding)
-           
+
             # Update progress via callback
             if chunk_callback:
                 chunk_callback(idx, total_chunks)
-           
+            
             if (idx - skipped_chunks) % 10 == 0:
                 logger.info(f"Processed {idx}/{len(chunk_set.chunks)} chunks ({skipped_chunks} skipped)...")
        
@@ -388,32 +387,33 @@ class RAGPipeline:
             List of similar chunks with metadata and distances
         """
         return self.retriever.search_similar(faiss_file, metadata_map_file, query_text, top_k)
- 
+
 def main():
     """Main entry point for RAG Pipeline."""
     logger.info("Starting RAG Pipeline")
-   
+    
+
     # Initialize pipeline với Gemma embedder
     pipeline = RAGPipeline(
         output_dir="data",
         model_type=OllamaModelType.GEMMA
     )
-   
+
     logger.info("RAG Pipeline initialized and ready to use")
-   
+    
     # Process all PDFs in data/pdf directory
     try:
         results = pipeline.process_directory()
-       
+        
         logger.info("All processing completed successfully")
         logger.info(f"Output files saved to: {pipeline.output_dir}")
-       
+        
     except Exception as e:
         logger.error(f"Pipeline error: {e}")
         import traceback
         traceback.print_exc()
- 
- 
+
+
 if __name__ == "__main__":
     main()
- 
+

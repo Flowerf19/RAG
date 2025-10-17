@@ -15,6 +15,8 @@ Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument 
   - **`retriever.py`** - Cosine similarity search using normalized vectors
 - **`data/`** - FAISS indexes (.faiss), metadata maps (.pkl), summaries (.json)
 
+**Data Flow**: `PDF → PDFLoader → PDFDocument → HybridChunker → ChunkSet → OllamaEmbedder → FAISS IndexFlatIP`
+
 ---
 
 ## 🛠️ Essential Developer Workflows
@@ -31,7 +33,10 @@ python -m pipeline.rag_pipeline
 python chunkers/chunk_pdf_demo.py
 
 # Test retrieval system
-python test_retrieval.py
+python test/e2e/test_rag_system.py
+
+# Run Streamlit UI
+streamlit run llm/LLM_FE.py
 ```
 
 ### Testing & Validation
@@ -53,6 +58,9 @@ python test/pipeline/test_pipeline_manual.py
 
 # Real PDF integration test
 python test/pipeline/test_real_pdf.py
+
+# End-to-end RAG system test
+python test/e2e/test_rag_system.py
 ```
 
 ### Chunk Caching Behavior
@@ -60,6 +68,13 @@ The pipeline maintains a cache of processed chunks (`data/cache/processed_chunks
 - **First run**: Generates embeddings for all chunks
 - **Subsequent runs**: Skips chunks with identical content hash (no re-embedding)
 - **To force re-processing**: Delete `data/cache/processed_chunks.json` before running
+
+```powershell
+# Clear cache and old indexes to force re-processing
+Remove-Item "data\cache\processed_chunks.json" -ErrorAction SilentlyContinue
+Remove-Item "data\vectors\*.pkl" -ErrorAction SilentlyContinue
+Remove-Item "data\vectors\*.faiss" -ErrorAction SilentlyContinue
+```
 
 ### LLM Integration Testing
 ```powershell
@@ -176,18 +191,41 @@ camelot-py[cv]      # Advanced table parsing
 
 ### LLM Integration
 - **Local LLM**: Ollama-based models via `llm/LLM_LOCAL.py`
-- **API LLM**: External API integration via `llm/LLM_API.py`
+- **API LLM**: External API integration via `llm/LLM_API.py` (Gemini, OpenAI)
 - **Config Loading**: YAML-based configuration in `config/app.yaml`
+- **Streamlit UI**: Chat interface via `llm/LLM_FE.py` with retrieval integration
+
+### QA Pipeline Integration
+```python
+# RAGRetrievalService for UI integration
+from pipeline.pipeline_qa import RAGRetrievalService
+
+pipeline = RAGPipeline()
+retriever = RAGRetrievalService(pipeline)
+
+# Retrieve relevant chunks
+results = retriever.retrieve("query text", top_k=5)
+
+# Build context for LLM
+context = retriever.build_context(results)
+
+# Format for UI display
+ui_items = retriever.to_ui_items(results)
+```
 
 ### Data Output Structure
-Each processed PDF generates three files:
+Each processed PDF generates three files with timestamped names:
 ```
 data/
 ├── vectors/
-│   ├── Document_vectors_20251015_143022.faiss      # Binary FAISS index
-│   └── Document_metadata_map_20251015_143022.pkl   # Chunk metadata (pages, provenance)
-└── metadata/
-    └── Document_summary_20251015_143022.json       # Human-readable document info
+│   ├── DocumentName_vectors_20251015_143022.faiss      # Binary FAISS index (normalized vectors)
+│   └── DocumentName_metadata_map_20251015_143022.pkl   # Chunk metadata (pages, provenance)
+├── metadata/
+│   └── DocumentName_summary_20251015_143022.json       # Human-readable document info
+├── chunks/
+│   └── DocumentName_chunks_20251015_143022.txt        # Raw chunk text for debugging
+└── embeddings/
+    └── DocumentName_embeddings_20251015_143022.json   # Raw embeddings (optional debug)
 ```
 
 ### Search & Retrieval
@@ -245,24 +283,6 @@ from llm.config_loader import get_config
 
 config = get_config()  # Cached singleton pattern
 llm_config = config.get('llm', {})
-```
-
-### Testing Structure
-```python
-# One test class per module
-class TestPDFLoader:
-    def test_initialization_default_params(self):
-        """Test constructor with defaults"""
-
-    def test_factory_create_default(self):
-        """Test factory method patterns"""
-
-# Test file organization mirrors source structure
-test/
-├── loaders/test_pdf_loader.py
-├── chunkers/test_chunkers.py
-├── embeders/test_embedders.py
-└── pipeline/test_rag_pipeline.py
 ```
 
 ### Testing Structure

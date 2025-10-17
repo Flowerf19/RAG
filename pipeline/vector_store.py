@@ -111,15 +111,17 @@ class VectorStore:
                 "chunk_id": item["chunk_id"],
                 "text": item["text"],
                 "text_length": item["text_length"],
-                "file_name": item["file_name"],
-                "file_path": item["file_path"],
+                "file_name": item.get("file_name"),
+                "file_path": item.get("file_path"),
+                "source_file": item.get("provenance", {}).get("source_file") or item.get("file_path"),
                 "page_number": item["page_number"],
                 "page_numbers": item["page_numbers"],
                 "chunk_index": item["chunk_index"],
                 "block_type": item["block_type"],
                 "block_ids": item["block_ids"],
                 "is_table": item["is_table"],
-                "token_count": item["token_count"]
+                "token_count": item["token_count"],
+                "provenance": item.get("provenance", {})
             }
         return metadata_map
 

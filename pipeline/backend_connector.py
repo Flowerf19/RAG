@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 from pipeline.rag_pipeline import RAGPipeline
-from pipeline.query_expander import QueryExpander
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,6 @@ class RAGRetrievalService:
 
     def __init__(self, pipeline: RAGPipeline):
         self.pipeline = pipeline
-        self.query_expander = QueryExpander()
 
     # ---------- Retrieval utilities ----------
     def _match_metadata_for_vectors(self, vectors_file: Path) -> Optional[Path]:
@@ -51,26 +49,26 @@ class RAGRetrievalService:
         candidate = self.pipeline.vectors_dir / name.replace("_vectors_", "_metadata_map_").replace(".faiss", ".pkl")
         return candidate if candidate.exists() else None
 
-    def get_latest_index_pair(self) -> Optional[Tuple[Path, Path]]:
+    def get_all_index_pairs(self) -> List[Tuple[Path, Path]]:
         """
-        Lấy cặp (faiss_index, metadata_map) mới nhất trong thư mục vectors.
-        Bỏ qua các file FAISS bị hỏng và thử file tiếp theo.
-        Trả về None nếu không tìm thấy file hợp lệ.
+        Lấy tất cả cặp (faiss_index, metadata_map) hợp lệ trong thư mục vectors.
+        Trả về list các cặp, không chỉ latest.
         """
-        faiss_files = sorted(
-            self.pipeline.vectors_dir.glob("*_vectors_*.faiss"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
+        index_pairs = []
+        faiss_files = list(self.pipeline.vectors_dir.glob("*_vectors_*.faiss"))
+
         for vf in faiss_files:
             mf = self._match_metadata_for_vectors(vf)
-            if mf is not None:
+            if mf is not None and mf.exists():
                 # Test if FAISS file can be loaded
                 if self._test_faiss_file(vf):
-                    return vf, mf
+                    index_pairs.append((vf, mf))
                 else:
                     logger.warning(f"Skipping corrupted FAISS file: {vf}")
-        return None
+
+        # Sort by modification time (newest first)
+        index_pairs.sort(key=lambda x: x[0].stat().st_mtime, reverse=True)
+        return index_pairs
 
     def _test_faiss_file(self, faiss_file: Path) -> bool:
         """
@@ -158,34 +156,6 @@ class RAGRetrievalService:
                 break
         return "\n\n".join(parts)
 
-    def retrieve(self, query_text: str, top_k: int = 10) -> List[Dict[str, Any]]:
-        """
-        Trả về danh sách kết quả giống với retriever (metadata + similarity_score).
-        Nếu không có index hoặc embedder không sẵn sàng, trả về list rỗng.
-        """
-        try:
-            pair = self.get_latest_index_pair()
-            if pair is None:
-                logger.info("Không tìm thấy index trong thư mục vectors.")
-                return []
-            if not self.pipeline.embedder.test_connection():
-                logger.warning("Embedder (Ollama) chưa sẵn sàng; bỏ qua retrieval.")
-                return []
-            
-            # Expand query to improve matching
-            expanded_query = self.query_expander.expand(query_text)
-            
-            faiss_file, metadata_map_file = pair
-            return self.pipeline.search_similar(
-                faiss_file=faiss_file,
-                metadata_map_file=metadata_map_file,
-                query_text=expanded_query,  # Use expanded query
-                top_k=top_k,
-            )
-        except Exception as e:
-            logger.error(f"Retrieval error: {e}")
-            return []
-
     def to_ui_items(self, results: List[Dict[str, Any]], max_text_len: int = 500) -> List[Dict[str, Any]]:
         """
         Chuyển danh sách kết quả sang dạng dễ hiển thị ở UI.
@@ -212,18 +182,61 @@ class RAGRetrievalService:
         return ui_items
 
 
-def fetch_retrieval(
-    query_text: str,
-    pipeline: Optional[RAGPipeline] = None,
-    top_k: int = 10,
-    max_chars: int = 8000,
-) -> Dict[str, Any]:
+def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000) -> Dict[str, Any]:
     """
-    Tiện ích một hàm: thực hiện retrieval và trả về {context, sources} cho UI.
+    Hàm tiện ích để retrieval từ FAISS indexes.
+    Tự động tìm FAISS index mới nhất và thực hiện search.
+
+    Args:
+        query_text: Câu hỏi cần tìm
+        top_k: Số lượng kết quả trả về
+        max_chars: Độ dài tối đa của context
+
+    Returns:
+        Dict với keys: "context" (str), "sources" (list)
     """
-    if pipeline is None:
-        pipeline = RAGPipeline(output_dir="data")
-    service = RAGRetrievalService(pipeline)
-    results = service.retrieve(query_text=query_text, top_k=top_k)
-    context = service.build_context(results, max_chars=max_chars) if results else ""
-    return {"context": context, "sources": results}
+    try:
+        # Khởi tạo pipeline và retriever
+        from pipeline.rag_pipeline import RAGPipeline
+        pipeline = RAGPipeline()
+        retriever = RAGRetrievalService(pipeline)
+
+        # Lấy tất cả cặp FAISS indexes hợp lệ
+        index_pairs = retriever.get_all_index_pairs()
+        if not index_pairs:
+            logger.warning("Không tìm thấy FAISS index nào")
+            return {"context": "", "sources": []}
+
+        # Search across tất cả indexes và combine results
+        all_results = []
+        for faiss_file, metadata_file in index_pairs:
+            try:
+                results = pipeline.search_similar(
+                    faiss_file=faiss_file,
+                    metadata_map_file=metadata_file,
+                    query_text=query_text,
+                    top_k=top_k * 2  # Lấy nhiều hơn để có thể chọn top-k tốt nhất
+                )
+                all_results.extend(results)
+            except Exception as e:
+                logger.warning(f"Lỗi khi search trong {faiss_file}: {e}")
+                continue
+
+        # Sort tất cả results by similarity score và lấy top-k
+        all_results.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
+        top_results = all_results[:top_k]
+
+        # Build context
+        context = retriever.build_context(top_results, max_chars=max_chars)
+
+        # Convert to UI format
+        sources = retriever.to_ui_items(top_results)
+
+        return {
+            "context": context,
+            "sources": sources
+        }
+
+    except Exception as e:
+        logger.error(f"Lỗi trong fetch_retrieval: {e}")
+        return {"context": "", "sources": []}

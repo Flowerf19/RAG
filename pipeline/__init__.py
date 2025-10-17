@@ -12,7 +12,7 @@ Components:
 
 from .rag_pipeline import RAGPipeline
 from .vector_store import VectorStore
-from .summary_generator import SummaryGenerator
+
 from .retriever import Retriever
 
 __all__ = [

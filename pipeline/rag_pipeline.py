@@ -582,21 +582,4 @@ class RAGPipeline:
             List of similar chunks with metadata and distances
         """
         return self.retriever.search_similar(faiss_file, metadata_map_file, query_text, top_k)
-
-
-def main():
-    """Main entry point for RAG Pipeline."""
-    logger.info("Starting RAG Pipeline")
     
-    # Initialize pipeline với Gemma embedder (có FAISS index hiện tại)
-    pipeline = RAGPipeline(
-        output_dir="data",
-        model_type=OllamaModelType.GEMMA
-    )
-    
-    logger.info("RAG Pipeline initialized and ready to use")
-    logger.info("Use pipeline.process_pdf() or pipeline.process_directory() to process documents")
-
-
-if __name__ == "__main__":
-    main()

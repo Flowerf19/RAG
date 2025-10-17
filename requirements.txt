@@ -18,3 +18,4 @@ requests
 streamlit
 google-generativeai
 openai
+unidecode

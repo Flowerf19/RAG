@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 from pipeline.rag_pipeline import RAGPipeline
-from pipeline.query_expander import QueryExpander
 
 
 logger = logging.getLogger(__name__)
@@ -37,7 +36,6 @@ class RAGRetrievalService:
 
     def __init__(self, pipeline: RAGPipeline):
         self.pipeline = pipeline
-        self.query_expander = QueryExpander()
 
     # ---------- Retrieval utilities ----------
     def _match_metadata_for_vectors(self, vectors_file: Path) -> Optional[Path]:
@@ -158,34 +156,6 @@ class RAGRetrievalService:
                 break
         return "\n\n".join(parts)
 
-    def retrieve(self, query_text: str, top_k: int = 10) -> List[Dict[str, Any]]:
-        """
-        Trả về danh sách kết quả giống với retriever (metadata + similarity_score).
-        Nếu không có index hoặc embedder không sẵn sàng, trả về list rỗng.
-        """
-        try:
-            pair = self.get_latest_index_pair()
-            if pair is None:
-                logger.info("Không tìm thấy index trong thư mục vectors.")
-                return []
-            if not self.pipeline.embedder.test_connection():
-                logger.warning("Embedder (Ollama) chưa sẵn sàng; bỏ qua retrieval.")
-                return []
-            
-            # Expand query to improve matching
-            expanded_query = self.query_expander.expand(query_text)
-            
-            faiss_file, metadata_map_file = pair
-            return self.pipeline.search_similar(
-                faiss_file=faiss_file,
-                metadata_map_file=metadata_map_file,
-                query_text=expanded_query,  # Use expanded query
-                top_k=top_k,
-            )
-        except Exception as e:
-            logger.error(f"Retrieval error: {e}")
-            return []
-
     def to_ui_items(self, results: List[Dict[str, Any]], max_text_len: int = 500) -> List[Dict[str, Any]]:
         """
         Chuyển danh sách kết quả sang dạng dễ hiển thị ở UI.
@@ -210,20 +180,3 @@ class RAGRetrievalService:
                 }
             )
         return ui_items
-
-
-def fetch_retrieval(
-    query_text: str,
-    pipeline: Optional[RAGPipeline] = None,
-    top_k: int = 10,
-    max_chars: int = 8000,
-) -> Dict[str, Any]:
-    """
-    Tiện ích một hàm: thực hiện retrieval và trả về {context, sources} cho UI.
-    """
-    if pipeline is None:
-        pipeline = RAGPipeline(output_dir="data")
-    service = RAGRetrievalService(pipeline)
-    results = service.retrieve(query_text=query_text, top_k=top_k)
-    context = service.build_context(results, max_chars=max_chars) if results else ""
-    return {"context": context, "sources": results}

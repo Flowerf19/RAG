@@ -49,26 +49,26 @@ class RAGRetrievalService:
         candidate = self.pipeline.vectors_dir / name.replace("_vectors_", "_metadata_map_").replace(".faiss", ".pkl")
         return candidate if candidate.exists() else None
 
-    def get_latest_index_pair(self) -> Optional[Tuple[Path, Path]]:
+    def get_all_index_pairs(self) -> List[Tuple[Path, Path]]:
         """
-        Lấy cặp (faiss_index, metadata_map) mới nhất trong thư mục vectors.
-        Bỏ qua các file FAISS bị hỏng và thử file tiếp theo.
-        Trả về None nếu không tìm thấy file hợp lệ.
+        Lấy tất cả cặp (faiss_index, metadata_map) hợp lệ trong thư mục vectors.
+        Trả về list các cặp, không chỉ latest.
         """
-        faiss_files = sorted(
-            self.pipeline.vectors_dir.glob("*_vectors_*.faiss"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
+        index_pairs = []
+        faiss_files = list(self.pipeline.vectors_dir.glob("*_vectors_*.faiss"))
+
         for vf in faiss_files:
             mf = self._match_metadata_for_vectors(vf)
-            if mf is not None:
+            if mf is not None and mf.exists():
                 # Test if FAISS file can be loaded
                 if self._test_faiss_file(vf):
-                    return vf, mf
+                    index_pairs.append((vf, mf))
                 else:
                     logger.warning(f"Skipping corrupted FAISS file: {vf}")
-        return None
+
+        # Sort by modification time (newest first)
+        index_pairs.sort(key=lambda x: x[0].stat().st_mtime, reverse=True)
+        return index_pairs
 
     def _test_faiss_file(self, faiss_file: Path) -> bool:
         """
@@ -201,27 +201,36 @@ def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000) -> D
         pipeline = RAGPipeline()
         retriever = RAGRetrievalService(pipeline)
 
-        # Lấy cặp FAISS index mới nhất
-        index_pair = retriever.get_latest_index_pair()
-        if not index_pair:
+        # Lấy tất cả cặp FAISS indexes hợp lệ
+        index_pairs = retriever.get_all_index_pairs()
+        if not index_pairs:
             logger.warning("Không tìm thấy FAISS index nào")
             return {"context": "", "sources": []}
 
-        faiss_file, metadata_file = index_pair
+        # Search across tất cả indexes và combine results
+        all_results = []
+        for faiss_file, metadata_file in index_pairs:
+            try:
+                results = pipeline.search_similar(
+                    faiss_file=faiss_file,
+                    metadata_map_file=metadata_file,
+                    query_text=query_text,
+                    top_k=top_k * 2  # Lấy nhiều hơn để có thể chọn top-k tốt nhất
+                )
+                all_results.extend(results)
+            except Exception as e:
+                logger.warning(f"Lỗi khi search trong {faiss_file}: {e}")
+                continue
 
-        # Thực hiện search
-        results = pipeline.search_similar(
-            faiss_file=faiss_file,
-            metadata_map_file=metadata_file,
-            query_text=query_text,
-            top_k=top_k
-        )
+        # Sort tất cả results by similarity score và lấy top-k
+        all_results.sort(key=lambda x: x.get("similarity_score", 0), reverse=True)
+        top_results = all_results[:top_k]
 
         # Build context
-        context = retriever.build_context(results, max_chars=max_chars)
+        context = retriever.build_context(top_results, max_chars=max_chars)
 
         # Convert to UI format
-        sources = retriever.to_ui_items(results)
+        sources = retriever.to_ui_items(top_results)
 
         return {
             "context": context,

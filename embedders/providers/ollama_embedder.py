@@ -186,32 +186,6 @@ class OllamaEmbedder(BaseEmbedder):
             logger.error(f"Model {model_name} not available in Ollama")
             return False
 
-    @property
-    def dimension(self) -> int:
-        """
-        Lấy dimension của embedding.
-
-        Returns:
-            int: Embedding dimension
-        """
-        if self.profile.dimension:
-            return self.profile.dimension
-
-        # Known Ollama model dimensions
-        model_dims = {
-            "nomic-embed-text": 768,
-            "all-MiniLM-L6-v2": 384,
-            "all-MiniLM-L12-v2": 384,
-            "paraphrase-MiniLM-L3-v2": 384,
-            "paraphrase-MiniLM-L6-v2": 384,
-            "distiluse-base-multilingual-cased-v1": 512,
-            "distiluse-base-multilingual-cased-v2": 512,
-            "bge-m3:latest": 1024,
-            "embeddinggemma:latest": 2048,  # Conservative estimate
-        }
-
-        return model_dims.get(self.profile.model_id, 768)
-
     def estimate_tokens(self, text: str) -> int:
         """
         Better token estimation cho Ollama models.

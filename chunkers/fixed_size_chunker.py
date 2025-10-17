@@ -79,8 +79,8 @@ class FixedSizeChunker(BaseChunker):
 
     def __init__(
         self,
-        max_tokens: int = 512,
-        overlap_tokens: int = 50,
+        max_tokens: int = 250,
+        overlap_tokens: int = 35,
         encoding_name: str = "cl100k_base",
         respect_sentence_boundary: bool = True,
     ):
@@ -100,8 +100,9 @@ class FixedSizeChunker(BaseChunker):
             file_path=document.file_path,
             chunk_strategy="fixed_size",
         )
+        # No filtering - loader already cleaned blocks
         all_blocks = [
-            b for p in document.pages for b in p.blocks if b.text.strip()
+            b for p in document.pages for b in p.blocks
         ]
         chunks = self.chunk_blocks(all_blocks, chunk_set.doc_id)
         for c in chunks:

@@ -163,7 +163,7 @@ if sources:
         except Exception:
             score = 0.0
         text = src.get("snippet", "") or ""  # Sử dụng 'snippet' thay vì 'text'
-        snippet = text if len(text) <= 500 else text[:500] + "..."
+        snippet = text  # Hiển thị full text thay vì cắt ngắn
         st.markdown(f"- [{i}] {file_name} - trang {page} (điểm {score:.3f})")
         with st.expander(f"Xem trích đoạn {i}"):
             if snippet.strip():

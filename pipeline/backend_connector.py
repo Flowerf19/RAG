@@ -156,7 +156,7 @@ class RAGRetrievalService:
                 break
         return "\n\n".join(parts)
 
-    def to_ui_items(self, results: List[Dict[str, Any]], max_text_len: int = 500) -> List[Dict[str, Any]]:
+    def to_ui_items(self, results: List[Dict[str, Any]], max_text_len: int = 5000) -> List[Dict[str, Any]]:
         """
         Chuyển danh sách kết quả sang dạng dễ hiển thị ở UI.
         Mỗi item gồm: title, snippet, file_name, page_number, similarity_score, distance.

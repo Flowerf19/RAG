@@ -24,7 +24,8 @@ def load_system_prompt() -> str:
         System prompt template (có {context})
     """
     try:
-        with open(paths_prompt_path(), "r", encoding="utf-8") as f:
+        prompt_file = paths_prompt_path() / "rag_system_prompt.txt"
+        with open(prompt_file, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         # Fallback nếu không tìm thấy file

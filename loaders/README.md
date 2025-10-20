@@ -290,7 +290,7 @@ python run_pipeline.py
 
 ## Sơ đồ tuần tự (Sequence) cho `PDFLoader.load_pdf()`
 
-Dưới đây là sơ đồ Mermaid mô tả luồng chính của `PDFLoader.load_pdf()`. Nếu GitHub không render Mermaid trong view của bạn, mình cũng cung cấp ASCII fallback ngay phía dưới.
+Dưới đây là sơ đồ Mermaid mô tả luồng chính của `PDFLoader.load_pdf()`.
 
 ```mermaid
 sequenceDiagram
@@ -329,7 +329,7 @@ sequenceDiagram
   PDFLoader-->>Caller: return PDFDocument(...)
 ```
 
-ASCII fallback (flow):
+Giải thích:
 
 1. Caller gọi PDFLoader.load_pdf(file_path)
 2. PDFLoader trích metadata (PyPDF2)
@@ -355,15 +355,15 @@ Phần này mô tả cách `loaders` chuẩn bị `Document` cho `chunkers.Hybri
 
 ```mermaid
 flowchart TD
-   L[Loader: PDFLoader] --> D[Produce PDFDocument (pages, blocks, tables)]
-   D --> A[Analyze Document: has_structure? has_tables? is_narrative? avg_block_tokens]
+   L[Loader PDFLoader] --> D[Produce PDFDocument]
+   D --> A[Analyze Document]
 
-   A -->|has_tables and tables_prefer_chunks| T[Prefer chunking by TableBlock]
-   A -->|has_structure| S[Prefer RuleBasedChunker]
-   A -->|is_narrative| M[Prefer SemanticChunker]
+   A -->|has tables| T[Prefer TableBlock chunking]
+   A -->|has structure| S[Prefer RuleBasedChunker]
+   A -->|is narrative| M[Prefer SemanticChunker]
    A -->|fallback| F[FixedSizeChunker]
 
-   T --> CT[Create chunks from TableBlock(s) preserving cell provenance]
+   T --> CT[Create table chunks]
    S --> RS[RuleBasedChunker]
    M --> SM[SemanticChunker]
    F --> FS[FixedSizeChunker]
@@ -373,10 +373,8 @@ flowchart TD
    FS -->|success| ROK
    CT -->|table chunks| ROK
 
-   ROK --> LINK[ChunkSet.link_chunks() + provenance aggregation]
-   LINK --> PIPE[Return ChunkSet to pipeline]
-
-  %% removed style directives to improve GitHub Mermaid compatibility
+   ROK --> LINK[Link chunks]
+   LINK --> PIPE[Return ChunkSet]
 ```
 
 ASCII fallback (flow):

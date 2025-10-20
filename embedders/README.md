@@ -1,261 +1,127 @@
-# Embedders Module - Integrated Chunking + Embedding
+# Module `embedders` — Tạo embedding vectors (Ollama providers)
 
-## 🎯 Tổng quan
+Mục tiêu: thư mục `embedders/` cung cấp lớp trừu tượng và các implement cụ thể để tạo embedding vectors từ văn bản. Thiết kế theo nguyên tắc Single Responsibility: mỗi lớp có trách nhiệm rõ ràng (profile/config, factory, base provider, provider cụ thể).
 
-Module `embedders` cung cấp hệ thống embedding tích hợp với chunking, hỗ trợ nhiều providers (Ollama, OpenAI, BGE) và cho phép chuyển đổi model nhanh chóng.
+README này mô tả kiến trúc, API công khai, các lớp/factory có sẵn, ví dụ sử dụng, kiểm thử và các lưu ý vận hành (Ollama server).
 
-**Kiến trúc chính:**
-PDF/Text → PDFLoader → PDFDocument → HybridChunker → ChunkSet → ChunkSetEmbedder → EmbeddingResults
+## Nội dung thư mục (tóm tắt)
 
-## 🚀 Cách sử dụng nhanh
+- `i_embedder.py` — interface `IEmbedder` (embed, embed_batch, test_connection, dimension).
+- `base_embedder.py` (providers/) — `BaseEmbedder` cung cấp hành vi chung (validation, embed_batch default).
+- `embedder_factory.py` — `EmbedderFactory` để khởi tạo embedders theo `EmbeddingProfile` / loại.
+- `embedder_type.py` — enum `EmbedderType` (hiện có `OLLAMA`).
+- `model/embedding_profile.py` — `EmbeddingProfile` dataclass chứa cấu hình (model_id, provider, max_tokens, dimension, normalize).
+- `providers/` — provider implementations:
+  - `ollama_embedder.py` — generic Ollama provider wrapper (`OllamaEmbedder`).
+  - `ollama/` — Ollama-specific model wrappers:
+    - `gemma_embedder.py` — Gemma embedding config (768-dim)
+    - `bge3_embedder.py` — BGE-M3 embedding config (1024-dim)
+    - `base_ollama_embedder.py` — base class for Ollama-specific embedders
 
-### 1. Pipeline tích hợp (Khuyến nghị)
+## Contract (inputs / outputs / error modes)
+
+- Input: text (str) hoặc list[str] cho batch.
+- Output: List[float] (vector) cho `embed`, List[List[float]] cho `embed_batch`.
+- Properties: `dimension` (số chiều embedding).
+- Error modes: network/HTTP errors when connecting to Ollama; invalid profile errors raised by `BaseEmbedder`.
+
+## Thiết kế & hành vi từng thành phần
+
+### `IEmbedder` (`i_embedder.py`)
+
+- Đây là interface tối thiểu mọi embedder phải implement:
+  - `dimension` (property): trả về kích thước vector.
+  - `embed(text: str) -> List[float]`.
+  - `embed_batch(texts: List[str]) -> List[List[float]]`.
+  - `test_connection() -> bool`: kiểm tra server/provider reachable.
+
+Việc implement theo interface giúp pipeline có thể thay provider mà không đổi code khác.
+
+### `EmbeddingProfile` (`model/embedding_profile.py`)
+
+- Dataclass đơn giản giữ các tham số thực sự dùng bởi provider: `model_id`, `provider`, `max_tokens`, `dimension`, `normalize`.
+- Lưu ý: nhiều embedder cụ thể (Gemma/BGE) giữ cấu hình mặc định ở class-level constants — factory hoặc `create_default()` dùng các giá trị này.
+
+### `BaseEmbedder` (`providers/base_embedder.py`)
+
+- Cung cấp validation cho `EmbeddingProfile` và implement `embed_batch` mặc định bằng cách gọi `embed` lần lượt.
+- `dimension` mặc định lấy từ `profile.dimension` hoặc fallback 768.
+
+### `OllamaEmbedder` (`providers/ollama_embedder.py`)
+
+- Generic wrapper cho Ollama server (`/api/embeddings` endpoint). Thực hiện:
+  - `create_default()` để build `EmbeddingProfile` mặc định (nomic embed)
+  - `_generate_embedding(text)` gửi POST tới `/api/embeddings`
+  - `test_connection()`, `is_available()`, `get_available_models()` helper
+  - `switch_model(model_name)` để đổi profile.model_id nếu model có sẵn
+
+Lưu ý: Ollama server URL mặc định `http://localhost:11434` — có thể cấu hình qua factory.
+
+### Model-specific embedders (Gemma, BGE-M3)
+
+- `GemmaEmbedder` và `BGE3Embedder` là thin wrappers trên `BaseOllamaEmbedder` (ở `providers/ollama/`).
+- Mỗi lớp định nghĩa `MODEL_ID`, `DIMENSION`, `MAX_TOKENS` và `create_default()` để khởi tạo profile tương ứng.
+- Họ cung cấp phương thức `embed(text)` và `embed_single(req)` (hữu ích nếu dự án dùng `EmbedRequest` model).
+
+## Ví dụ sử dụng (Python)
 
 ```python
-from embedders import ChunkAndEmbedPipeline, EmbedderFactory
+from embedders.embedder_factory import EmbedderFactory
 
-# Tạo embedder với Ollama
 factory = EmbedderFactory()
-embedder = factory.create_ollama_nomic()
 
-# Tạo pipeline tích hợp
-pipeline = ChunkAndEmbedPipeline(embedder=embedder)
+# Tạo Gemma embedder (Ollama)
+gemma = factory.create_gemma(base_url="http://localhost:11434")
+vec = gemma.embed("Hello world")
+print(len(vec), gemma.dimension)
 
-# Xử lý PDF end-to-end
-results = pipeline.process_pdf("document.pdf")
+# Tạo BGE-M3 embedder
+bge = factory.create_bge_m3(base_url="http://localhost:11434")
+batch = bge.embed_batch(["Hello", "Another text"])
+print(len(batch), len(batch[0]))
 
-# Hoặc xử lý text
-results = pipeline.process_text("Your text content here")
+# Test connection
+print('gemma ok', gemma.test_connection())
 ```
 
-### 2. Chuyển đổi model nhanh
+PowerShell quick-run (pipeline):
 
-```python
-# Kiểm tra models available
-available_models = pipeline.get_available_models()
-print(f"Available models: {available_models}")
-
-# Chuyển model
-pipeline.switch_embedder_model("all-MiniLM-L6-v2")
+```powershell
+python run_pipeline.py
 ```
 
-### 3. Sử dụng riêng lẻ
+## Mermaid: kiến trúc cao cấp (parser-friendly) + ASCII fallback
 
-```python
-from embedders import EmbedderFactory, EmbedderType, ChunkSetEmbedder
-from chunkers import HybridChunker
-from loaders import PDFLoader
-
-# Load và chunk
-loader = PDFLoader.create_default()
-pdf_doc = loader.load("doc.pdf")
-pdf_doc = pdf_doc.normalize()
-
-chunker = HybridChunker()
-chunk_set = chunker.chunk(pdf_doc)
-
-# Embed
-embedder = EmbedderFactory().create_ollama_nomic()
-orchestrator = ChunkSetEmbedder(embedder)
-results = orchestrator.embed_chunk_set(chunk_set)
+```mermaid
+flowchart TD
+  Factory --> Ollama
+  Ollama --> Gemma
+  Ollama --> BGE3
+  Ollama -->|POST /api/embeddings| OllamaAPI[Ollama Server]
+  Gemma -->|embed(text)| OllamaAPI
+  BGE3 -->|embed(text)| OllamaAPI
 ```
 
-## 🔧 Providers hỗ trợ
+ASCII fallback:
 
-### Ollama (Khuyến nghị cho local)
+- `EmbedderFactory` tạo instances (Gemma/BGE3) hoặc generic `OllamaEmbedder`.
+- Các embedder gọi Ollama API `/api/embeddings` để lấy vectors.
+- `BaseEmbedder` cung cấp `embed_batch` mặc định để fallback khi provider không tối ưu batch API.
 
-```python
-from embedders import EmbedderFactory
+## Testing & Validation
 
-factory = EmbedderFactory()
+- Unit-test suggestions:
+  - mock `requests.post`/`requests.get` để kiểm tra `_generate_embedding()` behavior và error handling.
+  - test `EmbedderFactory.create_gemma()` và `create_bge_m3()` return đúng class và `dimension`.
+  - test `BaseEmbedder.embed_batch` calls `embed` for each item.
 
-# Nomic embed (default)
-embedder = factory.create_ollama_nomic()
+- Quick manual test: start Ollama server and run the example above.
 
-# MiniLM
-embedder = factory.create_ollama_minilm()
+## Operational notes
 
-# Custom base URL
-embedder = factory.create_ollama_nomic(base_url="http://192.168.1.100:11434")
-```
+- Ollama server must be reachable at the configured `base_url` (default: `http://localhost:11434`). Use `ollama list` locally to verify pulled models.
+- Required models used by defaults: `embeddinggemma:latest`, `bge-m3:latest` — pull them to local Ollama if needed.
 
-**Cài đặt Ollama:**
+## Contribution
 
-```bash
-# Install Ollama
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# Pull models
-ollama pull nomic-embed-text
-ollama pull all-MiniLM-L6-v2
-
-# Start server
-ollama serve
-```
-
-### OpenAI
-
-```python
-embedder = factory.create_openai_ada(api_key="your-api-key")
-```
-
-### BGE (HuggingFace)
-
-```python
-from embedders import EmbeddingProfile, EmbedderType
-
-profile = EmbeddingProfile.create_bge_large()
-embedder = factory.create(EmbedderType.BGE, profile)
-```
-
-## 📊 Pipeline Features
-
-### ChunkAndEmbedPipeline
-
-- **Tích hợp end-to-end**: PDF → Chunks → Embeddings
-- **Model switching**: Đổi model Ollama nhanh chóng
-- **Parallel processing**: Xử lý nhiều chunks song song
-- **Metadata inclusion**: Bao gồm metadata trong embedding
-- **Context awareness**: Thêm context từ chunks lân cận
-- **Error handling**: Robust error handling và logging
-
-### ChunkSetEmbedder
-
-- **Batch processing**: Tối ưu cho nhiều chunks
-- **Statistics**: Báo cáo chi tiết về quá trình embedding
-- **Provider agnostic**: Hoạt động với mọi embedder
-
-## 🏗️ Architecture
-
-### Core Classes
-
-IEmbedder (interface)
-├── BaseEmbedder (abstract base)
-│   ├── OllamaEmbedder
-│   ├── OpenAIEmbedder
-│   └── BGEEmbedder
-
-### Data Flow
-
-1. **Input**: PDF file hoặc raw text
-2. **Loading**: PDFLoader extract text/tables
-3. **Normalization**: Clean và chuẩn hóa data
-4. **Chunking**: HybridChunker tạo chunks
-5. **Embedding**: Embedder tạo vectors
-6. **Output**: Dict[chunk_id → EmbeddingResult]
-
-## ⚙️ Configuration
-
-### EmbeddingProfile
-
-```python
-from embedders import EmbeddingProfile
-
-# Ollama profiles
-profile = EmbeddingProfile.create_ollama_nomic()
-profile = EmbeddingProfile.create_ollama_minilm()
-
-# Custom profile
-profile = EmbeddingProfile(
-    model_id="custom-model",
-    provider="ollama",
-    max_tokens=1024,
-    dimension=512,
-    normalize=True
-)
-```
-
-### Pipeline Settings
-
-```python
-pipeline = ChunkAndEmbedPipeline(
-    embedder=embedder,
-    include_metadata=True,      # Include chunk metadata
-    include_context=False,      # Add adjacent chunk context
-    parallel_workers=2          # Parallel embedding workers
-)
-```
-
-## 📈 Performance Tips
-
-### Ollama Optimization
-
-- Sử dụng models nhỏ hơn cho tốc độ: `all-MiniLM-L6-v2`
-- Tăng batch_size nếu có GPU
-- Monitor RAM usage với models lớn
-
-### Parallel Processing
-
-```python
-# Tăng workers cho nhiều chunks
-pipeline = ChunkAndEmbedPipeline(
-    embedder=embedder,
-    parallel_workers=4  # Sử dụng 4 threads
-)
-```
-
-### Memory Management
-
-- Xử lý files lớn từng phần
-- Clear results sau khi sử dụng
-- Monitor embedding dimensions
-
-## 🔍 Monitoring & Debugging
-
-### Pipeline Info
-
-```python
-info = pipeline.get_pipeline_info()
-print(f"Embedder: {info['embedder']['model']}")
-print(f"Chunker: {info['chunker']['type']}")
-```
-
-### Embedding Statistics
-
-```python
-stats = orchestrator.get_embedding_stats(results)
-print(f"Success rate: {stats['success_rate']:.1%}")
-print(f"Avg processing time: {stats['avg_processing_time']:.3f}s")
-```
-
-### Error Handling
-
-```python
-for chunk_id, result in results.items():
-    if result.status != "success":
-        print(f"Failed {chunk_id}: {result.error_message}")
-```
-
-## 🎯 Best Practices
-
-1. **Chọn model phù hợp**: Nomic cho chất lượng, MiniLM cho tốc độ
-2. **Monitor resources**: Theo dõi CPU/Memory với models lớn
-3. **Batch processing**: Sử dụng parallel workers cho nhiều documents
-4. **Error recovery**: Handle network issues với Ollama
-5. **Caching**: Cache embeddings để tránh re-processing
-
-## 🚨 Troubleshooting
-
-### Ollama Issues
-
-```bash
-# Check Ollama status
-curl http://localhost:11434/api/tags
-
-# Restart Ollama
-ollama serve
-
-# Check logs
-ollama logs
-```
-
-### Common Errors
-
-- **Connection refused**: Ollama không chạy
-- **Model not found**: Chưa pull model
-- **Out of memory**: Giảm batch_size hoặc dùng model nhỏ hơn
-- **Timeout**: Tăng timeout hoặc kiểm tra network
-
-## 📝 Examples
-
-Xem `run_embed_demo.py` để có ví dụ đầy đủ về cách sử dụng pipeline.
+- Khi thêm provider mới (OpenAI, HuggingFace): implement `IEmbedder` or subclass `BaseEmbedder`, thêm factory helper in `EmbedderFactory` and update `embedder_type.py` if needed.

@@ -1,4 +1,3 @@
-
 # Module loaders — Tải và tiền xử lý PDF
 
 Phiên bản: chi tiết module loader cho hệ thống RAG (Retrieval-Augmented Generation).
@@ -167,60 +166,41 @@ Dưới đây là mô tả chi tiết, chính xác theo các lớp/hàm hiện c
   - `min_bbox_area: float`
   - `enable_block_merging: bool`, `min_block_length: int`
   - `enable_block_normalization: bool`, `enable_sentence_segmentation: bool`
+  - `enable_block_normalization: bool`, `enable_sentence_segmentation: bool`
 
-- Factory methods:
-  - `PDFLoader.create_default()` — cấu hình mặc định (text + tables, normalization và sentence segmentation bật).
-  - `PDFLoader.create_text_only()` — chỉ trích xuất văn bản.
-  - `PDFLoader.create_tables_only()` — chỉ trích xuất bảng.
+ASCII fallback (flow):
 
-- Các method quan trọng (public/private):
-  - `load(file_path: str) -> PDFDocument` — wrapper gọi `load_pdf` (sử dụng bởi pipeline).
-  - `_file_sha256(path) -> str` — tính SHA256 cho file (dùng cho provenance/cache).
-  - `_open_documents(file_path) -> Tuple[fitz.Doc|None, pdfplumber.PDF|None, List[str]]` — mở bằng PyMuPDF (fitz) và pdfplumber (nếu cần), trả về warnings.
-  - `_extract_tables_for_page(file_path, page_num_1based, plumber_pdf)` — strategy fallback giữa `pdfplumber` và `camelot` (nếu có) thông qua `TableSchema.extract_tables_for_page`.
-  - `_extract_table_caption(...)` — trích caption bảng bằng `normalizers.table_utils.TableCaptionExtractor`.
-  - `_deduplicate_text_and_tables(blocks)` — loại bỏ text blocks trùng lặp nằm trong table blocks (ưu tiên table khi trùng).
-  - `assign_table_captions(table_objs, file_path)` — dò caption trong trang dùng regex "Table X" và các heuristics vị trí.
+```text
+PDFLoader -> PDFDocument (pages, blocks, tables)
+Analyze document: has_structure? has_tables? is_narrative? avg_block_tokens
 
-- Hành vi lỗi: các lỗi khi mở doc hoặc trích bảng được catch, ghi warning và pipeline tiếp tục (không raise nếu có thể). Table extraction errors được log debug và trả về [] để không block cả tài liệu.
+Decision:
+  - If tables present and `table_prefer_chunks` enabled: create chunks from TableBlock preserving cell provenance.
+  - Else if clear structure: use RuleBasedChunker.
+  - Else if narrative: use SemanticChunker.
+  - Else: fallback to FixedSizeChunker.
 
-### `loaders/config.py` — loader config helper
+After sub-chunker returns chunks:
+  - Add chunks to ChunkSet with provenance metadata and page ranges.
+  - Call `ChunkSet.link_chunks()` to set prev/next and indexes.
+  - Apply `post_chunk` hooks (re-rank, dedupe, merge small neighbors) if configured.
 
-- Cung cấp `YAMLConfigLoader` để load YAML config (mặc định tìm `config/preprocessing.yaml`).
-- `ConfigManager` singleton và các helpers:
-  - `get_config_loader()` — lấy `YAMLConfigLoader` singleton.
-  - `load_preprocessing_config()`, `get_pdf_processing_config()`, `get_config_value(key, default)`, `get_nested_config_value(...)`.
+Provenance notes:
+  - Table chunks SHOULD include per-cell provenance; if truncated, include `truncated` flag and original `TableSchema.id` + row/col ranges.
+  - Loaders expose stable ids (e.g. `block_stable_id`, `table_stable_id`) that should be copied into `Chunk.metadata`.
 
-### `loaders/ids.py` — hàm sinh id ổn định
+```
 
-- `make_stable_id(*parts) -> str` — SHA256 chuỗi các phần, cắt 24 ký tự.
-- `content_sha256(text) -> str` — SHA256 nội dung.
-- `block_stable_id(block: Block) -> str` — stable id cho Block.
-- `table_stable_id(table: TableSchema) -> str` — stable id cho TableSchema.
+Hook points (where to extend):
 
-### `loaders/model/document.py` — `PDFDocument`
+- `pre_analyze(document)`: add tags or custom filters before analysis (e.g. detect language, force OCR flag).
+- `pre_chunk(chunk_input)`: transform blocks/tables before sub-chunker (e.g. collapse footnotes, inline small tables).
+- `post_chunk(chunk_set)`: re-ranking, dedupe, or serialize provenance for downstream UI.
 
-- Dataclass `PDFDocument(file_path, num_pages, meta, pages, warnings, repeated_block_hashes)` kế thừa `LoaderBaseModel`.
-- Static helpers:
-  - `collect_all_blocks(doc: fitz.Doc) -> list` — trả về raw blocks cho mỗi trang (dùng page.get_text('blocks')).
-  - `extract_metadata(file_path)` — dùng PyPDF2 để lấy metadata, page labels, num_pages.
-- Method `normalize(config=None)` — chuỗi hành động chuẩn hoá toàn bộ document:
-  - Chuẩn hoá `file_path`, `meta`.
-  - Gọi `page.normalize(config)` cho từng `PDFPage`.
-  - Tính `block_hash_counter` (dùng `normalizers.block_utils.compute_block_hash`) và lọc block dựa trên `should_filter_block`.
-  - Đánh dấu metadata filter cho các `Block` bị lọc.
+Testing hints:
 
-### `loaders/model/page.py` — `PDFPage`
-
-- Dataclass `PDFPage(page_number, text, blocks, tables, warnings, source, normalized_tables)`.
-- Static methods:
-  - `extract_text_with_layout(page)` — lấy text theo block + line spans cùng bbox.
-  - `expand_char_bbox_map(lines)` — map vị trí ký tự -> bbox.
-  - `pdfminer_extract_text_from_single_page(doc, page_index)` — fallback text extraction bằng pdfminer.
-  - `from_fitz_page(page, page_idx, doc, file_path, doc_id, doc_title, page_labels, extract_text=True, extract_tables=True) -> PDFPage` — tạo `PDFPage` từ đối tượng PyMuPDF page: lấy blocks (page.get_text('blocks')), layout text, fallback pdfminer, raw tables placeholder.
-- `normalize(config=None)` — chuẩn hoá `text`, chuyển tuple/list block thành `Block` objects, gán `page_number` cho metadata block, gọi `Block.normalize()` và normalize table objects nếu có.
-
-### `loaders/model/block.py` — `Block`, `TableBlock`
+- Create a fixture `sample_document_with_tables` (PDFDocument mock) with a small `TableSchema` and assert table-provenance is preserved in resulting chunks.
+- Test fallback paths by creating documents where `RuleBasedChunker` fails and assert `HybridChunker` falls back to `SemanticChunker` or `FixedSizeChunker`.
 
 - `Block` dataclass (fields): `text: str`, `bbox`, `text_source`, `stable_id`, `content_sha256`, `metadata: dict`.
 - `Block.normalize(config=None)` — fix unicode (ftfy), de-hyphenation, remove TOC dots, normalize whitespace (dùng `normalizers.block_utils.normalize_whitespace`), round bbox, compute `stable_id` và `content_sha256` nếu metadata có `doc_id` và `page_number`.
@@ -366,7 +346,69 @@ ASCII fallback (flow):
 
 Gợi ý chèn hook:
 
-Gợi ý chèn hook:
-
 - Bạn có thể chèn hook trước/ sau `Text.extract_text_blocks_for_page` để thêm pre-processing hoặc custom filtering.
 - Hook sau `TableSchema.from_matrix` phù hợp để enrich table metadata (ví dụ: schema mapping, column types).
+
+## Sơ đồ quyết định tích hợp — HybridChunker <-> Loaders (Mermaid + ASCII fallback)
+
+Phần này mô tả cách `loaders` chuẩn bị `Document` cho `chunkers.HybridChunker` và những điểm quyết định quan trọng (ví dụ: khi nào chọn chunk bằng cấu trúc, semantic hay fixed-size), cùng cách bảo toàn provenance (table cell/page/block) cho downstream.
+
+```mermaid
+flowchart TD
+   L[Loader: PDFLoader] --> D[Produce PDFDocument (pages, blocks, tables)]
+   D --> A[Analyze Document: has_structure? has_tables? is_narrative? avg_block_tokens]
+
+   A -->|has_tables and tables_prefer_chunks| T[Prefer chunking by TableBlock]
+   A -->|has_structure| S[Prefer RuleBasedChunker]
+   A -->|is_narrative| M[Prefer SemanticChunker]
+   A -->|fallback| F[FixedSizeChunker]
+
+   T --> CT[Create chunks from TableBlock(s) preserving cell provenance]
+   S --> RS[RuleBasedChunker]
+   M --> SM[SemanticChunker]
+   F --> FS[FixedSizeChunker]
+
+   RS -->|success| ROK[Collect chunks]
+   SM -->|success| ROK
+   FS -->|success| ROK
+   CT -->|table chunks| ROK
+
+   ROK --> LINK[ChunkSet.link_chunks() + provenance aggregation]
+   LINK --> PIPE[Return ChunkSet to pipeline]
+
+   style L fill:#f3f4f6,stroke:#333,stroke-width:1px
+   style PIPE fill:#e6ffed,stroke:#333,stroke-width:1px
+```
+
+ASCII fallback (flow):
+
+```text
+1) PDFLoader -> PDFDocument (pages, blocks, tables)
+2) Analyze document: has_structure? has_tables? is_narrative? avg_block_tokens
+
+Decision (high-level):
+  * If tables present and `table_prefer_chunks` enabled: create chunks from TableBlock preserving cell provenance.
+  * Else if clear structure: use RuleBasedChunker.
+  * Else if narrative: use SemanticChunker.
+  * Else: fallback to FixedSizeChunker.
+
+After sub-chunker returns chunks:
+  * Add chunks to ChunkSet with provenance metadata and page ranges.
+  * Call `ChunkSet.link_chunks()` to set prev/next and indexes.
+  * Apply `post_chunk` hooks (re-rank, dedupe, merge small neighbors) if configured.
+
+Provenance notes:
+  * Table chunks SHOULD include per-cell provenance; if truncated, include `truncated` flag and original `TableSchema.id` + row/col ranges.
+  * Loaders expose stable ids (e.g. `block_stable_id`, `table_stable_id`) that should be copied into `Chunk.metadata`.
+```
+
+Hook points (where to extend):
+
+- `pre_analyze(document)`: add tags or custom filters before analysis (e.g. detect language, force OCR flag).
+- `pre_chunk(chunk_input)`: transform blocks/tables before sub-chunker (e.g. collapse footnotes, inline small tables).
+- `post_chunk(chunk_set)`: re-ranking, dedupe, or serialize provenance for downstream UI.
+
+Testing hints:
+
+- Create a fixture `sample_document_with_tables` (PDFDocument mock) with a small `TableSchema` and assert table-provenance is preserved in resulting chunks.
+- Test fallback paths by creating documents where `RuleBasedChunker` fails and assert `HybridChunker` falls back to `SemanticChunker` or `FixedSizeChunker`.

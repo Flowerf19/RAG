@@ -20,4 +20,4 @@ google-generativeai
 openai
 unidecode
 whoosh
-
+pymarkdownlnt

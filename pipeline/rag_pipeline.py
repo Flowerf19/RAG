@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import numpy as np
- 
+
 from loaders.pdf_loader import PDFLoader
 from chunkers.hybrid_chunker import HybridChunker
 from embedders.embedder_factory import EmbedderFactory
@@ -22,6 +22,17 @@ from embedders.providers.ollama import OllamaModelSwitcher, OllamaModelType
 from pipeline.vector_store import VectorStore
 from pipeline.summary_generator import SummaryGenerator
 from pipeline.retriever import Retriever
+
+try:
+    from BM25.ingest_manager import BM25IngestManager
+    from BM25.whoosh_indexer import WhooshIndexer
+    from BM25.search_service import BM25SearchService
+    _BM25_IMPORT_ERROR: Optional[Exception] = None
+except Exception as exc:  # pragma: no cover - optional dependency
+    BM25IngestManager = None  # type: ignore[assignment]
+    WhooshIndexer = None  # type: ignore[assignment]
+    BM25SearchService = None  # type: ignore[assignment]
+    _BM25_IMPORT_ERROR = exc
 
 # Configure logging
 logging.basicConfig(
@@ -85,6 +96,7 @@ class RAGPipeline:
         self.summary_generator = SummaryGenerator(self.metadata_dir, self.output_dir)
         self.retriever = Retriever(self.embedder)
 
+        self._setup_bm25_components()
 
         logger.info(f"Loader: PDFLoader")
         logger.info(f"Chunker: HybridChunker")
@@ -126,6 +138,102 @@ class RAGPipeline:
             "cache_enabled": True
         }
 
+    def _setup_bm25_components(self) -> None:
+        """
+        Initialise BM25 index infrastructure if dependencies are available.
+        """
+        self.bm25_ingest_manager = None
+        self.bm25_indexer = None
+        self.bm25_search_service = None
+
+        if _BM25_IMPORT_ERROR:
+            logger.warning("BM25 components unavailable, skipping BM25 ingest: %s", _BM25_IMPORT_ERROR)
+            return
+
+        try:
+            self.bm25_index_dir = self.output_dir / "bm25_index"
+            self.bm25_index_dir.mkdir(parents=True, exist_ok=True)
+            self.bm25_cache_file = self.cache_dir / "bm25_chunk_cache.json"
+            self.bm25_indexer = WhooshIndexer(self.bm25_index_dir)
+            self.bm25_ingest_manager = BM25IngestManager(
+                indexer=self.bm25_indexer,
+                cache_path=self.bm25_cache_file,
+            )
+            self.bm25_search_service = BM25SearchService(self.bm25_indexer)
+            logger.info("BM25 ingest manager initialised (index dir=%s)", self.bm25_index_dir)
+        except Exception as exc:
+            logger.warning("Failed to initialise BM25 ingest components: %s", exc)
+            self.bm25_ingest_manager = None
+            self.bm25_indexer = None
+            self.bm25_search_service = None
+
+    def _ingest_bm25_chunk_set(self, chunk_set: Any) -> int:
+        """
+        Push chunk set into BM25 index; failures should not break the pipeline.
+        """
+        if not self.bm25_ingest_manager:
+            return 0
+
+        try:
+            indexed = self.bm25_ingest_manager.ingest_chunk_set(chunk_set)
+            logger.info("BM25 ingest indexed %d chunk(s)", indexed)
+            return indexed
+        except Exception as exc:
+            logger.warning("BM25 ingest failed, continuing without BM25 index: %s", exc)
+            return 0
+
+    def search_bm25(
+        self,
+        query: str,
+        *,
+        top_k: int = 5,
+        normalize_scores: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        Execute BM25 search and return results in dictionary form similar to FAISS retrieval output.
+        """
+        if not self.bm25_search_service:
+            return []
+        try:
+            results = self.bm25_search_service.search(
+                query,
+                top_k=top_k,
+                normalize_scores=normalize_scores,
+            )
+        except Exception as exc:
+            logger.warning("BM25 search failed: %s", exc)
+            return []
+
+        formatted_results: List[Dict[str, Any]] = []
+        for result in results:
+            metadata = result.metadata or {}
+            source_path = metadata.get("source_path")
+            file_name = metadata.get("file_name")
+            if not file_name and source_path:
+                file_name = Path(source_path).name
+            page_numbers = metadata.get("page_numbers") or []
+            primary_page = None
+            if page_numbers:
+                primary_page = page_numbers[0]
+            else:
+                primary_page = metadata.get("page_number")
+            # Provide uniform fields so downstream merging logic can treat BM25 and FAISS the same.
+            formatted_results.append(
+                {
+                    "chunk_id": result.document_id,
+                    "bm25_raw_score": result.raw_score,
+                    "bm25_normalized_score": result.normalized_score,
+                    "keywords": metadata.get("keywords", []),
+                    "text": metadata.get("text", ""),
+                    "file_name": file_name,
+                    "source_path": source_path,
+                    "page_number": primary_page,
+                    "page_numbers": page_numbers,
+                    "metadata": metadata,
+                }
+            )
+        return formatted_results
+
     def process_pdf(self, pdf_path: str | Path, chunk_callback=None) -> Dict[str, Any]:
         """
         Process single PDF through complete pipeline.
@@ -153,6 +261,8 @@ class RAGPipeline:
         logger.info("Chunking document...")
         chunk_set = self.chunker.chunk(pdf_doc)
         logger.info(f"Created {len(chunk_set.chunks)} chunks, strategy: {chunk_set.chunk_strategy}, tokens: {chunk_set.total_tokens}")
+
+        bm25_indexed = self._ingest_bm25_chunk_set(chunk_set)
 
         # Step 3: Generate embeddings
         logger.info("Generating embeddings...")
@@ -291,10 +401,17 @@ class RAGPipeline:
         summary_file = self.summary_generator.save_document_summary(
             summary, file_name, timestamp
         )
-       
+
         # Summary
-        logger.info(f"Pipeline completed - Pages: {len(pdf_doc.pages)}, Chunks: {len(chunk_set.chunks)}, Embeddings: {len(embeddings_data)}, Skipped: {skipped_chunks}")
-       
+        logger.info(
+            "Pipeline completed - Pages: %d, Chunks: %d, Embeddings: %d, Skipped: %d, BM25 indexed: %d",
+            len(pdf_doc.pages),
+            len(chunk_set.chunks),
+            len(embeddings_data),
+            skipped_chunks,
+            bm25_indexed,
+        )
+
         return {
             "success": True,
             "file_name": pdf_path.name,
@@ -302,6 +419,7 @@ class RAGPipeline:
             "chunks": len(chunk_set.chunks),
             "embeddings": len(embeddings_data),
             "skipped_chunks": skipped_chunks,
+            "bm25_indexed": bm25_indexed,
             "dimension": self.embedder.dimension,
             "files": {
                 "chunks": str(chunks_file),

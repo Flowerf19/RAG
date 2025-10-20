@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LANGUAGE_MODELS: Dict[str, str] = {
     "en": "en_core_web_sm",
-    "vi": "vi_core_news_lg",
+    #     "vi": "vi_core_news_lg",
 }
 
 
@@ -44,6 +44,8 @@ class KeywordExtractor:
 
     def __init__(self, language_models: Optional[Dict[str, str]] = None) -> None:
         self.language_models = language_models or DEFAULT_LANGUAGE_MODELS.copy()
+        if "en" not in self.language_models:
+            self.language_models["en"] = "en_core_web_sm"
         self._nlp_cache: Dict[str, Language] = {}
         self._accent_pattern = re.compile(r"[àáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệ"
                                           r"ìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụ"
@@ -93,6 +95,9 @@ class KeywordExtractor:
             return []
 
         language = (lang or self.detect_language(text)).lower()
+        if language not in self.language_models:
+            logger.debug("Language '%s' not configured — falling back to English model.", language)
+            language = "en"
         nlp = self.ensure_pipeline(language)
         doc = nlp(text)
 
@@ -131,4 +136,3 @@ class KeywordExtractor:
             if not chunk_text or len(chunk_text) < 4:
                 continue
             yield chunk_text
-

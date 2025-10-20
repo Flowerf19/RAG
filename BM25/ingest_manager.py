@@ -161,7 +161,14 @@ class BM25IngestManager:
             chunk_lang = lang or getattr(chunk, "metadata", {}).get("language")
             keywords = self.keyword_extractor.extract_keywords(text, chunk_lang)
 
-            metadata = self._build_metadata(chunk_set, chunk, extra={"keywords": keywords})
+            metadata = self._build_metadata(
+                chunk_set,
+                chunk,
+                extra={
+                    "keywords": keywords,
+                    "text": text,
+                },
+            )
             documents.append(
                 BM25Document(
                     document_id=chunk_id,

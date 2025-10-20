@@ -77,9 +77,3 @@ Thumbs.db
 # Logs
 *.log
 logs/
-
-# Specific excluded files
-scripts/run_pipeline.bat
-scripts/run_pipeline.ps1
-scripts/README.md
-batch_summary_*.json

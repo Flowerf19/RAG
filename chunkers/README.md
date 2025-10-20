@@ -176,30 +176,24 @@ Dưới đây là sơ đồ Mermaid mô tả chi tiết logic quyết định tr
 
 ```mermaid
 flowchart TD
-    A[Start: HybridChunker.chunk(document)] --> B[Collect all blocks]
-    B --> C[Analyze document: has_structure? is_narrative? avg_block_tokens]
-    C -->|has_structure & avg_block_tokens < max| D[Try RuleBasedChunker (structural)]
-    C -->|not has_structure & is_narrative| E[Try SemanticChunker]
-    C -->|otherwise| F[Fallback: FixedSizeChunker]
+  Start([Start]) --> Collect[Collect blocks]
+  Collect --> Analyze[Analyze document: structure / narrative / avg_tokens]
+  Analyze -->|structure & avg < max| TryRule[RuleBasedChunker]
+  Analyze -->|narrative| TrySemantic[SemanticChunker]
+  Analyze -->|other| Fallback[FixedSizeChunker]
 
-    D --> DOK{structural succeeded?}
-    DOK -->|yes| G[Use structural chunks]
-    DOK -->|no| H[Fallback -> try SemanticChunker]
+  TryRule --> RuleOK{Rule success?}
+  RuleOK -->|yes| UseRule[Use structural chunks]
+  RuleOK -->|no| TrySemantic
 
-    E --> EOK{semantic succeeded?}
-    EOK -->|yes| G
-    EOK -->|no| I[Fallback -> FixedSizeChunker]
+  TrySemantic --> SemanticOK{Semantic success?}
+  SemanticOK -->|yes| UseRule
+  SemanticOK -->|no| UseFallback[Use FixedSize]
 
-    H --> E  
-    I --> F
-
-    G --> J[Collect chunks]
-    J --> K[chunk_set.add_chunk(...)]
-    K --> L[chunk_set.link_chunks()]
-    L --> M[Return ChunkSet]
-
-    style A fill:#f9f,stroke:#333,stroke-width:1px
-    style M fill:#dfd,stroke:#333,stroke-width:1px
+  UseRule --> CollectChunks[Collect chunks]
+  CollectChunks --> Add[Add to ChunkSet]
+  Add --> Link[link_chunks()]
+  Link --> Return[Return ChunkSet]
 ```
 
 ASCII fallback (same flow):
@@ -219,10 +213,3 @@ ASCII fallback (same flow):
    - Nếu không thuộc hai trường hợp trên: trực tiếp dùng `FixedSizeChunker`.
 4. Sau khi có chunks: `HybridChunker` thêm tất cả `Chunk` vào `ChunkSet`, gọi `link_chunks()` và trả `ChunkSet` cho pipeline.
 5. Ghi chú: mọi bước đều có fallback để đảm bảo không mất dữ liệu; nếu sub-chunker ném lỗi, Hybrid catch lỗi và chuyển sang fallback tiếp theo.
-
-Gợi ý triển khai / hook points:
-
-- Trước khi gọi sub-chunkers, bạn có thể chèn hook `pre_analyze(document)` để enrich metadata hoặc thực hiện filtering bổ sung.
-- Sau khi nhận chunks từ sub-chunker, hook `post_chunk(chunks)` có thể áp dụng re-ranking, dedupe hoặc re-scoring.
-
-- C) Thêm sơ đồ Mermaid cho hybrid flow (tương tự loaders).

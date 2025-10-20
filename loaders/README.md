@@ -376,8 +376,7 @@ flowchart TD
    ROK --> LINK[ChunkSet.link_chunks() + provenance aggregation]
    LINK --> PIPE[Return ChunkSet to pipeline]
 
-   style L fill:#f3f4f6,stroke:#333,stroke-width:1px
-   style PIPE fill:#e6ffed,stroke:#333,stroke-width:1px
+  %% removed style directives to improve GitHub Mermaid compatibility
 ```
 
 ASCII fallback (flow):

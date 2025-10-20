@@ -94,11 +94,11 @@ python run_pipeline.py
 
 ```mermaid
 flowchart TD
-  F[EmbedderFactory] --> O[Ollama provider]
-  O --> G[GemmaEmbedder (768d)]
-  O --> B[BGE3Embedder (1024d)]
-  G --> A[Ollama API /api/embeddings]
-  B --> A
+  Factory --> Ollama
+  Ollama --> Gemma
+  Ollama --> BGE3
+  Gemma --> OllamaAPI
+  BGE3 --> OllamaAPI
 ```
 
 ASCII fallback:

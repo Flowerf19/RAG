@@ -172,33 +172,7 @@ def test_fixed_size_chunker_simple():
 
 ## Sơ đồ quyết định — HybridChunker (Mermaid + ASCII fallback)
 
-Dưới đây là sơ đồ Mermaid mô tả chi tiết logic quyết định trong `HybridChunker` khi ở chế độ `AUTO` (how AUTO chooses between structural/semantic/fixed-size and fallbacks). Nếu GitHub không render Mermaid, phần ASCII fallback giải thích cùng luồng.
-
-```mermaid
-flowchart TD
-  Start([Start]) --> Collect[Collect blocks]
-  Collect --> Analyze[Analyze document: structure / narrative / avg_tokens]
-  Analyze -->|structure & avg < max| TryRule[RuleBasedChunker]
-  Analyze -->|narrative| TrySemantic[SemanticChunker]
-  Analyze -->|other| Fallback[FixedSizeChunker]
-
-  TryRule --> RuleOK{Rule success?}
-  RuleOK -->|yes| UseRule[Use structural chunks]
-  RuleOK -->|no| TrySemantic
-
-  TrySemantic --> SemanticOK{Semantic success?}
-  SemanticOK -->|yes| UseRule
-  SemanticOK -->|no| UseFallback[Use FixedSize]
-
-  UseRule --> CollectChunks[Collect chunks]
-  CollectChunks --> Add[Add to ChunkSet]
-  Add --> Link[link_chunks()]
-  Link --> Return[Return ChunkSet]
-```
-
-***Begin Patch
-*** Update File: c:\Users\ENGUYEHWC\Prototype\Version_03\RAG\chunkers\README.md
-@@
+Dưới đây là sơ đồ Mermaid mô tả logic quyết định trong `HybridChunker` khi ở chế độ `AUTO`. Phiên bản này dùng tên node ngắn gọn và tránh style/ngôn từ có thể gây lỗi cho bộ dò của GitHub.
 
 ```mermaid
 flowchart TD

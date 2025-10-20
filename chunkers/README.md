@@ -196,6 +196,32 @@ flowchart TD
   Link --> Return[Return ChunkSet]
 ```
 
+***Begin Patch
+*** Update File: c:\Users\ENGUYEHWC\Prototype\Version_03\RAG\chunkers\README.md
+@@
+
+```mermaid
+flowchart TD
+  Start --> Collect
+  Collect --> Analyze
+  Analyze -->|structure| TryRule
+  Analyze -->|narrative| TrySemantic
+  Analyze -->|other| Fallback
+
+  TryRule --> RuleOK{Rule ok}
+  RuleOK -->|yes| UseRule
+  RuleOK -->|no| TrySemantic
+
+  TrySemantic --> SemanticOK{Semantic ok}
+  SemanticOK -->|yes| UseRule
+  SemanticOK -->|no| UseFallback
+
+  UseRule --> CollectChunks
+  CollectChunks --> Add
+  Add --> Link
+  Link --> Return
+```
+
 ASCII fallback (same flow):
 
 1. HybridChunker nhận `document` và thu thập tất cả `Block` hợp lệ.

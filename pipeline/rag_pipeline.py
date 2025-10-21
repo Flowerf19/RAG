@@ -154,12 +154,12 @@ class RAGPipeline:
             self.bm25_index_dir = self.output_dir / "bm25_index"
             self.bm25_index_dir.mkdir(parents=True, exist_ok=True)
             self.bm25_cache_file = self.cache_dir / "bm25_chunk_cache.json"
-            self.bm25_indexer = WhooshIndexer(self.bm25_index_dir)
+            self.bm25_indexer = WhooshIndexer(self.bm25_index_dir) # type: ignore
             self.bm25_ingest_manager = BM25IngestManager(
                 indexer=self.bm25_indexer,
                 cache_path=self.bm25_cache_file,
-            )
-            self.bm25_search_service = BM25SearchService(self.bm25_indexer)
+            ) # type: ignore
+            self.bm25_search_service = BM25SearchService(self.bm25_indexer) # type: ignore
             logger.info("BM25 ingest manager initialised (index dir=%s)", self.bm25_index_dir)
         except Exception as exc:
             logger.warning("Failed to initialise BM25 ingest components: %s", exc)

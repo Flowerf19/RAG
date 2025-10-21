@@ -138,7 +138,7 @@ class WhooshIndexer:
                 hits.append(
                     IndexerHit(
                         document_id=hit["document_id"],
-                        score=float(hit.score),
+                        score=float(hit.score), #type: ignore[assignment]
                         metadata=metadata,
                     )
                 )

@@ -129,6 +129,7 @@ graph TD
 ```
 
 **Luồng RAG hoạt động:**
+
 1. **Indexing Phase**: PDF → Chunks → Embeddings → FAISS/BM25 Indexes
 2. **Retrieval Phase**: Query → Search Indexes → Relevant Chunks
 3. **Generation Phase**: Query + Relevant Chunks → LLM → Response

@@ -286,8 +286,6 @@ PowerShell quick-run (pipeline):
 python run_pipeline.py
 ```
 
----
-
 ## Sơ đồ quyết định tích hợp — HybridChunker <-> Loaders (Mermaid + ASCII fallback)
 
 Phần này mô tả cách `loaders` chuẩn bị `Document` cho `chunkers.HybridChunker` và những điểm quyết định quan trọng (ví dụ: khi nào chọn chunk bằng cấu trúc, semantic hay fixed-size), cùng cách bảo toàn provenance (table cell/page/block) cho downstream.

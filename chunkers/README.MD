@@ -286,69 +286,6 @@ PowerShell quick-run (pipeline):
 python run_pipeline.py
 ```
 
----
-
-## Sơ đồ tuần tự (Sequence) cho `PDFLoader.load_pdf()`
-
-Dưới đây là sơ đồ Mermaid mô tả luồng chính của `PDFLoader.load_pdf()`.
-
-```mermaid
-sequenceDiagram
-  participant Caller
-  participant PDFLoader
-  participant PyMuPDF as fitz
-  participant pdfplumber
-  participant TextHelpers as Text
-  participant TableSchema
-  participant Normalizers
-  Caller->>PDFLoader: load_pdf(file_path)
-  PDFLoader->>PDFLoader: extract_metadata(file_path)
-  PDFLoader->>fitz: open(file_path)
-  alt extract_tables
-    PDFLoader->>pdfplumber: open(file_path)
-  end
-  PDFLoader->>Text: collect_all_blocks(doc)
-  PDFLoader->>Text: build_block_hash_counter(all_blocks)
-  loop for each page
-    PDFLoader->>fitz: load_page(page_idx)
-    alt extract_text
-      PDFLoader->>Text: extract_text_blocks_for_page(...)
-      Text-->>PDFLoader: List[Block]
-      PDFLoader->>Normalizers: normalize blocks (set_stable_id, normalize)
-    end
-    alt extract_tables
-      PDFLoader->>TableSchema: extract_tables_for_page(...)
-      TableSchema-->>PDFLoader: raw tables
-      PDFLoader->>Normalizers: clean_table, filter_duplicate_tables
-      PDFLoader->>PDFLoader: _extract_table_caption(...)
-      PDFLoader->>PDFLoader: create TableBlock and append to blocks
-    end
-    PDFLoader->>PDFLoader: _deduplicate_text_and_tables(blocks)
-    PDFLoader->>PDFLoader: pages.append(PDFPage(...))
-  end
-  PDFLoader-->>Caller: return PDFDocument(...)
-```
-
-Giải thích:
-
-1. Caller gọi PDFLoader.load_pdf(file_path)
-2. PDFLoader trích metadata (PyPDF2)
-3. Mở bằng PyMuPDF (fitz). Nếu cần trích bảng, mở pdfplumber.
-4. Gọi Text.collect_all_blocks(doc) và build_block_hash_counter để hỗ trợ lọc header/footer.
-5. Với mỗi trang:
-   - load_page
-   - nếu extract_text: gọi Text.extract_text_blocks_for_page, sau đó normalize blocks (set_stable_id, sentence segmentation)
-   - nếu extract_tables: gọi TableSchema.extract_tables_for_page (pdfplumber/camelot fallback), clean/unique tables, tạo TableSchema objects, try extract caption, convert thành TableBlock
-   - nếu có tables: gọi _deduplicate_text_and_tables để loại bỏ text overlapping
-   - tạo PDFPage với blocks và append vào pages
-6. Trả về PDFDocument với danh sách pages, warnings, meta
-7. Cuối cùng: luôn cố gắng đóng pdfplumber và fitz doc, gọi gc.collect()
-
-Gợi ý chèn hook:
-
-- Bạn có thể chèn hook trước/ sau `Text.extract_text_blocks_for_page` để thêm pre-processing hoặc custom filtering.
-- Hook sau `TableSchema.from_matrix` phù hợp để enrich table metadata (ví dụ: schema mapping, column types).
-
 ## Sơ đồ quyết định tích hợp — HybridChunker <-> Loaders (Mermaid + ASCII fallback)
 
 Phần này mô tả cách `loaders` chuẩn bị `Document` cho `chunkers.HybridChunker` và những điểm quyết định quan trọng (ví dụ: khi nào chọn chunk bằng cấu trúc, semantic hay fixed-size), cùng cách bảo toàn provenance (table cell/page/block) cho downstream.

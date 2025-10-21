@@ -47,7 +47,7 @@ env/
 htmlcov/
 
 # Streamlit (local config, not project-specific)
-.streamlit/config.toml
+.streamlit
 #gemini_api_key = "api gemini"
 .streamlit/secrets.toml 
 

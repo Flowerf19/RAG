@@ -48,7 +48,9 @@ htmlcov/
 
 # Streamlit (local config, not project-specific)
 .streamlit/config.toml
-.streamlit/secrets.toml
+#gemini_api_key = "api gemini"
+.streamlit/secrets.toml 
+
 
 # Data & Cache (Large files, generated)
 data/cache/

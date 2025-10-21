@@ -110,18 +110,28 @@ graph TD
 
     I[User Query] --> J[Retriever]
     J --> K{Search Type}
-    K -->|Vector| G
-    K -->|Keyword| H
-    K -->|Hybrid| L[Combine Results]
+    K -->|Vector| L[FAISS Search]
+    K -->|Keyword| M[BM25 Search]
+    K -->|Hybrid| N[Multi Search]
 
-    L --> M[LLM Context]
-    M --> N[Generate Response]
+    L --> O[Relevant Chunks]
+    M --> O
+    N --> O
+
+    O --> P[Build Context]
+    P --> Q[LLM with Context]
+    Q --> R[Generate Response]
 
     style A fill:#e1f5fe
     style G fill:#c8e6c9
     style H fill:#c8e6c9
-    style N fill:#fff3e0
+    style R fill:#fff3e0
 ```
+
+**Luồng RAG hoạt động:**
+1. **Indexing Phase**: PDF → Chunks → Embeddings → FAISS/BM25 Indexes
+2. **Retrieval Phase**: Query → Search Indexes → Relevant Chunks
+3. **Generation Phase**: Query + Relevant Chunks → LLM → Response
 
 ## 🔧 Sử dụng trong code
 

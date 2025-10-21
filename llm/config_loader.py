@@ -69,7 +69,13 @@ def repo_path(*parts: str) -> Path:
 
 def paths_data_dir() -> Path:
     rel = _require(get_config(), "paths.data_dir")
-    return repo_path(str(rel))
+    base_path = Path(str(rel))
+    if not base_path.is_absolute():
+        base_path = repo_path(*base_path.parts) if base_path.parts else repo_path(str(base_path))
+    if base_path.name.lower() != "pdf":
+        base_path = base_path / "pdf"
+    base_path.mkdir(parents=True, exist_ok=True)
+    return base_path
 
 
 def paths_prompt_path() -> Path:

@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Protocol, Sequence
 
@@ -161,7 +162,7 @@ class BM25IngestManager:
             chunk_lang = lang or getattr(chunk, "metadata", {}).get("language")
             keywords = self.keyword_extractor.extract_keywords(text, chunk_lang)
 
-            metadata = self._build_metadata(
+            raw_metadata = self._build_metadata(
                 chunk_set,
                 chunk,
                 extra={
@@ -169,6 +170,7 @@ class BM25IngestManager:
                     "text": text,
                 },
             )
+            metadata = self._sanitize_for_json(raw_metadata)
             documents.append(
                 BM25Document(
                     document_id=chunk_id,
@@ -222,3 +224,29 @@ class BM25IngestManager:
         import hashlib
 
         return hashlib.md5(text.encode("utf-8")).hexdigest()
+
+    def _sanitize_for_json(self, value: Any) -> Any:
+        """
+        Convert arbitrary metadata to structures that json can serialise safely.
+        """
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, Mapping):
+            return {str(key): self._sanitize_for_json(val) for key, val in value.items()}
+        if isinstance(value, (list, tuple, set)):
+            return [self._sanitize_for_json(item) for item in value]
+        if is_dataclass(value):
+            return self._sanitize_for_json(asdict(value))
+        to_dict = getattr(value, "to_dict", None)
+        if callable(to_dict):
+            try:
+                return self._sanitize_for_json(to_dict())
+            except Exception:
+                return str(value)
+        if hasattr(value, "__dict__"):
+            return self._sanitize_for_json(
+                {key: val for key, val in vars(value).items() if not key.startswith("_")}
+            )
+        return str(value)

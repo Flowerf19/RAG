@@ -17,4 +17,4 @@ for /d /r . %%d in (__pycache__) do (
 echo ================================
 echo  DA XOA XONG TOAN BO CACHE
 echo ================================
-pause
+

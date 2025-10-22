@@ -11,6 +11,7 @@ Hệ thống RAG (Retrieval-Augmented Generation) modular, xử lý PDF thành F
 - 📄 **PDF Processing**: Text extraction, table parsing, multi-language support
 - 🧩 **Modular Architecture**: Factory patterns, composition design
 - 🤖 **Multi-LLM Support**: Ollama, OpenAI, Google Gemini
+- 🧠 **Multi-Embedder Support**: HuggingFace Local/API, Ollama Local
 - 🎨 **Modern UI**: Streamlit interface với chat và retrieval
 - 📊 **Analytics**: Processing statistics, performance monitoring
 - 🔄 **Incremental Processing**: Cache-based để tránh re-processing
@@ -76,6 +77,44 @@ streamlit run llm/LLM_FE.py
 
 # Truy cập: http://localhost:8501
 ```
+
+### Cấu hình Embedder
+
+Hệ thống hỗ trợ multiple embedding providers:
+
+- **HuggingFace Local**: Download và chạy models locally (default)
+- **HuggingFace API**: Sử dụng Inference API (cần token)
+- **Ollama Local**: Ollama server với embedding models
+
+```bash
+# HuggingFace API token (optional)
+export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# hoặc
+export HUGGINGFACE_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Ví dụ setup trong Linux/Mac:
+export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Hoặc trong Windows PowerShell:
+$env:HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Cách 2: Sử dụng Streamlit secrets.toml** (khuyến nghị cho development)
+```toml
+# File: .streamlit/secrets.toml
+[huggingface]
+api_token = "hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# hoặc
+hf_token = "hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Cách lấy HuggingFace Token:**
+1. Truy cập [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. Đăng nhập tài khoản HuggingFace
+3. Tạo "New token" với type "Read"
+4. Copy token và thiết lập như hướng dẫn trên
+
+Trong UI, chọn embedder phù hợp trong sidebar "Embedder source".
 
 ## 📁 Cấu trúc project
 

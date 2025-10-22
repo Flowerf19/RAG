@@ -18,6 +18,7 @@ import numpy as np
 from loaders.pdf_loader import PDFLoader
 from chunkers.hybrid_chunker import HybridChunker
 from embedders.embedder_factory import EmbedderFactory
+from embedders.embedder_type import EmbedderType
 from embedders.providers.ollama import OllamaModelSwitcher, OllamaModelType
 from pipeline.vector_store import VectorStore
 from pipeline.summary_generator import SummaryGenerator
@@ -51,18 +52,30 @@ class RAGPipeline:
     def __init__(self,
                  output_dir: str = "data",
                  pdf_dir: Optional[str | Path] = None,
-                 model_type: OllamaModelType = OllamaModelType.GEMMA):
+                 embedder_type: EmbedderType = EmbedderType.OLLAMA,
+                 model_type: OllamaModelType = OllamaModelType.GEMMA,
+                 hf_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+                 hf_use_api: Optional[bool] = None,
+                 hf_api_token: Optional[str] = None):
         """
         Initialize RAG Pipeline.
        
         Args:
             output_dir: Directory để lưu output files
             pdf_dir: Directory chứa PDF files (default: output_dir/pdf)
-            model_type: Ollama model type (GEMMA hoặc BGE_M3)
+            embedder_type: Type of embedder to use (OLLAMA or HUGGINGFACE)
+            model_type: Ollama model type (GEMMA hoặc BGE_M3) - only used for OLLAMA
+            hf_model_name: HF model name - only used for HUGGINGFACE
+            hf_use_api: Whether to use HF API - only used for HUGGINGFACE
+            hf_api_token: HF API token - only used for HUGGINGFACE
         """
         self.output_dir = Path(output_dir)
         self.pdf_dir = Path(pdf_dir) if pdf_dir else self.output_dir / "pdf"
+        self.embedder_type = embedder_type
         self.model_type = model_type
+        self.hf_model_name = hf_model_name
+        self.hf_use_api = hf_use_api
+        self.hf_api_token = hf_api_token
        
         # Create output subdirectories
         self.chunks_dir = self.output_dir / "chunks"
@@ -84,12 +97,48 @@ class RAGPipeline:
         self.loader = PDFLoader.create_default()
         self.chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
 
-        # Initialize embedder with model switcher
-        self.model_switcher = OllamaModelSwitcher()
-        if model_type == OllamaModelType.GEMMA:
-            self.embedder = self.model_switcher.switch_to_gemma()
+        # Initialize embedder based on type
+        if embedder_type == EmbedderType.OLLAMA:
+            # Initialize embedder with model switcher
+            self.model_switcher = OllamaModelSwitcher()
+            if model_type == OllamaModelType.GEMMA:
+                self.embedder = self.model_switcher.switch_to_gemma()
+            else:
+                self.embedder = self.model_switcher.switch_to_bge_m3()
+        elif embedder_type == EmbedderType.HUGGINGFACE:
+            # Initialize HuggingFace embedder
+            factory = EmbedderFactory()
+            
+            # Determine which embedder to use
+            if hf_use_api is True:
+                # Use API embedder
+                self.embedder = factory.create_huggingface_api(
+                    model_name=hf_model_name,
+                    api_token=hf_api_token
+                )
+            elif hf_use_api is False:
+                # Use local embedder
+                self.embedder = factory.create_huggingface_local(
+                    model_name=hf_model_name,
+                    device="cpu"
+                )
+            else:
+                # Auto-detect: prefer local, fallback to API
+                try:
+                    self.embedder = factory.create_huggingface_local(
+                        model_name=hf_model_name,
+                        device="cpu"
+                    )
+                except ImportError:
+                    logger.info("Transformers not available, using HF API")
+                    self.embedder = factory.create_huggingface_api(
+                        model_name=hf_model_name,
+                        api_token=hf_api_token
+                    )
+            
+            self.model_switcher = None  # Not used for HF
         else:
-            self.embedder = self.model_switcher.switch_to_bge_m3()
+            raise ValueError(f"Unsupported embedder type: {embedder_type}")
        
         # Initialize supporting components
         self.vector_store = VectorStore(self.vectors_dir)
@@ -111,6 +160,12 @@ class RAGPipeline:
         Args:
             model_type: New model type to switch to
         """
+        if self.embedder_type != EmbedderType.OLLAMA:
+            raise ValueError("Model switching only supported for OLLAMA embedders")
+            
+        if self.model_switcher is None:
+            raise RuntimeError("Model switcher not initialized")
+            
         if model_type == OllamaModelType.GEMMA:
             self.embedder = self.model_switcher.switch_to_gemma()
         else:

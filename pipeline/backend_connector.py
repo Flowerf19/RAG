@@ -23,6 +23,7 @@ import logging
 import math
 
 from pipeline.rag_pipeline import RAGPipeline
+from embedders.embedder_type import EmbedderType
 
 
 logger = logging.getLogger(__name__)
@@ -241,7 +242,7 @@ class RAGRetrievalService:
             current_best = best_by_chunk.get(chunk_id)
             result_score = self._as_float(result.get(score_key))
             current_score = self._as_float(current_best.get(score_key)) if current_best else None
-            if current_best is None or result_score > current_score:
+            if current_best is None or result_score > current_score: # type: ignore
                 best_by_chunk[chunk_id] = result
         return list(best_by_chunk.values())
 
@@ -341,7 +342,7 @@ class RAGRetrievalService:
                     "vector_similarity": vec.get("similarity_score") if vec else None,
                     "distance": self._as_float(vec.get("distance")) if vec else 0.0,
                     "bm25_raw_score": bm25.get("bm25_raw_score") if bm25 else None,
-                    "keywords": bm25.get("keywords") if bm25 else vec.get("keywords", []),
+                    "keywords": bm25.get("keywords") if bm25 else vec.get("keywords", []), # type: ignore
                     "provenance": (vec or {}).get("provenance") or (bm25 or {}).get("metadata"),
                     "retrieval_mode": "hybrid",
                 }
@@ -404,7 +405,7 @@ class RAGRetrievalService:
         return merged
 
 
-def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000) -> Dict[str, Any]:
+def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000, embedder_type: str = "ollama") -> Dict[str, Any]:
     """
     Hàm tiện ích để retrieval từ FAISS indexes.
     Tự động tìm FAISS index mới nhất và thực hiện search.
@@ -418,9 +419,29 @@ def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000) -> D
         Dict với keys: "context" (str), "sources" (list)
     """
     try:
+        # Map embedder_type string to enum and config
+        embedder_enum = EmbedderType.OLLAMA
+        use_api = None
+        
+        if embedder_type.lower() == "huggingface_local":
+            embedder_enum = EmbedderType.HUGGINGFACE
+            use_api = False
+        elif embedder_type.lower() == "huggingface_api":
+            embedder_enum = EmbedderType.HUGGINGFACE
+            use_api = True
+        elif embedder_type.lower() == "huggingface":
+            # Legacy support
+            embedder_enum = EmbedderType.HUGGINGFACE
+            use_api = None  # Auto-detect
+        elif embedder_type.lower() == "ollama":
+            embedder_enum = EmbedderType.OLLAMA
+            
         # Khởi tạo pipeline và retriever
         from pipeline.rag_pipeline import RAGPipeline
-        pipeline = RAGPipeline()
+        pipeline = RAGPipeline(
+            embedder_type=embedder_enum,
+            hf_use_api=use_api
+        )
         retriever = RAGRetrievalService(pipeline)
 
         results = retriever.retrieve_hybrid(query_text, top_k=top_k)

@@ -22,3 +22,9 @@ openai
 unidecode
 whoosh
 pymarkdownlnt
+# HuggingFace embeddings support
+transformers
+torch
+sentence-transformers
+generativeai
+openai

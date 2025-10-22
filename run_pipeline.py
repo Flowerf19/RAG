@@ -8,7 +8,7 @@ Chạy pipeline hoàn chỉnh để xử lý tất cả PDF trong data/pdf/
 import logging
 from pathlib import Path
 from pipeline.rag_pipeline import RAGPipeline
-from embedders.providers.ollama import OllamaModelType
+from embedders.embedder_type import EmbedderType
 
 # Configure logging
 logging.basicConfig(
@@ -25,7 +25,7 @@ def main():
     pipeline = RAGPipeline(
         output_dir="data",
         pdf_dir="data/pdf",
-        model_type=OllamaModelType.GEMMA
+        embedder_type=EmbedderType.HUGGINGFACE
     )
 
     # Process all PDFs in the directory

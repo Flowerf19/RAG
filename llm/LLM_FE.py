@@ -108,11 +108,43 @@ with st.sidebar:
         help="Chọn nguồn trả lời cho chatbot",
         format_func=lambda x: "Gemini API" if x == "gemini" else "LM Studio Local"
     )
+    
+    # === EMBEDDER SELECTION ===
+    embedder_options = ["huggingface_local", "huggingface_api", "ollama"]
+    if "embedder_mode" not in st.session_state:
+        st.session_state["embedder_mode"] = embedder_options[0]  # Default to huggingface_local
+    
+    st.radio(
+        "Embedder source",
+        embedder_options,
+        key="embedder_mode",
+        help="Chọn nguồn embedding cho RAG retrieval",
+        format_func=lambda x: {
+            "huggingface_local": "HuggingFace Local",
+            "huggingface_api": "HuggingFace API", 
+            "ollama": "Ollama Local"
+        }.get(x, x)
+    )
+    
+    # HuggingFace API token status
+    if st.session_state.get("embedder_mode") == "huggingface_api":
+        try:
+            from embedders.providers.huggingface.token_manager import get_hf_token
+            token = get_hf_token()
+            
+            if token:
+                st.success("✅ HuggingFace API token: OK")
+            else:
+                st.warning("⚠️ HuggingFace token chưa thiết lập (set HF_TOKEN env hoặc secrets.toml)")
+        except Exception as e:
+            st.error(f"⚠️ Lỗi kiểm tra token: {e}")
+    
     st.markdown("Welcome back", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Dùng biến backend thống nhất
 backend = st.session_state["backend_mode"]
+embedder_mode = st.session_state["embedder_mode"]
 
 # === SESSION STATE INIT ===
 if "messages" not in st.session_state:
@@ -191,7 +223,7 @@ def ask_backend(prompt_text: str) -> str:
         # Build messages bằng chat_handler
         # Lấy context từ Retrieval (nếu có) và lưu nguồn để hiển thị.
         try:
-            ret = fetch_retrieval(prompt_text, top_k=10, max_chars=8000)  # Tăng lên 8000
+            ret = fetch_retrieval(prompt_text, top_k=10, max_chars=8000, embedder_type=embedder_mode)  # Tăng lên 8000
             context = ret.get("context", "") or ""
             st.session_state["last_sources"] = ret.get("sources", [])
         except Exception:

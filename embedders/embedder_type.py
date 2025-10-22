@@ -10,3 +10,4 @@ from enum import Enum
 class EmbedderType(Enum):
     """Enum cho các embedding providers."""
     OLLAMA = "ollama"
+    HUGGINGFACE = "huggingface"

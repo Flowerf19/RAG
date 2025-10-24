@@ -98,8 +98,8 @@ class RAGPipeline:
 
         self._setup_bm25_components()
 
-        logger.info(f"Loader: PDFLoader")
-        logger.info(f"Chunker: HybridChunker")
+        logger.info("Loader: PDFLoader")
+        logger.info("Chunker: HybridChunker")
         logger.info(f"Embedder: {self.embedder.profile.model_id}")
         logger.info(f"Dimension: {self.embedder.dimension}")
         logger.info(f"Output: {self.output_dir}")
@@ -490,21 +490,35 @@ class RAGPipeline:
         """
         return self.vector_store.load_index(faiss_file, metadata_map_file)
    
-    def search_similar(self, faiss_file: Path, metadata_map_file: Path,
-                    query_text: str, top_k: int = 10) -> List[Dict[str, Any]]:
+    def search_similar(
+        self,
+        faiss_file: Path,
+        metadata_map_file: Path,
+        query_text: str | None,
+        top_k: int = 10,
+        *,
+        query_embedding: Optional[List[float]] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Search for similar chunks using FAISS index.
        
         Args:
             faiss_file: Path to FAISS index file
             metadata_map_file: Path to metadata map file
-            query_text: Query text to search
+            query_text: Query text to search (optional when query_embedding provided)
             top_k: Number of results to return
-           
+            query_embedding: Optional precomputed embedding to reuse
+       
         Returns:
             List of similar chunks with metadata and distances
         """
-        return self.retriever.search_similar(faiss_file, metadata_map_file, query_text, top_k)
+        return self.retriever.search_similar(
+            faiss_file=faiss_file,
+            metadata_map_file=metadata_map_file,
+            query_text=query_text,
+            top_k=top_k,
+            query_embedding=query_embedding,
+        )
 
 def main():
     """Main entry point for RAG Pipeline."""

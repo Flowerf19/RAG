@@ -1,4 +1,8 @@
-import sys, os
+import sys
+import os
+from pathlib import Path
+import streamlit as st
+import shutil
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 sys.path.append(os.path.dirname(__file__))  # Add current directory
 
@@ -7,10 +11,7 @@ print("Current working directory:", os.getcwd())
 print("Script directory:", os.path.dirname(__file__))
 print("Python path:", sys.path)
 
-from pathlib import Path
-import streamlit as st
-import os
-import shutil
+
 
 # Import chat_handler và LLM clients
 # Handle both direct execution and module import
@@ -127,20 +128,82 @@ with st.sidebar:
         }.get(x, x)
     )
     
-    # HuggingFace API token status
-    if st.session_state.get("embedder_type") == "huggingface_api":
+    # Reranker Model Selection
+    st.markdown("---")
+    reranker_options = ["none", "bge_local", "bge_m3_ollama", "bge_m3_hf_local", "bge_m3_hf_api", "cohere", "jina"]
+    if "reranker_type" not in st.session_state:
+        st.session_state["reranker_type"] = "bge_m3_hf_local"  # Default to BGE-M3 HF local
+    
+    st.radio(
+        "Reranker Model",
+        reranker_options,
+        key="reranker_type",
+        help="Chọn loại reranker để sắp xếp lại kết quả",
+        format_func=lambda x: {
+            "none": "No Reranking",
+            "bge_local": "BGE v2-m3 Local",
+            "bge_m3_ollama": "BGE-M3 Ollama",
+            "bge_m3_hf_local": "BGE-M3 HF Local",
+            "bge_m3_hf_api": "BGE-M3 HF API",
+            "cohere": "Cohere API",
+            "jina": "Jina API"
+        }.get(x, x)
+    )
+    
+    # Top K Settings
+    st.markdown("---")
+    st.markdown("### Retrieval Settings")
+    
+    # Top K for Embedding Retrieval
+    if "top_k_embed" not in st.session_state:
+        st.session_state["top_k_embed"] = 10
+    
+    st.slider(
+        "Top K Embedding Retrieval",
+        min_value=5,
+        max_value=50,
+        value=st.session_state.get("top_k_embed", 10),
+        step=5,
+        key="top_k_embed",
+        help="Số lượng kết quả từ embedding search (trước reranking)"
+    )
+    
+    # Top K for Reranking
+    if "top_k_rerank" not in st.session_state:
+        st.session_state["top_k_rerank"] = 5
+    
+    st.slider(
+        "Top K Reranking",
+        min_value=1,
+        max_value=20,
+        value=st.session_state.get("top_k_rerank", 5),
+        step=1,
+        key="top_k_rerank",
+        help="Số lượng kết quả cuối cùng sau reranking"
+    )
+
+    
+    # API token status for API-based rerankers
+    reranker_type = st.session_state.get("reranker_type", "bge_m3_hf_local")
+    if reranker_type in ["bge_m3_hf_api", "cohere", "jina"]:
         try:
-            from embedders.providers.huggingface.token_manager import get_hf_token
-            token = get_hf_token()
+            if reranker_type == "bge_m3_hf_api":
+                from embedders.providers.huggingface.token_manager import get_hf_token
+                token = get_hf_token()
+                service_name = "HuggingFace"
+            elif reranker_type == "cohere":
+                token = os.getenv("COHERE_API_KEY") or os.getenv("COHERE_TOKEN")
+                service_name = "Cohere"
+            elif reranker_type == "jina":
+                token = os.getenv("JINA_API_KEY") or os.getenv("JINA_TOKEN")
+                service_name = "Jina"
             
             if token:
-                st.success("✅ HuggingFace API token: OK")
+                st.success(f"✅ {service_name} API token: OK")
             else:
-                st.warning("⚠️ HuggingFace token chưa thiết lập")
+                st.warning(f"⚠️ {service_name} token chưa thiết lập")
         except Exception as e:
             st.error(f"⚠️ Lỗi token: {e}")
-    
-    st.markdown("---")
     
     # === EMBEDDING CONTROLS ===
     st.markdown("### Embedding Controls")
@@ -266,8 +329,26 @@ st.markdown("".join(chat_html_parts), unsafe_allow_html=True)
 
 # === RETRIEVAL SOURCES (UI) ===
 sources = st.session_state.get("last_sources", [])
-if sources:
+retrieval_info = st.session_state.get("last_retrieval_info", {})
+
+if sources or retrieval_info:
     st.markdown("### Nguồn tham khảo")
+    
+    # Display retrieval info if available
+    if retrieval_info:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Retrieved", retrieval_info.get("total_retrieved", 0))
+        with col2:
+            st.metric("Final Count", retrieval_info.get("final_count", 0))
+        with col3:
+            reranked_status = "✅ Yes" if retrieval_info.get("reranked", False) else "❌ No"
+            st.metric("Reranked", reranked_status)
+        with col4:
+            reranker = retrieval_info.get("reranker", "none")
+            st.metric("Reranker", reranker[:10] + "..." if len(reranker) > 10 else reranker)
+    
+    # Display sources
     for i, src in enumerate(sources, 1):
         file_name = src.get("file_name", "?")
         page = src.get("page_number", "?")
@@ -275,9 +356,20 @@ if sources:
             score = float(src.get("similarity_score", 0.0))
         except Exception:
             score = 0.0
+        
+        # Check if rerank score exists
+        rerank_score = src.get("rerank_score")
+        if rerank_score is not None:
+            try:
+                rerank_score = float(rerank_score)
+                score_text = f"Sim: {score:.4f} | Rerank: {rerank_score:.4f}"
+            except (ValueError, TypeError):
+                score_text = f"Score: {score:.4f}"
+        else:
+            score_text = f"Score: {score:.4f}"
         text = src.get("snippet", "") or ""  # Sử dụng 'snippet' thay vì 'text'
         snippet = text if len(text) <= 500 else text[:500] + "..."
-        st.markdown(f"- [{i}] {file_name} - trang {page} (điểm {score:.3f})")
+        st.markdown(f"- [{i}] {file_name} - trang {page} ({score_text})")
         with st.expander(f"Xem trích đoạn {i}"):
             if snippet.strip():
                 st.markdown(snippet)
@@ -305,13 +397,26 @@ def ask_backend(prompt_text: str) -> str:
         # Lấy context từ Retrieval (nếu có) và lưu nguồn để hiển thị.
         try:
             embedder_type = st.session_state.get("embedder_type", "huggingface_local")
-            ret = fetch_retrieval(prompt_text, top_k=10, max_chars=8000, embedder_type=embedder_type)
+            reranker_type = st.session_state.get("reranker_type", "bge_m3_hf_local")
+            top_k_embed = st.session_state.get("top_k_embed", 10)
+            top_k_rerank = st.session_state.get("top_k_rerank", 5)
+            
+            ret = fetch_retrieval(
+                prompt_text, 
+                top_k_embed=top_k_embed, 
+                top_k_rerank=top_k_rerank,
+                max_chars=8000, 
+                embedder_type=embedder_type, 
+                reranker_type=reranker_type
+            )
             context = ret.get("context", "") or ""
             st.session_state["last_sources"] = ret.get("sources", [])
+            st.session_state["last_retrieval_info"] = ret.get("retrieval_info", {})
         except Exception as e:
             st.error(f"Lỗi retrieval: {e}")
             context = ""
             st.session_state["last_sources"] = []
+            st.session_state["last_retrieval_info"] = {}
 
         messages = build_messages(
             query=prompt_text,

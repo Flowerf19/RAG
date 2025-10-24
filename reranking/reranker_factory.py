@@ -22,17 +22,59 @@ class RerankerFactory:
         device: str = "cpu"
     ) -> IReranker:
         """
-        Create BGE local reranker.
+        Create BGE local reranker (uses BGE3HuggingFaceLocalReranker).
+
+        Args:
+            model_name: Model name
+            device: Device to run on
+
+        Returns:
+            BGE reranker instance
+        """
+        from reranking.providers.bge_m3_hf_local_reranker import BGE3HuggingFaceLocalReranker
+        return BGE3HuggingFaceLocalReranker(model_name=model_name, device=device)
+    
+    @staticmethod
+    def create_bge_m3_ollama(device: str = "auto") -> IReranker:
+        """
+        Create BGE-M3 HuggingFace reranker (no Ollama dependency).
+
+        Args:
+            device: Device to run on ('auto', 'cpu', 'cuda')
+
+        Returns:
+            BGE-M3 HF reranker instance
+        """
+        from reranking.providers.bge_m3_ollama_reranker import BGE3OllamaReranker
+        return BGE3OllamaReranker(device=device)
+    def create_bge_m3_hf_api(api_token: str, model_name: str = "BAAI/bge-reranker-v2-m3") -> IReranker:
+        """
+        Create BGE-M3 HuggingFace API reranker.
+        
+        Args:
+            api_token: HuggingFace API token
+            model_name: Model name
+            
+        Returns:
+            BGE-M3 HF API reranker instance
+        """
+        from reranking.providers.bge_m3_hf_api_reranker import BGE3HuggingFaceApiReranker
+        return BGE3HuggingFaceApiReranker(api_token=api_token, model_name=model_name)
+    
+    @staticmethod
+    def create_bge_m3_hf_local(model_name: str = "BAAI/bge-reranker-v2-m3", device: str = "cpu") -> IReranker:
+        """
+        Create BGE-M3 HuggingFace local reranker.
         
         Args:
             model_name: Model name
             device: Device to run on
             
         Returns:
-            BGE reranker instance
+            BGE-M3 HF local reranker instance
         """
-        from reranking.providers.bge_reranker_local import BGERerankerLocal
-        return BGERerankerLocal(model_name=model_name, device=device)
+        from reranking.providers.bge_m3_hf_local_reranker import BGE3HuggingFaceLocalReranker
+        return BGE3HuggingFaceLocalReranker(model_name=model_name, device=device)
     
     @staticmethod
     def create_cohere(
@@ -92,6 +134,17 @@ class RerankerFactory:
         """
         if reranker_type == RerankerType.BGE_RERANKER:
             return cls.create_bge_local(model_name=model_name, device=device)
+        
+        elif reranker_type == RerankerType.BGE_M3_OLLAMA:
+            return cls.create_bge_m3_ollama()
+        
+        elif reranker_type == RerankerType.BGE_M3_HF_API:
+            if not api_token:
+                raise ValueError("API token required for BGE-M3 HF API reranker")
+            return cls.create_bge_m3_hf_api(api_token=api_token, model_name=model_name)
+        
+        elif reranker_type == RerankerType.BGE_M3_HF_LOCAL:
+            return cls.create_bge_m3_hf_local(model_name=model_name, device=device)
         
         elif reranker_type == RerankerType.COHERE:
             if not api_token:

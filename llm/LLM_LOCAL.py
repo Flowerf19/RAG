@@ -3,7 +3,6 @@ LM Studio Client - Chỉ lo gọi LM Studio API
 Nhận messages dạng OpenAI format (List[Dict])
 LM Studio hỗ trợ OpenAI format nên KHÔNG CẦN convert
 """
-import os
 from typing import List, Dict, Optional
 from openai import OpenAI
 

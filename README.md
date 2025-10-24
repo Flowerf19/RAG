@@ -72,22 +72,51 @@ python -c "from pipeline import RAGPipeline; p = RAGPipeline(); p.process_pdf('p
 ### Chạy giao diện web
 
 ```powershell
-# Streamlit UI
+# Streamlit UI với tính năng Embedding
 streamlit run llm/LLM_FE.py
 
 # Truy cập: http://localhost:8501
 ```
 
+#### Tính năng Embedding trong UI
+
+**🎛️ Điều khiển Embedding:**
+- **Nút "🚀 Run Embedding"**: Chạy embedding cho tất cả PDF trong `data/pdf/`
+- **Thanh tiến độ**: Hiển thị tiến trình xử lý từng file
+- **Nút "⏹️ Dừng Embedding"**: Dừng quá trình embedding
+- **Chuyển đổi Embedder**: Chọn giữa HuggingFace Local/API hoặc Ollama
+
+**📊 Theo dõi tiến độ:**
+- Số file PDF được tìm thấy
+- File đang xử lý hiện tại
+- Phần trăm hoàn thành
+- Trạng thái chi tiết
+
 ### Cấu hình Embedder
 
 Hệ thống hỗ trợ multiple embedding providers:
 
-- **HuggingFace Local**: Download và chạy models locally (default)
-- **HuggingFace API**: Sử dụng Inference API (cần token)
-- **Ollama Local**: Ollama server với embedding models
+- **HuggingFace Local**: Download và chạy BGE-M3 1024-dim locally (default)
+- **HuggingFace API**: Sử dụng FREE Inference API với E5-Large Multilingual 1024-dim (cần token)
+- **Ollama Local**: Ollama server với embedding models (Gemma 768-dim, BGE-M3 1024-dim)
+
+#### Model Specifications:
+
+| Provider | Model | Dimensions | Max Tokens | Multilingual | Languages | Cost |
+|----------|-------|------------|------------|--------------|-----------|------|
+| HF Local | BAAI/bge-m3 | **1024** | 8192 | ✅ | 100+ | FREE |
+| HF API | intfloat/multilingual-e5-large | **1024** | 512 | ✅ | **100+** | FREE |
+| Ollama | embeddinggemma | 768 | 8192 | ❌ | EN only | FREE |
+| Ollama | bge-m3 | 1024 | 8192 | ✅ | 100+ | FREE |
+
+**Lưu ý**: 
+- HF API sử dụng endpoint mới: `https://router.huggingface.co/hf-inference/` (migrated từ `api-inference.huggingface.co` - deprecated Nov 2025)
+- **E5-Large Multilingual** hỗ trợ 100+ ngôn ngữ bao gồm tiếng Việt, tiếng Anh, tiếng Trung, etc.
+- **BGE-M3** (local) cũng hỗ trợ đa ngôn ngữ tốt, phù hợp khi không có internet
+- Cả hai đều cho embeddings 1024 dimensions và hoàn toàn MIỄN PHÍ
 
 ```bash
-# HuggingFace API token (optional)
+# HuggingFace API token (optional - cho HF API mode)
 export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 # hoặc
 export HUGGINGFACE_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -108,11 +137,13 @@ api_token = "hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 hf_token = "hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-**Cách lấy HuggingFace Token:**
+**Cách lấy HuggingFace Token (MIỄN PHÍ):**
 1. Truy cập [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
-2. Đăng nhập tài khoản HuggingFace
+2. Đăng nhập tài khoản HuggingFace (hoặc đăng ký miễn phí)
 3. Tạo "New token" với type "Read"
 4. Copy token và thiết lập như hướng dẫn trên
+
+**Lưu ý**: HuggingFace Inference API hoàn toàn MIỄN PHÍ cho BGE-M3 model!
 
 Trong UI, chọn embedder phù hợp trong sidebar "Embedder source".
 

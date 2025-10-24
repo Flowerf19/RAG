@@ -127,7 +127,7 @@ def call_gemini(
             return "[Gemini Error] Missing API key (configure secrets or env)."
         
         # Configure API key globally
-        genai.configure(api_key=_api_key)
+        genai.configure(api_key=_api_key) # type: ignore
         
         # Fill defaults from config when args are None
         if model_name is None:
@@ -144,10 +144,10 @@ def call_gemini(
         prompt_text = convert_to_gemini_format(messages)
         
         # Initialize model (without api_key parameter)
-        model = genai.GenerativeModel(model_name) 
+        model = genai.GenerativeModel(model_name)  # type: ignore
         
         # Generate
-        generation_config = genai.GenerationConfig()
+        generation_config = genai.GenerationConfig() # type: ignore
         if temperature is not None:
             generation_config.temperature = temperature
         if max_tokens is not None:

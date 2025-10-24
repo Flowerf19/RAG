@@ -5,7 +5,7 @@ Implementation sử dụng transformers library local.
 Tương tự như GemmaEmbedder nhưng dùng transformers thay vì Ollama.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Any
 import torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModel
@@ -20,16 +20,17 @@ class HuggingFaceLocalEmbedder(BaseHuggingFaceEmbedder):
     Single Responsibility: Tạo embeddings sử dụng local transformers models.
     
     Config:
-        - Model: BAAI/bge-small-en-v1.5 (default)
-        - Dimension: 384
-        - Max tokens: 512
+        - Model: BAAI/bge-m3 (default) - 1024 dimensions
+        - Dimension: 1024
+        - Max tokens: 8192
         - Provider: huggingface
+        - Multilingual support with excellent performance
     """
     
     # Class-level constants
-    MODEL_NAME = "BAAI/bge-small-en-v1.5"
-    DIMENSION = 384
-    MAX_TOKENS = 512
+    MODEL_NAME = "BAAI/bge-m3"
+    DIMENSION = 1024
+    MAX_TOKENS = 8192
     PROVIDER = "huggingface"
 
     def __init__(self,
@@ -47,8 +48,8 @@ class HuggingFaceLocalEmbedder(BaseHuggingFaceEmbedder):
         super().__init__(profile, model_name)
         
         self.device = device
-        self._tokenizer: Optional[AutoTokenizer] = None
-        self._model: Optional[AutoModel] = None
+        self._tokenizer: Any = None  # Type will be PreTrainedTokenizer at runtime
+        self._model: Any = None  # Type will be PreTrainedModel at runtime
         
         self._load_model()
 
@@ -62,7 +63,7 @@ class HuggingFaceLocalEmbedder(BaseHuggingFaceEmbedder):
 
             # Move to device
             if self.device != "cpu" and torch.cuda.is_available():
-                self._model = self._model.to(self.device)
+                self._model = self._model.to(self.device)  # type: ignore[attr-defined]
                 print(f"✅ Model loaded on {self.device}")
             else:
                 print("✅ Model loaded on CPU")
@@ -90,11 +91,11 @@ class HuggingFaceLocalEmbedder(BaseHuggingFaceEmbedder):
 
         try:
             # Tokenize
-            inputs = self._tokenizer(
+            inputs = self._tokenizer.encode_plus(
                 text,
                 padding=True,
                 truncation=True,
-                max_length=512,
+                max_length=8192,
                 return_tensors="pt"
             )
 

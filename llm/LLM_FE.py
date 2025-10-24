@@ -109,25 +109,26 @@ with st.sidebar:
         format_func=lambda x: "Gemini API" if x == "gemini" else "LM Studio Local"
     )
     
-    # === EMBEDDER SELECTION ===
-    embedder_options = ["huggingface_local", "huggingface_api", "ollama"]
-    if "embedder_mode" not in st.session_state:
-        st.session_state["embedder_mode"] = embedder_options[0]  # Default to huggingface_local
+    # Embedding Model Selection
+    st.markdown("---")
+    embedding_options = ["ollama", "huggingface_local", "huggingface_api"]
+    if "embedder_type" not in st.session_state:
+        st.session_state["embedder_type"] = "huggingface_local"  # Default to BGE-M3 local
     
     st.radio(
-        "Embedder source",
-        embedder_options,
-        key="embedder_mode",
-        help="Chọn nguồn embedding cho RAG retrieval",
+        "Embedding Model",
+        embedding_options,
+        key="embedder_type",
+        help="Chọn loại embedder cho retrieval",
         format_func=lambda x: {
-            "huggingface_local": "HuggingFace Local",
-            "huggingface_api": "HuggingFace API", 
-            "ollama": "Ollama Local"
+            "ollama": "Ollama (Gemma/BGE-M3)",
+            "huggingface_local": "HF Local (BGE-M3 1024-dim)",
+            "huggingface_api": "HF API (E5-Large 1024-dim)"
         }.get(x, x)
     )
     
     # HuggingFace API token status
-    if st.session_state.get("embedder_mode") == "huggingface_api":
+    if st.session_state.get("embedder_type") == "huggingface_api":
         try:
             from embedders.providers.huggingface.token_manager import get_hf_token
             token = get_hf_token()
@@ -135,16 +136,96 @@ with st.sidebar:
             if token:
                 st.success("✅ HuggingFace API token: OK")
             else:
-                st.warning("⚠️ HuggingFace token chưa thiết lập (set HF_TOKEN env hoặc secrets.toml)")
+                st.warning("⚠️ HuggingFace token chưa thiết lập")
         except Exception as e:
-            st.error(f"⚠️ Lỗi kiểm tra token: {e}")
+            st.error(f"⚠️ Lỗi token: {e}")
     
+    st.markdown("---")
+    
+    # === EMBEDDING CONTROLS ===
+    st.markdown("### Embedding Controls")
+    
+    # Show PDF count
+    pdf_dir = Path("data/pdf")
+    if pdf_dir.exists():
+        pdf_files = list(pdf_dir.glob("*.pdf"))
+        pdf_count = len(pdf_files)
+        if pdf_count > 0:
+            st.info(f"📁 {pdf_count} file PDF sẵn sàng")
+        else:
+            st.warning("⚠️ Không có PDF nào trong data/pdf/")
+    else:
+        st.error("❌ Thư mục data/pdf/ không tồn tại")
+        st.info("Tạo thư mục: `mkdir data/pdf` và đặt PDF vào đó")
+    
+    # Run Embedding button
+    if st.button("🚀 Run Embedding", type="primary", help="Chạy embedding cho tất cả PDF"):
+        try:
+            # Initialize pipeline based on selected embedder
+            embedder_type = st.session_state.get("embedder_type", "huggingface_local")
+            
+            with st.spinner(f"Đang chạy embedding với {embedder_type}..."):
+                from pipeline.rag_pipeline import RAGPipeline
+                from embedders.embedder_type import EmbedderType
+                
+                # Map UI selection to pipeline parameters
+                if embedder_type == "huggingface_local":
+                    pipeline = RAGPipeline(
+                        output_dir="data",
+                        pdf_dir="data/pdf",
+                        embedder_type=EmbedderType.HUGGINGFACE,
+                        hf_use_api=False
+                    )
+                elif embedder_type == "huggingface_api":
+                    pipeline = RAGPipeline(
+                        output_dir="data",
+                        pdf_dir="data/pdf",
+                        embedder_type=EmbedderType.HUGGINGFACE,
+                        hf_use_api=True
+                    )
+                else:  # ollama
+                    pipeline = RAGPipeline(
+                        output_dir="data",
+                        pdf_dir="data/pdf",
+                        embedder_type=EmbedderType.OLLAMA
+                    )
+                
+                # Process all PDFs in directory
+                pdf_dir = Path("data/pdf")
+                results = pipeline.process_directory(pdf_dir)
+                
+                if results:
+                    st.success(f"✅ Đã xử lý {len(results)} file PDF!")
+                    st.balloons()
+                    
+                    # Show results summary
+                    with st.expander("📊 Kết quả xử lý"):
+                        for result in results:
+                            # Use correct keys from pipeline.process_pdf return dict
+                            file_name = result.get('file_name', 'Unknown')
+                            chunks = result.get('chunks', 0)
+                            embeddings = result.get('embeddings', 0)
+                            
+                            st.write(f"📄 **{file_name}**")
+                            st.write(f"   - Chunks: {chunks}")
+                            st.write(f"   - Embeddings: {embeddings}")
+                else:
+                    st.warning("⚠️ Không có PDF nào được xử lý")
+                    
+        except Exception as e:
+            st.error(f"❌ Lỗi embedding: {str(e)}")
+            with st.expander("Chi tiết lỗi"):
+                import traceback
+                st.code(traceback.format_exc())
+    
+    st.markdown("---")
+    
+    st.markdown("<div class='sidebar-footer'>", unsafe_allow_html=True)
     st.markdown("Welcome back", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # Dùng biến backend thống nhất
 backend = st.session_state["backend_mode"]
-embedder_mode = st.session_state["embedder_mode"]
 
 # === SESSION STATE INIT ===
 if "messages" not in st.session_state:
@@ -223,10 +304,12 @@ def ask_backend(prompt_text: str) -> str:
         # Build messages bằng chat_handler
         # Lấy context từ Retrieval (nếu có) và lưu nguồn để hiển thị.
         try:
-            ret = fetch_retrieval(prompt_text, top_k=10, max_chars=8000, embedder_type=embedder_mode)  # Tăng lên 8000
+            embedder_type = st.session_state.get("embedder_type", "huggingface_local")
+            ret = fetch_retrieval(prompt_text, top_k=10, max_chars=8000, embedder_type=embedder_type)
             context = ret.get("context", "") or ""
             st.session_state["last_sources"] = ret.get("sources", [])
-        except Exception:
+        except Exception as e:
+            st.error(f"Lỗi retrieval: {e}")
             context = ""
             st.session_state["last_sources"] = []
 

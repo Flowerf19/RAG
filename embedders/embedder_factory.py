@@ -105,12 +105,12 @@ class EmbedderFactory:
         Factory method cho HuggingFace API embedder.
 
         Args:
-            model_name: HF model name (default: BAAI/bge-small-en-v1.5)
+            model_name: HF model name (default: intfloat/multilingual-e5-large - 1024 dim)
             api_token: HF API token (auto-loaded if None)
             **kwargs: Additional arguments
 
         Returns:
-            HuggingFaceApiEmbedder: HuggingFace API embedder
+            HuggingFaceApiEmbedder: HuggingFace API embedder (E5-Large Multilingual 1024-dim, FREE)
         """
         return HuggingFaceApiEmbedder.create_default(
             api_token=api_token,
@@ -127,12 +127,12 @@ class EmbedderFactory:
         Factory method cho HuggingFace Local embedder.
 
         Args:
-            model_name: HF model name (default: BAAI/bge-small-en-v1.5)
+            model_name: HF model name (default: BAAI/bge-m3 - 1024 dim)
             device: Device for local inference
             **kwargs: Additional arguments
 
         Returns:
-            HuggingFaceLocalEmbedder: HuggingFace Local embedder
+            HuggingFaceLocalEmbedder: HuggingFace Local embedder (BGE-M3 1024-dim)
         """
         return HuggingFaceLocalEmbedder.create_default(
             device=device,

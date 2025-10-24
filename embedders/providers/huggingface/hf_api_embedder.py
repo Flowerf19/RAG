@@ -1,8 +1,9 @@
 """
 HuggingFace API Embedder
 ========================
-Implementation sử dụng HuggingFace Inference API.
-Tương tự như GemmaEmbedder nhưng gọi HF API thay vì Ollama.
+Implementation sử dụng HuggingFace Inference Providers API.
+Updated to new endpoint: https://router.huggingface.co/hf-inference/
+(Migrated from deprecated api-inference.huggingface.co)
 """
 
 from typing import Optional, List
@@ -16,21 +17,26 @@ from .token_manager import get_hf_token
 
 class HuggingFaceApiEmbedder(BaseHuggingFaceEmbedder):
     """
-    HuggingFace API embedding provider.
-    Single Responsibility: Tạo embeddings sử dụng HF Inference API.
+    HuggingFace API embedding provider using Inference Providers API.
+    Single Responsibility: Tạo embeddings sử dụng HF Inference Providers API.
     
     Config:
-        - Model: BAAI/bge-small-en-v1.5 (default)
-        - Dimension: 384
+        - Model: intfloat/multilingual-e5-large (default) - 1024 dimensions
+        - Dimension: 1024
         - Max tokens: 512
         - Provider: huggingface
+        - FREE API access with HF token
+        - Multilingual support (100+ languages including Vietnamese)
+        - Feature extraction endpoint
     """
     
     # Class-level constants
-    MODEL_NAME = "BAAI/bge-small-en-v1.5"
-    DIMENSION = 384
+    MODEL_NAME = "intfloat/multilingual-e5-large"
+    DIMENSION = 1024
     MAX_TOKENS = 512
     PROVIDER = "huggingface"
+    # New Inference Providers API endpoint (Nov 2025)
+    API_BASE_URL = "https://router.huggingface.co/hf-inference"
 
     def __init__(self,
                  profile: Optional[EmbeddingProfile] = None,
@@ -74,7 +80,7 @@ class HuggingFaceApiEmbedder(BaseHuggingFaceEmbedder):
 
     def _generate_embedding(self, text: str) -> List[float]:
         """
-        Generate embedding using HF Inference API.
+        Generate embedding using HF Inference Providers API.
 
         Args:
             text: Text to embed
@@ -82,15 +88,16 @@ class HuggingFaceApiEmbedder(BaseHuggingFaceEmbedder):
         Returns:
             List[float]: Embedding vector
         """
-        url = f"https://api-inference.huggingface.co/models/{self.model_name}"
+        # New Inference Providers API endpoint
+        url = f"{self.API_BASE_URL}/models/{self.model_name}"
         headers = {
-            "Authorization": f"Bearer {self.api_token}"
+            "Authorization": f"Bearer {self.api_token}",
+            "Content-Type": "application/json"
         }
         
-        # Send as JSON data
+        # Simple text input for feature extraction
         payload = {
-            "inputs": text,
-            "options": {"wait_for_model": True, "use_cache": False}
+            "inputs": text
         }
 
         max_retries = 3
@@ -100,20 +107,23 @@ class HuggingFaceApiEmbedder(BaseHuggingFaceEmbedder):
 
                 if response.status_code == 200:
                     result = response.json()
-                    # Handle different response formats
+                    # multilingual-e5-large returns direct embedding vector
                     if isinstance(result, list):
                         if len(result) == 0:
                             raise ValueError("Empty response from API")
                         
-                        # Check first element type
                         first = result[0]
                         
                         if isinstance(first, (int, float)):
-                            # Direct embedding vector: [0.1, 0.2, ...]
+                            # Direct embedding vector: [0.1, 0.2, ...] ✅
                             return result
                         elif isinstance(first, list):
-                            # Nested list: [[0.1, 0.2, ...]]
-                            return first
+                            # Nested list (token embeddings): [[emb1], [emb2], ...]
+                            # Apply mean pooling
+                            import numpy as np
+                            embeddings_array = np.array(result)
+                            mean_embedding = embeddings_array.mean(axis=0)
+                            return mean_embedding.tolist()
                         elif isinstance(first, dict) and "embedding" in first:
                             # Dict with embedding key
                             return first["embedding"]
@@ -129,6 +139,13 @@ class HuggingFaceApiEmbedder(BaseHuggingFaceEmbedder):
                     print(f"🚫 Rate limited (attempt {attempt + 1}/{max_retries})")
                     time.sleep(10 * (attempt + 1))
                     continue
+                
+                elif response.status_code == 404:
+                    raise ValueError(
+                        f"API endpoint not found (404). "
+                        f"Model '{self.model_name}' may not be available via Inference Providers API. "
+                        f"URL: {url}"
+                    )
 
                 else:
                     raise ValueError(f"API error {response.status_code}: {response.text}")

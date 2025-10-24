@@ -1,7 +1,7 @@
 # RAG System – AI Coding Agent Instructions
 
 ## 🎯 System Architecture
-Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument → HybridChunker → ChunkSet → OllamaEmbedder → FAISS`
+Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument → HybridChunker → ChunkSet → Embedder → FAISS + BM25 + Reranking`
 
 **Key Modules:**
 - **`loaders/`** - Raw PDF extraction (text/tables) with factory patterns
@@ -15,9 +15,10 @@ Modular RAG pipeline with strict OOP design: `PDF → PDFLoader → PDFDocument 
   - **`retriever.py`** - Cosine similarity search using normalized vectors
   - **`backend_connector.py`** - UI integration and retrieval services
 - **`BM25/`** - Keyword-based search (Whoosh indexer + BM25 ranking)
+- **`reranking/`** - Result reranking (BGE v2-m3 local, BGE-M3 Ollama/HF API/HF Local, Cohere API, Jina API)
 - **`data/`** - FAISS indexes (.faiss), metadata maps (.pkl), summaries (.json), chunks (.txt)
 
-**Data Flow**: `PDF → PDFLoader → PDFDocument → HybridChunker → ChunkSet → Embedder → FAISS IndexFlatIP + BM25 Index`
+**Data Flow**: `PDF → PDFLoader → PDFDocument → HybridChunker → ChunkSet → Embedder → FAISS IndexFlatIP + BM25 Index + Reranking`
 
 ---
 
@@ -39,22 +40,31 @@ python test/e2e/test_rag_system.py
 
 # Run Streamlit UI
 streamlit run llm/LLM_FE.py
+
+# Test reranking system (BGE local, Cohere API, Jina API)
+python reranking/test_reranker.py
+# Or use batch file: run_reranking_test.bat
 ```
 
 ### Testing & Validation
 ```powershell
-# Run all tests with coverage (pytest configured in requirements.txt)
-python -m pytest -v --cov=.
+# Run reranking system tests (currently implemented)
+python reranking/test_reranker.py
 
-# Run tests by module (when test directories exist)
+# Run all tests with coverage (pytest configured in requirements.txt)
+# Note: Test directory structure planned but not yet implemented
+python -m pytest -v --cov=.  # When tests/ directory exists
+
+# Individual component tests (planned structure)
 python -m pytest tests/loaders/ -v        # PDF loading tests
 python -m pytest tests/chunkers/ -v       # Chunking tests
 python -m pytest tests/embedders/ -v      # Embedding tests
 python -m pytest tests/pipeline/ -v       # Pipeline tests
 python -m pytest tests/e2e/ -v           # End-to-end tests
 
-# Individual component tests
-python test_hf_token.py  # Test HuggingFace token and API
+# Test LLM API connections
+python -c "from llm.LLM_API import LLMAPI; api = LLMAPI(); print('LLM ready')"
+python -c "from llm.LLM_LOCAL import LLMLocal; llm = LLMLocal(); print('Local LLM ready')"
 ```
 
 ### Chunk Caching Behavior
@@ -98,6 +108,10 @@ $env:HUGGINGFACE_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 python test_hf_token.py
 ```
 
+**Important**: HuggingFace migrated to new Inference API endpoint:
+- **New endpoint**: `https://router.huggingface.co/hf-inference/` (current)
+- **Old endpoint**: `https://api-inference.huggingface.co` (deprecated Nov 2025)
+
 ---
 
 ## 🏗️ Critical Code Patterns
@@ -125,6 +139,17 @@ hf_local = factory.create_huggingface_local(
     model_name="sentence-transformers/all-MiniLM-L6-v2",
     device="cpu"
 )
+
+# Reranking (Multi-provider support)
+from reranking.reranker_factory import RerankerFactory
+from reranking.reranker_type import RerankerType
+
+reranker = RerankerFactory.create_bge_local()  # BGE v2-m3 local
+reranker = RerankerFactory.create_bge_m3_ollama()  # BGE-M3 via Ollama
+reranker = RerankerFactory.create_bge_m3_hf_api(api_token="hf_xxx")  # BGE-M3 via HF API
+reranker = RerankerFactory.create_bge_m3_hf_local()  # BGE-M3 via HF local
+reranker = RerankerFactory.create_cohere(api_token="xxx")  # Cohere API reranker
+reranker = RerankerFactory.create_jina(api_token="xxx")  # Jina API reranker
 
 # Fast model switching (Ollama only)
 switcher = OllamaModelSwitcher()
@@ -222,7 +247,9 @@ embedder = factory.create_huggingface_api(
 
 ### External Services
 - **Ollama Server**: `http://localhost:11434` (required for Ollama embeddings)
-- **HuggingFace API**: Optional alternative to Ollama (requires API token)
+- **HuggingFace API**: Optional alternative to Ollama (requires API token, new endpoint: `https://router.huggingface.co/hf-inference/`)
+- **Cohere API**: Optional reranking (requires API token)
+- **Jina AI API**: Optional reranking (requires API token)
 - **FAISS**: Vector storage and cosine similarity search (IndexFlatIP with normalized vectors)
 
 ### PDF Processing Libraries
@@ -354,18 +381,6 @@ tests/
 └── pipeline/test_rag_pipeline.py
 ```
 
-### Streamlit UI Patterns
-```python
-# UI imports with fallback handling
-try:
-    from .chat_handler import build_messages
-except ImportError:
-    from chat_handler import build_messages
-
-# Backend connector integration
-from pipeline.backend_connector import fetch_retrieval
-```
-
 ---
 
 ## 🚨 Common Pitfalls
@@ -378,6 +393,9 @@ from pipeline.backend_connector import fetch_retrieval
 - **Model Switching**: Use `OllamaModelSwitcher` for runtime model changes, not recreating embedders
 - **Embedder Type Selection**: Choose between Ollama (local) and HuggingFace (API/local) at pipeline initialization
 - **BM25 Optional**: BM25 search is optional and may not be available if dependencies are missing
+- **Reranking APIs**: Cohere/Jina API tokens required for reranking (separate from HuggingFace token)
+- **HuggingFace API Migration**: Use new endpoint `https://router.huggingface.co/hf-inference/` (old endpoint deprecated Nov 2025)
 - **Streamlit Imports**: Handle both module and direct script execution with try/except import patterns
+- **Testing Status**: Only reranking tests currently implemented; main test suite planned but not yet available
 
 Use these patterns when extending the system or adding new modules.

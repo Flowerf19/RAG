@@ -405,18 +405,29 @@ class RAGRetrievalService:
         return merged
 
 
-def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000, embedder_type: str = "ollama") -> Dict[str, Any]:
+def fetch_retrieval(
+    query_text: str, 
+    top_k_embed: int = 10, 
+    top_k_rerank: int = 5,
+    max_chars: int = 8000, 
+    embedder_type: str = "ollama", 
+    reranker_type: str = "bge_m3_hf_local"
+) -> Dict[str, Any]:
     """
-    Hàm tiện ích để retrieval từ FAISS indexes.
-    Tự động tìm FAISS index mới nhất và thực hiện search.
+    Hàm tiện ích để retrieval từ FAISS indexes với reranking.
+    
+    Flow: Embedding Retrieval (top_k_embed) -> Reranking -> Top K final (top_k_rerank)
 
     Args:
         query_text: Câu hỏi cần tìm
-        top_k: Số lượng kết quả trả về
+        top_k_embed: Số lượng kết quả từ embedding retrieval (trước reranking)
+        top_k_rerank: Số lượng kết quả cuối cùng sau reranking
         max_chars: Độ dài tối đa của context
+        embedder_type: Loại embedder ("ollama", "huggingface_local", "huggingface_api")
+        reranker_type: Loại reranker ("bge_local", "bge_m3_ollama", "bge_m3_hf_api", "bge_m3_hf_local", "cohere", "jina", "none")
 
     Returns:
-        Dict với keys: "context" (str), "sources" (list)
+        Dict với keys: "context" (str), "sources" (list), "retrieval_info" (dict)
     """
     try:
         # Map embedder_type string to enum and config
@@ -444,10 +455,74 @@ def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000, embe
         )
         retriever = RAGRetrievalService(pipeline)
 
-        results = retriever.retrieve_hybrid(query_text, top_k=top_k)
+        # Step 1: Retrieve top_k_embed results from embedding search
+        results = retriever.retrieve_hybrid(query_text, top_k=top_k_embed)
         if not results:
             logger.warning("Không tìm thấy kết quả từ hybrid retrieval")
-            return {"context": "", "sources": []}
+            return {
+                "context": "", 
+                "sources": [],
+                "retrieval_info": {
+                    "total_retrieved": 0,
+                    "reranked": False,
+                    "embedder": embedder_type,
+                    "reranker": reranker_type
+                }
+            }
+
+        initial_count = len(results)
+        logger.info(f"Retrieved {initial_count} results from embedding search (top_k_embed={top_k_embed})")
+
+        # Step 2: Apply reranking if specified
+        reranked = False
+        if reranker_type and reranker_type != "none":
+            try:
+                from reranking.reranker_factory import RerankerFactory
+                from reranking.reranker_type import RerankerType
+                
+                # Map reranker_type string to enum
+                reranker_enum = None
+                if reranker_type == "bge_local":
+                    reranker_enum = RerankerType.BGE_RERANKER
+                elif reranker_type == "bge_m3_ollama":
+                    reranker_enum = RerankerType.BGE_M3_OLLAMA
+                elif reranker_type == "bge_m3_hf_api":
+                    reranker_enum = RerankerType.BGE_M3_HF_API
+                elif reranker_type == "bge_m3_hf_local":
+                    reranker_enum = RerankerType.BGE_M3_HF_LOCAL
+                elif reranker_type == "cohere":
+                    reranker_enum = RerankerType.COHERE
+                elif reranker_type == "jina":
+                    reranker_enum = RerankerType.JINA
+                
+                if reranker_enum:
+                    # Initialize reranker
+                    reranker = RerankerFactory.create(reranker_enum)
+                    
+                    # Extract document texts for reranking
+                    doc_texts = [r.get("text", "") for r in results]
+                    
+                    # Apply reranking - get top_k_rerank results
+                    reranked_results = reranker.rerank(query_text, doc_texts, top_k=top_k_rerank)
+                    
+                    # Reorder original results based on reranking and add rerank scores
+                    reranked_indices = [rr.index for rr in reranked_results]
+                    results = [results[i] for i in reranked_indices[:top_k_rerank]]
+                    
+                    # Add rerank scores to results
+                    for i, rr in enumerate(reranked_results[:top_k_rerank]):
+                        results[i]["rerank_score"] = rr.score
+                    
+                    reranked = True
+                    logger.info(f"Applied {reranker_type} reranking: {initial_count} -> {len(results)} results (top_k_rerank={top_k_rerank})")
+                    
+            except Exception as e:
+                logger.warning(f"Reranking failed ({reranker_type}): {e}. Using top {top_k_rerank} from original results.")
+                results = results[:top_k_rerank]
+        else:
+            # No reranking - just take top_k_rerank
+            results = results[:top_k_rerank]
+            logger.info(f"No reranking applied, using top {top_k_rerank} from embedding search")
 
         # Build context
         context = retriever.build_context(results, max_chars=max_chars)
@@ -457,7 +532,16 @@ def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000, embe
 
         return {
             "context": context,
-            "sources": sources
+            "sources": sources,
+            "retrieval_info": {
+                "total_retrieved": initial_count,
+                "final_count": len(results),
+                "reranked": reranked,
+                "embedder": embedder_type,
+                "reranker": reranker_type if reranked else "none",
+                "top_k_embed": top_k_embed,
+                "top_k_rerank": top_k_rerank
+            }
         }
 
     except Exception as e:

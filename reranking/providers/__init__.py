@@ -3,12 +3,10 @@ Reranking Providers
 ===================
 """
 
-from reranking.providers.bge_reranker_local import BGERerankerLocal
-from reranking.providers.cohere_reranker import CohereReranker
-from reranking.providers.jina_reranker import JinaReranker
+from reranking.providers.bge_m3_hf_local_reranker import BGE3HuggingFaceLocalReranker
+from reranking.providers.bge_m3_hf_api_reranker import BGE3HuggingFaceApiReranker
 
 __all__ = [
-    "BGERerankerLocal",
-    "CohereReranker",
-    "JinaReranker",
+    "BGE3HuggingFaceLocalReranker",
+    "BGE3HuggingFaceApiReranker",
 ]

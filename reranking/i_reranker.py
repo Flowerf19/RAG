@@ -15,7 +15,7 @@ class RerankResult:
     index: int  # Index trong list gốc
     score: float  # Rerank score
     document: str  # Text content
-    metadata: Dict[str, Any] = None  # Original metadata
+    metadata: Dict[str, Any] = None 
     
     def __post_init__(self):
         if self.metadata is None:

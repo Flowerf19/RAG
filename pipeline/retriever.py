@@ -57,14 +57,22 @@ class Retriever:
         similarities, indices = index.search(query_normalized, top_k)  # type: ignore[call-arg]
 
         # Format results (similarities are cosine similarities for normalized vectors)
+        # Filter out invalid indices (-1) which FAISS returns when no match found
         results = []
+        invalid_count = 0
         for idx, similarity in zip(indices[0], similarities[0]):
             if idx >= 0 and idx < len(metadata_map):  # Check for valid index
                 result = metadata_map[idx].copy()
                 result["similarity_score"] = float(similarity)
                 results.append(result)
+            elif idx == -1:
+                # FAISS returns -1 when insufficient results (index too small)
+                invalid_count += 1
             else:
-                logger.warning(f"Invalid index {idx} returned by FAISS search")
+                logger.warning(f"Invalid index {idx} returned by FAISS search (out of bounds)")
+
+        if invalid_count > 0:
+            logger.debug(f"Skipped {invalid_count} invalid indices (-1) from FAISS search results")
 
         # Sort results by similarity score (descending) to ensure correct ordering
         results.sort(key=lambda x: x["similarity_score"], reverse=True)

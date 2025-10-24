@@ -8,12 +8,10 @@ Output: Tất cả dữ liệu được lưu vào data folder
  
 import json
 import logging
-import os
 import hashlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-import numpy as np
 
 from loaders.pdf_loader import PDFLoader
 from chunkers.hybrid_chunker import HybridChunker
@@ -147,8 +145,8 @@ class RAGPipeline:
 
         self._setup_bm25_components()
 
-        logger.info(f"Loader: PDFLoader")
-        logger.info(f"Chunker: HybridChunker")
+        logger.info("Loader: PDFLoader")
+        logger.info("Chunker: HybridChunker")
         logger.info(f"Embedder: {self.embedder.profile.model_id}")
         logger.info(f"Dimension: {self.embedder.dimension}")
         logger.info(f"Output: {self.output_dir}")
@@ -331,7 +329,7 @@ class RAGPipeline:
         
         for idx, chunk in enumerate(chunk_set.chunks, 1):
             # Create content hash for duplicate checking
-            content_hash = hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
+            hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
 
             # Test connection on first chunk
             if idx == 1 and not self.embedder.test_connection():
@@ -576,7 +574,7 @@ def main():
     
     # Process all PDFs in data/pdf directory
     try:
-        results = pipeline.process_directory()
+        pipeline.process_directory()
         
         logger.info("All processing completed successfully")
         logger.info(f"Output files saved to: {pipeline.output_dir}")

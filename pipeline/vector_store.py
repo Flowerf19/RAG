@@ -73,7 +73,7 @@ class VectorStore:
 
         logger.info(f"Saved FAISS index: {faiss_file.name}")
         logger.info(f"Saved metadata map: {metadata_file.name}")
-        logger.info(f"Index type: IndexFlatIP (cosine similarity via inner product)")
+        logger.info("Index type: IndexFlatIP (cosine similarity via inner product)")
 
         return faiss_file, metadata_file
 

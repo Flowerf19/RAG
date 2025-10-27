@@ -93,8 +93,11 @@ def resolve_gemini_settings(override_model=None, override_temperature=None, over
         import streamlit as st
         # Try to get from Streamlit secrets first
         if hasattr(st, 'secrets'):
-            # Check for [gemini] section in secrets.toml
-            if 'gemini' in st.secrets and 'api_key' in st.secrets['gemini']:
+            # Check for [gemini] section in secrets.toml with gemini_api_key
+            if 'gemini' in st.secrets and 'gemini_api_key' in st.secrets['gemini']:
+                api_key = st.secrets['gemini']['gemini_api_key']
+            # Check for [gemini] section with api_key (old format)
+            elif 'gemini' in st.secrets and 'api_key' in st.secrets['gemini']:
                 api_key = st.secrets['gemini']['api_key']
             # Fallback to direct gemini_api_key
             elif 'gemini_api_key' in st.secrets:

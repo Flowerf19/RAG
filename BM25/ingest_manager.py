@@ -14,7 +14,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Protocol, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Protocol
 
 from .keyword_extractor import KeywordExtractor
 

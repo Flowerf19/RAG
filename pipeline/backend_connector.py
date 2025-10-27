@@ -302,7 +302,6 @@ class RAGRetrievalService:
 
             vector_norm = vec.get("vector_normalized_score") if vec else None
             bm25_norm = bm25.get("bm25_normalized_score") if bm25 else None
-            bm25_norm = bm25.get("bm25_normalized_score") if bm25 else None
             if bm25_norm is None and bm25:
                 bm25_norm = self._as_float(bm25.get("bm25_raw_score"))
 

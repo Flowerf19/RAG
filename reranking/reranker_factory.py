@@ -17,24 +17,6 @@ class RerankerFactory:
     """Factory for creating reranker instances"""
     
     @staticmethod
-    def create_bge_local(
-        model_name: str = "BAAI/bge-reranker-v2-m3",
-        device: str = "cpu"
-    ) -> IReranker:
-        """
-        Create BGE local reranker (uses BGE3HuggingFaceLocalReranker).
-
-        Args:
-            model_name: Model name
-            device: Device to run on
-
-        Returns:
-            BGE reranker instance
-        """
-        from reranking.providers.bge_m3_hf_local_reranker import BGE3HuggingFaceLocalReranker
-        return BGE3HuggingFaceLocalReranker(model_name=model_name, device=device)
-    
-    @staticmethod
     def create_bge_m3_ollama(device: str = "auto") -> IReranker:
         """
         Create BGE-M3 HuggingFace reranker (no Ollama dependency).
@@ -134,10 +116,7 @@ class RerankerFactory:
         Returns:
             Reranker instance
         """
-        if reranker_type == RerankerType.BGE_RERANKER:
-            return cls.create_bge_local(model_name=model_name, device=device)
-        
-        elif reranker_type == RerankerType.BGE_M3_OLLAMA:
+        if reranker_type == RerankerType.BGE_M3_OLLAMA:
             return cls.create_bge_m3_ollama()
         
         elif reranker_type == RerankerType.BGE_M3_HF_API:

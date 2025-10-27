@@ -572,7 +572,8 @@ def fetch_retrieval(
         bm25_query = " ".join(fusion_inputs).strip()
 
         # Hybrid retrieval - get more results for potential reranking
-        retrieval_top_k = top_k * 2 if reranker_type != "none" else top_k
+        # Use 5x candidates for reranking to have better pool for selection
+        retrieval_top_k = top_k * 5 if reranker_type != "none" else top_k
         results = retriever.retrieve_hybrid(
             query_text=query_text,
             top_k=retrieval_top_k,
@@ -607,9 +608,7 @@ def fetch_retrieval(
 
                 # Map reranker_type string to enum
                 reranker_enum = None
-                if reranker_type == "bge_local":
-                    reranker_enum = RerankerType.BGE_RERANKER
-                elif reranker_type == "bge_m3_ollama":
+                if reranker_type == "bge_m3_ollama":
                     reranker_enum = RerankerType.BGE_M3_OLLAMA
                 elif reranker_type == "bge_m3_hf_api":
                     reranker_enum = RerankerType.BGE_M3_HF_API

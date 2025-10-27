@@ -114,7 +114,7 @@ with st.sidebar:
     
     # Reranker Model Selection
     st.markdown("---")
-    reranker_options = ["none", "bge_local", "bge_m3_ollama", "bge_m3_hf_local", "bge_m3_hf_api"]
+    reranker_options = ["none", "bge_m3_hf_local", "bge_m3_ollama", "bge_m3_hf_api"]
     if "reranker_type" not in st.session_state:
         st.session_state["reranker_type"] = "bge_m3_hf_local"  # Default to BGE-M3 HF local
     
@@ -125,9 +125,8 @@ with st.sidebar:
         help="Chọn loại reranker để sắp xếp lại kết quả",
         format_func=lambda x: {
             "none": "No Reranking",
-            "bge_local": "BGE v2-m3 Local",
+            "bge_m3_hf_local": "BGE v2-m3 Local (HF)",
             "bge_m3_ollama": "BGE-M3 Ollama",
-            "bge_m3_hf_local": "BGE-M3 HF Local",
             "bge_m3_hf_api": "Sentence-Transformers HF API",
             "cohere": "Cohere API",
             "jina": "Jina API"

@@ -1,3 +1,8 @@
+import os
+import logging
+import google.generativeai as genai
+
+from typing import List, Dict, Optional
 """
 Gemini Client - Chỉ lo gọi Gemini API
 Nhận messages dạng OpenAI format (List[Dict])
@@ -7,9 +12,7 @@ Gemini Client - Chỉ lo gọi Gemini API
 Nhận messages dạng OpenAI format (List[Dict])
 """
 # Configure logging and suppress warnings BEFORE importing Google libraries
-import os
-import sys
-import logging
+
 
 # Set environment variables to suppress warnings
 os.environ['GRPC_VERBOSITY'] = 'ERROR'
@@ -26,7 +29,7 @@ logging.getLogger('google.api_core').setLevel(logging.ERROR)
 # Note: ALTS credential warnings are harmless and can be ignored
 # They appear when Google Cloud libraries detect they're not running on GCP
 
-import google.generativeai as genai
+
 
 # Handle both direct execution and module import
 try:
@@ -36,7 +39,7 @@ except ImportError:
     # When run directly as script
     from config_loader import resolve_gemini_settings
 
-from typing import List, Dict, Optional
+
 
 
 # Cấu hình API key

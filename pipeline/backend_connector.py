@@ -1,4 +1,4 @@
-"""
+﻿"""
 RAG Retrieval Service
 =====================
 Module chỉ phụ trách phần Retrieval (FAISS search) để UI có thể hiển thị nguồn
@@ -22,7 +22,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 import math
 
+import numpy as np
+
 from pipeline.rag_pipeline import RAGPipeline
+from pipeline.query_enhancement import QueryEnhancementModule, load_qem_settings
+from llm.config_loader import get_config
 from embedders.embedder_type import EmbedderType
 
 
@@ -242,7 +246,7 @@ class RAGRetrievalService:
             current_best = best_by_chunk.get(chunk_id)
             result_score = self._as_float(result.get(score_key))
             current_score = self._as_float(current_best.get(score_key)) if current_best else None
-            if current_best is None or result_score > current_score: # type: ignore
+            if current_best is None or result_score > current_score:
                 best_by_chunk[chunk_id] = result
         return list(best_by_chunk.values())
 
@@ -342,7 +346,7 @@ class RAGRetrievalService:
                     "vector_similarity": vec.get("similarity_score") if vec else None,
                     "distance": self._as_float(vec.get("distance")) if vec else 0.0,
                     "bm25_raw_score": bm25.get("bm25_raw_score") if bm25 else None,
-                    "keywords": bm25.get("keywords") if bm25 else vec.get("keywords", []), # type: ignore
+                    "keywords": bm25.get("keywords") if bm25 else vec.get("keywords", []),
                     "provenance": (vec or {}).get("provenance") or (bm25 or {}).get("metadata"),
                     "retrieval_mode": "hybrid",
                 }
@@ -358,6 +362,8 @@ class RAGRetrievalService:
         *,
         vector_weight: Optional[float] = None,
         bm25_weight: Optional[float] = None,
+        query_embedding: Optional[List[float]] = None,
+        bm25_query: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Run FAISS and BM25 searches in parallel and merge results by weighted z-score.
@@ -382,6 +388,7 @@ class RAGRetrievalService:
                     metadata_map_file=metadata_file,
                     query_text=query_text,
                     top_k=top_k * 2,
+                    query_embedding=query_embedding,
                 )
                 vector_results.extend(results)
             except Exception as exc:
@@ -390,10 +397,14 @@ class RAGRetrievalService:
         vector_results = self._deduplicate_results(vector_results, score_key="similarity_score")
         self._normalize_scores(vector_results, "similarity_score", "vector_normalized_score")
 
-        bm25_results = self.pipeline.search_bm25(
-            query_text,
-            top_k=top_k * 2,
-        )
+        bm25_input = bm25_query if bm25_query is not None else query_text
+        if bm25_input:
+            bm25_results = self.pipeline.search_bm25(
+                bm25_input,
+                top_k=top_k * 2,
+            )
+        else:
+            bm25_results = []
 
         merged = self._merge_vector_and_bm25(
             vector_results,
@@ -405,35 +416,75 @@ class RAGRetrievalService:
         return merged
 
 
+def _fuse_query_embeddings(
+    queries: List[str],
+    embedder,
+    logger: logging.Logger,
+) -> Optional[List[float]]:
+    """
+    Generate embeddings for each query and return their mean vector.
+    """
+    vectors: List[np.ndarray] = []
+    for query in queries:
+        try:
+            embedding = embedder.embed(query)
+            if embedding:
+                vectors.append(np.asarray(embedding, dtype=np.float32))
+        except Exception as exc:
+            logger.warning("Failed to embed query '%s': %s", query, exc)
+
+    if not vectors:
+        return None
+
+    stacked = np.stack(vectors, axis=0)
+    mean_vector = stacked.mean(axis=0)
+    return mean_vector.astype(np.float32).tolist()
+
+
 def fetch_retrieval(
-    query_text: str, 
-    top_k_embed: int = 10, 
-    top_k_rerank: int = 5,
-    max_chars: int = 8000, 
-    embedder_type: str = "ollama", 
-    reranker_type: str = "bge_m3_hf_local"
+    query_text: str,
+    top_k: int = 5,
+    max_chars: int = 8000,
+    embedder_type: str = "ollama",
+    reranker_type: str = "none",
+    use_query_enhancement: bool = True
 ) -> Dict[str, Any]:
     """
-    Hàm tiện ích để retrieval từ FAISS indexes với reranking.
-    
-    Flow: Embedding Retrieval (top_k_embed) -> Reranking -> Top K final (top_k_rerank)
+    Enhanced retrieval function combining query enhancement and reranking.
+
+    Flow: Query Enhancement -> Embedding Retrieval -> Reranking (optional) -> Final Results
 
     Args:
-        query_text: Câu hỏi cần tìm
-        top_k_embed: Số lượng kết quả từ embedding retrieval (trước reranking)
-        top_k_rerank: Số lượng kết quả cuối cùng sau reranking
-        max_chars: Độ dài tối đa của context
-        embedder_type: Loại embedder ("ollama", "huggingface_local", "huggingface_api")
-        reranker_type: Loại reranker ("bge_local", "bge_m3_ollama", "bge_m3_hf_api", "bge_m3_hf_local", "cohere", "jina", "none")
+        query_text: Original query text
+        top_k: Number of final results to return
+        max_chars: Maximum context length
+        embedder_type: Type of embedder ("ollama", "huggingface_local", "huggingface_api")
+        reranker_type: Type of reranker ("none", "bge_local", "bge_m3_ollama", etc.)
+        use_query_enhancement: Whether to use query enhancement module
 
     Returns:
-        Dict với keys: "context" (str), "sources" (list), "retrieval_info" (dict)
+        Dict with keys: "context" (str), "sources" (list), "queries" (list), "retrieval_info" (dict)
     """
     try:
-        # Map embedder_type string to enum and config
+        # Query Enhancement
+        expanded_queries = [query_text]
+        if use_query_enhancement:
+            try:
+                app_config = get_config()
+                qem_settings = load_qem_settings()
+                qem = QueryEnhancementModule(app_config, qem_settings, logger=logger)
+                expanded_queries = qem.enhance(query_text)
+                expanded_queries = [q for q in expanded_queries if q and q.strip()]
+                if not expanded_queries:
+                    expanded_queries = [query_text]
+            except Exception as exc:
+                logger.warning("Query enhancement failed, using original query: %s", exc)
+                expanded_queries = [query_text]
+
+        # Setup embedder
         embedder_enum = EmbedderType.OLLAMA
         use_api = None
-        
+
         if embedder_type.lower() == "huggingface_local":
             embedder_enum = EmbedderType.HUGGINGFACE
             use_api = False
@@ -441,45 +492,54 @@ def fetch_retrieval(
             embedder_enum = EmbedderType.HUGGINGFACE
             use_api = True
         elif embedder_type.lower() == "huggingface":
-            # Legacy support
             embedder_enum = EmbedderType.HUGGINGFACE
-            use_api = None  # Auto-detect
+            use_api = None
         elif embedder_type.lower() == "ollama":
             embedder_enum = EmbedderType.OLLAMA
-            
-        # Khởi tạo pipeline và retriever
-        from pipeline.rag_pipeline import RAGPipeline
-        pipeline = RAGPipeline(
-            embedder_type=embedder_enum,
-            hf_use_api=use_api
-        )
+
+        # Initialize pipeline
+        pipeline = RAGPipeline(embedder_type=embedder_enum, hf_use_api=use_api)
         retriever = RAGRetrievalService(pipeline)
 
-        # Step 1: Retrieve top_k_embed results from embedding search
-        results = retriever.retrieve_hybrid(query_text, top_k=top_k_embed)
+        # Create fused embedding for multiple queries
+        fusion_inputs = expanded_queries
+        fused_embedding = _fuse_query_embeddings(fusion_inputs, pipeline.embedder, logger)
+        bm25_query = " ".join(fusion_inputs).strip()
+
+        # Hybrid retrieval - get more results for potential reranking
+        retrieval_top_k = top_k * 2 if reranker_type != "none" else top_k
+        results = retriever.retrieve_hybrid(
+            query_text=query_text,
+            top_k=retrieval_top_k,
+            query_embedding=fused_embedding,
+            bm25_query=bm25_query,
+        )
+
         if not results:
-            logger.warning("Không tìm thấy kết quả từ hybrid retrieval")
+            logger.warning("No hybrid retrieval results found.")
             return {
-                "context": "", 
+                "context": "",
                 "sources": [],
+                "queries": expanded_queries,
                 "retrieval_info": {
                     "total_retrieved": 0,
                     "reranked": False,
                     "embedder": embedder_type,
-                    "reranker": reranker_type
+                    "reranker": reranker_type,
+                    "query_enhanced": use_query_enhancement
                 }
             }
 
         initial_count = len(results)
-        logger.info(f"Retrieved {initial_count} results from embedding search (top_k_embed={top_k_embed})")
+        logger.info(f"Retrieved {initial_count} results from hybrid search")
 
-        # Step 2: Apply reranking if specified
+        # Apply reranking if specified
         reranked = False
         if reranker_type and reranker_type != "none":
             try:
                 from reranking.reranker_factory import RerankerFactory
                 from reranking.reranker_type import RerankerType
-                
+
                 # Map reranker_type string to enum
                 reranker_enum = None
                 if reranker_type == "bge_local":
@@ -494,56 +554,59 @@ def fetch_retrieval(
                     reranker_enum = RerankerType.COHERE
                 elif reranker_type == "jina":
                     reranker_enum = RerankerType.JINA
-                
+
                 if reranker_enum:
-                    # Initialize reranker
                     reranker = RerankerFactory.create(reranker_enum)
-                    
-                    # Extract document texts for reranking
                     doc_texts = [r.get("text", "") for r in results]
-                    
-                    # Apply reranking - get top_k_rerank results
-                    reranked_results = reranker.rerank(query_text, doc_texts, top_k=top_k_rerank)
-                    
-                    # Reorder original results based on reranking and add rerank scores
+                    reranked_results = reranker.rerank(query_text, doc_texts, top_k=top_k)
+
+                    # Reorder results based on reranking
                     reranked_indices = [rr.index for rr in reranked_results]
-                    results = [results[i] for i in reranked_indices[:top_k_rerank]]
-                    
-                    # Add rerank scores to results
-                    for i, rr in enumerate(reranked_results[:top_k_rerank]):
+                    results = [results[i] for i in reranked_indices[:top_k]]
+
+                    # Add rerank scores
+                    for i, rr in enumerate(reranked_results[:top_k]):
                         results[i]["rerank_score"] = rr.score
-                    
+
                     reranked = True
-                    logger.info(f"Applied {reranker_type} reranking: {initial_count} -> {len(results)} results (top_k_rerank={top_k_rerank})")
-                    
+                    logger.info(f"Applied {reranker_type} reranking: {initial_count} -> {len(results)} results")
+
             except Exception as e:
-                logger.warning(f"Reranking failed ({reranker_type}): {e}. Using top {top_k_rerank} from original results.")
-                results = results[:top_k_rerank]
+                logger.warning(f"Reranking failed ({reranker_type}): {e}. Using top {top_k} from original results.")
+                results = results[:top_k]
         else:
-            # No reranking - just take top_k_rerank
-            results = results[:top_k_rerank]
-            logger.info(f"No reranking applied, using top {top_k_rerank} from embedding search")
+            results = results[:top_k]
 
-        # Build context
+        # Build final output
         context = retriever.build_context(results, max_chars=max_chars)
-
-        # Convert to UI format
         sources = retriever.to_ui_items(results)
 
         return {
             "context": context,
             "sources": sources,
+            "queries": expanded_queries,
             "retrieval_info": {
                 "total_retrieved": initial_count,
                 "final_count": len(results),
                 "reranked": reranked,
                 "embedder": embedder_type,
                 "reranker": reranker_type if reranked else "none",
-                "top_k_embed": top_k_embed,
-                "top_k_rerank": top_k_rerank
+                "query_enhanced": use_query_enhancement
             }
         }
 
-    except Exception as e:
-        logger.error(f"Lỗi trong fetch_retrieval: {e}")
-        return {"context": "", "sources": []}
+    except Exception as exc:
+        logger.error("Error in fetch_retrieval: %s", exc)
+        return {
+            "context": "",
+            "sources": [],
+            "queries": [query_text],
+            "retrieval_info": {
+                "error": str(exc),
+                "embedder": embedder_type,
+                "reranker": reranker_type,
+                "query_enhanced": use_query_enhancement
+            }
+        }
+
+

@@ -280,6 +280,8 @@ results = fetch_retrieval(
 )
 
 # Results include cosine similarity scores, text content, and page numbers
+# When reranking is enabled, results are sorted by rerank score (descending)
+# UI displays rerank scores when available, maintaining descending order
 ```
 
 ### Data Output Structure
@@ -394,7 +396,7 @@ tests/
 - **Embedder Type Selection**: Choose between Ollama (local) and HuggingFace (API/local) at pipeline initialization
 - **BM25 Optional**: BM25 search is optional and may not be available if dependencies are missing
 - **Reranking APIs**: Cohere/Jina API tokens required for reranking (separate from HuggingFace token)
-- **HuggingFace API Migration**: Use new endpoint `https://router.huggingface.co/hf-inference/` (old endpoint deprecated Nov 2025)
+- **Reranking Display Order**: Reranking results are automatically sorted by score descending and displayed correctly in UI. The `similarity_score` field is updated to rerank score when reranking is applied.
 - **Streamlit Imports**: Handle both module and direct script execution with try/except import patterns
 - **Testing Status**: Only reranking tests currently implemented; main test suite planned but not yet available
 

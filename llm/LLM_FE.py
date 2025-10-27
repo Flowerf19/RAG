@@ -6,12 +6,6 @@ import shutil
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 sys.path.append(os.path.dirname(__file__))  # Add current directory
 
-# Debug: Print paths
-print("Current working directory:", os.getcwd())
-print("Script directory:", os.path.dirname(__file__))
-print("Python path:", sys.path)
-
-
 
 # Import chat_handler và LLM clients
 # Handle both direct execution and module import
@@ -31,16 +25,11 @@ except ImportError:
 # Import pipeline_qa
 try:
     from pipeline.backend_connector import fetch_retrieval
-    print("Successfully imported fetch_retrieval")
-except ImportError as e:
-    print(f"Failed to import fetch_retrieval: {e}")
-    print("Trying alternative import...")
+except ImportError:
     try:
         sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
         from pipeline.backend_connector import fetch_retrieval
-        print("Successfully imported fetch_retrieval with alternative path")
-    except ImportError as e2:
-        print(f"Still failed: {e2}")
+    except ImportError:
         raise
 
 
@@ -67,11 +56,6 @@ with st.sidebar:
     if st.button("Clear Cache"):
         st.session_state.clear()
         st.rerun()
-    
-    st.button("Recent Chats")
-    st.button("Rephrase text...")
-    st.button("Fix this code...")
-    st.button("Sample Copy for...")
 
     st.markdown("---")
     
@@ -130,7 +114,7 @@ with st.sidebar:
     
     # Reranker Model Selection
     st.markdown("---")
-    reranker_options = ["none", "bge_local", "bge_m3_ollama", "bge_m3_hf_local", "bge_m3_hf_api", "cohere", "jina"]
+    reranker_options = ["none", "bge_local", "bge_m3_ollama", "bge_m3_hf_local", "bge_m3_hf_api"]
     if "reranker_type" not in st.session_state:
         st.session_state["reranker_type"] = "bge_m3_hf_local"  # Default to BGE-M3 HF local
     
@@ -144,7 +128,7 @@ with st.sidebar:
             "bge_local": "BGE v2-m3 Local",
             "bge_m3_ollama": "BGE-M3 Ollama",
             "bge_m3_hf_local": "BGE-M3 HF Local",
-            "bge_m3_hf_api": "BGE-M3 HF API",
+            "bge_m3_hf_api": "Sentence-Transformers HF API",
             "cohere": "Cohere API",
             "jina": "Jina API"
         }.get(x, x)
@@ -180,6 +164,18 @@ with st.sidebar:
         step=1,
         key="top_k_rerank",
         help="Số lượng kết quả cuối cùng sau reranking"
+    )
+
+    # Query Enhancement Toggle
+    st.markdown("---")
+    if "use_query_enhancement" not in st.session_state:
+        st.session_state["use_query_enhancement"] = True  # Default to enabled
+
+    st.checkbox(
+        "🔍 Query Enhancement (QEM)",
+        value=st.session_state.get("use_query_enhancement", True),
+        key="use_query_enhancement",
+        help="Tự động mở rộng query để cải thiện kết quả tìm kiếm (ví dụ: 'quản lý rủi ro' → 'quản trị rủi ro', 'kiểm soát rủi ro', ...)"
     )
 
     
@@ -299,6 +295,10 @@ if "pending_prompt" not in st.session_state:
     st.session_state["pending_prompt"] = None
 if "last_sources" not in st.session_state:
     st.session_state["last_sources"] = []
+if "last_retrieval_info" not in st.session_state:
+    st.session_state["last_retrieval_info"] = {}
+if "last_queries" not in st.session_state:
+    st.session_state["last_queries"] = []
 
 # === CHAT HEADER ===
 st.markdown("<div class='chat-header'>Chat Window</div>", unsafe_allow_html=True)
@@ -336,7 +336,7 @@ if sources or retrieval_info:
     
     # Display retrieval info if available
     if retrieval_info:
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         with col1:
             st.metric("Retrieved", retrieval_info.get("total_retrieved", 0))
         with col2:
@@ -347,26 +347,58 @@ if sources or retrieval_info:
         with col4:
             reranker = retrieval_info.get("reranker", "none")
             st.metric("Reranker", reranker[:10] + "..." if len(reranker) > 10 else reranker)
+        with col5:
+            qem_status = "✅ Yes" if retrieval_info.get("query_enhanced", False) else "❌ No"
+            st.metric("QEM", qem_status)
+
+    # Display expanded queries if QEM was used
+    if retrieval_info.get("query_enhanced", False):
+        queries = st.session_state.get("last_queries", [])
+        if len(queries) > 1:  # Only show if there are multiple queries (meaning expansion happened)
+            with st.expander("🔍 Expanded Queries (QEM)"):
+                st.write("Query gốc đã được mở rộng thành:")
+                for i, query in enumerate(queries, 1):
+                    st.write(f"{i}. {query}")
     
     # Display sources
     for i, src in enumerate(sources, 1):
         file_name = src.get("file_name", "?")
         page = src.get("page_number", "?")
-        try:
-            score = float(src.get("similarity_score", 0.0))
-        except Exception:
-            score = 0.0
         
-        # Check if rerank score exists
+        # Get different score types
+        hybrid_score = src.get("similarity_score", 0.0)
+        vector_sim = src.get("vector_similarity")
         rerank_score = src.get("rerank_score")
+        
+        try:
+            hybrid_score = float(hybrid_score)
+        except (ValueError, TypeError):
+            hybrid_score = 0.0
+        
+        # Build score display text
+        score_parts = []
+        
+        # Show vector similarity (cosine) if available
+        if vector_sim is not None:
+            try:
+                vector_sim = float(vector_sim)
+                score_parts.append(f"Vec: {vector_sim:.4f}")
+            except (ValueError, TypeError):
+                pass
+        
+        # Show hybrid score (z-score weighted)
+        score_parts.append(f"Hybrid: {hybrid_score:.4f}")
+        
+        # Show rerank score if available
         if rerank_score is not None:
             try:
                 rerank_score = float(rerank_score)
-                score_text = f"Sim: {score:.4f} | Rerank: {rerank_score:.4f}"
+                score_parts.append(f"Rerank: {rerank_score:.4f}")
             except (ValueError, TypeError):
-                score_text = f"Score: {score:.4f}"
-        else:
-            score_text = f"Score: {score:.4f}"
+                pass
+        
+        score_text = " | ".join(score_parts)
+        
         text = src.get("snippet", "") or ""  # Sử dụng 'snippet' thay vì 'text'
         snippet = text if len(text) <= 500 else text[:500] + "..."
         st.markdown(f"- [{i}] {file_name} - trang {page} ({score_text})")
@@ -398,20 +430,46 @@ def ask_backend(prompt_text: str) -> str:
         try:
             embedder_type = st.session_state.get("embedder_type", "huggingface_local")
             reranker_type = st.session_state.get("reranker_type", "bge_m3_hf_local")
-            top_k_embed = st.session_state.get("top_k_embed", 10)
             top_k_rerank = st.session_state.get("top_k_rerank", 5)
+            use_query_enhancement = st.session_state.get("use_query_enhancement", True)
+            
+            # Collect API tokens for rerankers
+            api_tokens = {}
+            if reranker_type == "bge_m3_hf_api":
+                try:
+                    from embedders.providers.huggingface.token_manager import get_hf_token
+                    token = get_hf_token()
+                    api_tokens["hf"] = token
+                    if token:
+                        st.info(f"✅ HF token loaded: {'***' + token[-4:]}")
+                    else:
+                        st.error("❌ HF token not found!")
+                except Exception as e:
+                    st.error(f"❌ Failed to get HF token: {e}")
+            elif reranker_type == "cohere":
+                token = os.getenv("COHERE_API_KEY") or os.getenv("COHERE_TOKEN")
+                api_tokens["cohere"] = token
+                if not token:
+                    st.warning("⚠️ Cohere token not found in environment")
+            elif reranker_type == "jina":
+                token = os.getenv("JINA_API_KEY") or os.getenv("JINA_TOKEN")
+                api_tokens["jina"] = token
+                if not token:
+                    st.warning("⚠️ Jina token not found in environment")
             
             ret = fetch_retrieval(
                 prompt_text, 
-                top_k_embed=top_k_embed, 
-                top_k_rerank=top_k_rerank,
+                top_k=top_k_rerank,  # Use final top_k for simplified API
                 max_chars=8000, 
                 embedder_type=embedder_type, 
-                reranker_type=reranker_type
+                reranker_type=reranker_type,
+                use_query_enhancement=use_query_enhancement,
+                api_tokens=api_tokens
             )
             context = ret.get("context", "") or ""
             st.session_state["last_sources"] = ret.get("sources", [])
             st.session_state["last_retrieval_info"] = ret.get("retrieval_info", {})
+            st.session_state["last_queries"] = ret.get("queries", [])
         except Exception as e:
             st.error(f"Lỗi retrieval: {e}")
             context = ""

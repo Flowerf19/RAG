@@ -47,9 +47,11 @@ class RerankerFactory:
         """
         from reranking.providers.bge_m3_ollama_reranker import BGE3OllamaReranker
         return BGE3OllamaReranker(device=device)
-    def create_bge_m3_hf_api(api_token: str, model_name: str = "BAAI/bge-reranker-v2-m3") -> IReranker:
+    @staticmethod
+    def create_bge_m3_hf_api(api_token: str, model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> IReranker:
         """
         Create BGE-M3 HuggingFace API reranker.
+        Uses sentence-transformers/all-MiniLM-L6-v2 (free, Apache-2.0, multilingual support).
         
         Args:
             api_token: HuggingFace API token

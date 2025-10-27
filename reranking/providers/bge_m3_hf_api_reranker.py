@@ -17,10 +17,11 @@ logger = logging.getLogger(__name__)
 class BGE3HuggingFaceApiReranker(BaseAPIReranker):
     """
     BGE-M3 reranker using HuggingFace API.
-    Uses sentence-transformers reranking models.
+    Uses sentence-transformers/all-MiniLM-L6-v2 as HF API doesn't support BGE reranker models.
+    This model is free, Apache-2.0 licensed, and returns direct similarity scores.
     """
 
-    DEFAULT_MODEL = "BAAI/bge-reranker-v2-m3"
+    DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
     API_BASE_URL = "https://api-inference.huggingface.co"
 
     def __init__(self, api_token: str, model_name: str = None):
@@ -29,13 +30,13 @@ class BGE3HuggingFaceApiReranker(BaseAPIReranker):
 
         Args:
             api_token: HuggingFace API token
-            model_name: Model name (default: BAAI/bge-reranker-v2-m3)
+            model_name: Model name (default: sentence-transformers/all-MiniLM-L6-v2)
         """
         if model_name is None:
             model_name = self.DEFAULT_MODEL
 
         super().__init__(api_token, model_name, self.API_BASE_URL)
-        logger.info(f"🔄 Initializing BGE-M3 HF API reranker: {model_name}")
+        logger.info(f"🔄 Initializing BGE HF API reranker: {model_name}")
 
     def _initialize_profile(self):
         """Initialize reranker profile"""
@@ -49,22 +50,21 @@ class BGE3HuggingFaceApiReranker(BaseAPIReranker):
 
     def _call_api(self, query: str, documents: List[str], top_k: int) -> List[dict]:
         """
-        Call HuggingFace API for reranking.
-        Note: This might not work if the model doesn't support reranking endpoint.
+        Call HuggingFace API for reranking using sentence-transformers model.
+        Uses sentence-transformers/all-MiniLM-L6-v2 which directly outputs similarity scores.
         """
         try:
-            # Try the reranking endpoint first
             url = f"{self.api_base_url}/models/{self.model_name}"
             headers = {
                 "Authorization": f"Bearer {self.api_token}",
                 "Content-Type": "application/json"
             }
 
+            # Sentence-transformers format: {"source_sentence": query, "sentences": [docs]}
             payload = {
                 "inputs": {
-                    "query": query,
-                    "documents": documents,
-                    "top_k": min(top_k, len(documents))
+                    "source_sentence": query,
+                    "sentences": documents
                 }
             }
 
@@ -72,24 +72,26 @@ class BGE3HuggingFaceApiReranker(BaseAPIReranker):
 
             if response.status_code == 200:
                 results = response.json()
-                # Normalize results format
+                
+                # Sentence-transformers returns direct similarity scores as a list
                 normalized_results = []
-                if isinstance(results, list):
-                    for idx, result in enumerate(results):
-                        if isinstance(result, dict):
-                            normalized_results.append({
-                                "index": result.get("index", idx),
-                                "score": result.get("score", 0.0),
-                                "document": result.get("document", documents[result.get("index", idx)])
-                            })
-                        else:
-                            # Handle score-only format
-                            normalized_results.append({
-                                "index": idx,
-                                "score": float(result) if isinstance(result, (int, float)) else 0.0,
-                                "document": documents[idx]
-                            })
+                
+                if isinstance(results, list) and len(results) == len(documents):
+                    scores = [float(score) for score in results]
+                    
+                    # Create index-score pairs and sort by score
+                    scored_docs = [(idx, score) for idx, score in enumerate(scores)]
+                    scored_docs.sort(key=lambda x: x[1], reverse=True)
+                    
+                    # Return top_k results
+                    for idx, score in scored_docs[:top_k]:
+                        normalized_results.append({
+                            "index": idx,
+                            "score": score,
+                            "document": documents[idx]
+                        })
                 else:
+                    logger.warning(f"Unexpected response format: {type(results)}, len={len(results) if isinstance(results, list) else 'N/A'}")
                     # Fallback: return documents with zero scores
                     normalized_results = [
                         {"index": idx, "score": 0.0, "document": doc}
@@ -98,8 +100,7 @@ class BGE3HuggingFaceApiReranker(BaseAPIReranker):
 
                 return normalized_results
             else:
-                # If reranking endpoint fails, return zero scores
-                logger.warning(f"HF API reranking failed: {response.status_code} - {response.text}")
+                logger.warning(f"HF API reranking failed: {response.status_code} - {response.text[:200]}")
                 return [
                     {"index": idx, "score": 0.0, "document": doc}
                     for idx, doc in enumerate(documents[:top_k])
@@ -107,7 +108,6 @@ class BGE3HuggingFaceApiReranker(BaseAPIReranker):
 
         except Exception as e:
             logger.warning(f"HF API reranking error: {e}")
-            # Return zero scores on error
             return [
                 {"index": idx, "score": 0.0, "document": doc}
                 for idx, doc in enumerate(documents[:top_k])

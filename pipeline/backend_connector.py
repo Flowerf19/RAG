@@ -178,7 +178,7 @@ class RAGRetrievalService:
     def to_ui_items(self, results: List[Dict[str, Any]], max_text_len: int = 500) -> List[Dict[str, Any]]:
         """
         Chuyển danh sách kết quả sang dạng dễ hiển thị ở UI.
-        Mỗi item gồm: title, snippet, file_name, page_number, similarity_score.
+        Mỗi item gồm: title, snippet, file_name, page_number, similarity_score, vector_similarity, rerank_score.
         """
         ui_items: List[Dict[str, Any]] = []
         for r in results:
@@ -187,16 +187,25 @@ class RAGRetrievalService:
             score = self._as_float(r.get("similarity_score"))
             text = r.get("text", "") or ""
             snippet = (text[: max_text_len - 3] + "...") if len(text) > max_text_len else text
-            ui_items.append(
-                {
-                    "title": f"{file_name} - trang {page}",
-                    "snippet": snippet,
-                    "file_name": file_name,
-                    "page_number": page,
-                    "similarity_score": round(score, 4),
-                    "distance": self._as_float(r.get("distance")),
-                }
-            )
+            
+            item = {
+                "title": f"{file_name} - trang {page}",
+                "snippet": snippet,
+                "file_name": file_name,
+                "page_number": page,
+                "similarity_score": round(score, 4),
+                "distance": self._as_float(r.get("distance")),
+            }
+            
+            # Include vector_similarity (raw cosine) if available
+            if "vector_similarity" in r and r["vector_similarity"] is not None:
+                item["vector_similarity"] = round(self._as_float(r["vector_similarity"]), 4)
+            
+            # Include rerank_score if present
+            if "rerank_score" in r:
+                item["rerank_score"] = round(self._as_float(r.get("rerank_score")), 4)
+            
+            ui_items.append(item)
         return ui_items
 
     # ---------- Hybrid Retrieval ----------
@@ -447,7 +456,8 @@ def fetch_retrieval(
     max_chars: int = 8000,
     embedder_type: str = "ollama",
     reranker_type: str = "none",
-    use_query_enhancement: bool = True
+    use_query_enhancement: bool = True,
+    api_tokens: Optional[Dict[str, str]] = None
 ) -> Dict[str, Any]:
     """
     Enhanced retrieval function combining query enhancement and reranking.
@@ -461,6 +471,7 @@ def fetch_retrieval(
         embedder_type: Type of embedder ("ollama", "huggingface_local", "huggingface_api")
         reranker_type: Type of reranker ("none", "bge_local", "bge_m3_ollama", etc.)
         use_query_enhancement: Whether to use query enhancement module
+        api_tokens: Dict of API tokens for rerankers (keys: "hf", "cohere", "jina")
 
     Returns:
         Dict with keys: "context" (str), "sources" (list), "queries" (list), "retrieval_info" (dict)
@@ -556,17 +567,30 @@ def fetch_retrieval(
                     reranker_enum = RerankerType.JINA
 
                 if reranker_enum:
-                    reranker = RerankerFactory.create(reranker_enum)
+                    # Get API token for API-based rerankers
+                    api_token = None
+                    if api_tokens:
+                        if reranker_type == "bge_m3_hf_api":
+                            api_token = api_tokens.get("hf")
+                        elif reranker_type == "cohere":
+                            api_token = api_tokens.get("cohere")
+                        elif reranker_type == "jina":
+                            api_token = api_tokens.get("jina")
+                    
+                    reranker = RerankerFactory.create(reranker_enum, api_token=api_token)
                     doc_texts = [r.get("text", "") for r in results]
+                    
+                    # Rerank and directly get top_k results (no need to rerank all then slice)
                     reranked_results = reranker.rerank(query_text, doc_texts, top_k=top_k)
 
                     # Reorder results based on reranking
                     reranked_indices = [rr.index for rr in reranked_results]
-                    results = [results[i] for i in reranked_indices[:top_k]]
+                    results = [results[i] for i in reranked_indices]
 
-                    # Add rerank scores
-                    for i, rr in enumerate(reranked_results[:top_k]):
+                    # Add rerank_score (keep original similarity_score intact)
+                    for i, rr in enumerate(reranked_results):
                         results[i]["rerank_score"] = rr.score
+                        logger.debug(f"Result {i}: hybrid={results[i].get('similarity_score'):.4f}, rerank={rr.score:.4f}")
 
                     reranked = True
                     logger.info(f"Applied {reranker_type} reranking: {initial_count} -> {len(results)} results")

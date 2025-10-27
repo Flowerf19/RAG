@@ -31,16 +31,24 @@ class Retriever:
         """
         self.embedder = embedder
 
-    def search_similar(self, faiss_file: Path, metadata_map_file: Path,
-                      query_text: str, top_k: int = 10) -> List[Dict[str, Any]]:
+    def search_similar(
+        self,
+        faiss_file: Path,
+        metadata_map_file: Path,
+        query_text: str | None,
+        top_k: int = 10,
+        *,
+        query_embedding: List[float] | None = None,
+    ) -> List[Dict[str, Any]]:
         """
         Search for similar chunks using cosine similarity with FAISS.
 
         Args:
             faiss_file: Path to FAISS index file
             metadata_map_file: Path to metadata map file
-            query_text: Query text to search
+            query_text: Query text to search (optional when query_embedding provided)
             top_k: Number of results to return
+            query_embedding: Optional precomputed embedding to use instead of encoding
 
         Returns:
             List of similar chunks with metadata and cosine similarity scores
@@ -48,8 +56,12 @@ class Retriever:
         # Load FAISS index and metadata
         index, metadata_map = self._load_index_and_metadata(faiss_file, metadata_map_file)
 
-        # Generate query embedding and normalize
-        query_embedding = self.embedder.embed(query_text)
+        # Generate or reuse query embedding and normalize
+        if query_embedding is None:
+            if not query_text:
+                raise ValueError("Either query_text or query_embedding must be provided.")
+            query_embedding = self.embedder.embed(query_text)
+
         query_vector = np.array([query_embedding], dtype='float32')
         query_normalized = self._normalize_vectors(query_vector)
 
@@ -77,7 +89,8 @@ class Retriever:
         # Sort results by similarity score (descending) to ensure correct ordering
         results.sort(key=lambda x: x["similarity_score"], reverse=True)
 
-        logger.info(f"Similarity search completed: found {len(results)} results for query")
+        log_query = query_text or "<embedding>"
+        logger.info("Similarity search completed: %d result(s) for query %s", len(results), log_query)
         return results
 
     def _load_index_and_metadata(self, faiss_file: Path, metadata_map_file: Path) -> tuple[faiss.Index, Dict[int, Dict[str, Any]]]:

@@ -1,0 +1,27 @@
+enabled: true
+
+# Number of variants per language. Keys are ISO codes.
+languages:
+  vi: 2
+  en: 2
+
+# Overall cap on number of queries returned (including the original).
+max_total_queries: 5
+
+# Optional backend override: gemini or lmstudio. Omit to follow ui.default_backend.
+backend:
+
+# Fallback backend if ui.default_backend is unavailable.
+fallback_backend: gemini
+
+# Optional overrides passed to Gemini / LM Studio calls.
+llm_overrides:
+  temperature: 0.3
+  max_tokens: 512
+
+# Additional free-form instructions appended to the prompt (optional).
+additional_instructions: >
+  Ensure translations keep domain terminology intact and avoid adding factual details.
+
+# Writer log file for QEM activity (JSON lines).
+log_path: data/logs/qem_activity.jsonl

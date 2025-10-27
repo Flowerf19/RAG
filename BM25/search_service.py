@@ -9,12 +9,10 @@ The service is responsible for:
 """
 
 from __future__ import annotations
-
 import logging
 import math
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Protocol, Sequence
-
+from typing import List, Optional, Protocol, Sequence
 from .keyword_extractor import KeywordExtractor
 
 logger = logging.getLogger(__name__)
@@ -25,8 +23,9 @@ class IndexBackend(Protocol):
     Minimal giao diện mà Whoosh indexer (hay bất kỳ backend nào) cần hiện thực.
     """
 
-    def search(self, terms: Sequence[str], *, limit: int = 10) -> List["IndexerHit"]:
-        ...
+    def search(
+        self, terms: Sequence[str], *, limit: int = 10
+    ) -> List["IndexerHit"]: ...
 
 
 @dataclass(frozen=True)
@@ -90,7 +89,9 @@ class BM25SearchService:
 
         terms = self.keyword_extractor.extract_keywords(query, lang, max_terms=50)
         if len(terms) < self.min_terms:
-            logger.info("Không đủ từ khóa (terms=%d). Fallback sang truy vấn thô.", len(terms))
+            logger.info(
+                "Không đủ từ khóa (terms=%d). Fallback sang truy vấn thô.", len(terms)
+            )
             terms = [query]
 
         limit = top_k or self.default_top_k
@@ -150,4 +151,3 @@ class BM25SearchService:
                 )
             )
         return normalized
-

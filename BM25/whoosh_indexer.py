@@ -7,7 +7,6 @@ phù hợp với `BM25IngestManager` cho các thao tác upsert/delete.
 """
 
 from __future__ import annotations
-
 import json
 import logging
 from pathlib import Path
@@ -23,7 +22,6 @@ except ImportError as exc:  # pragma: no cover - handled at runtime
     raise RuntimeError(
         "Whoosh chưa được cài đặt. Vui lòng thêm whoosh vào requirements và pip install."
     ) from exc
-
 from .ingest_manager import BM25Document
 from .search_service import IndexerHit
 
@@ -138,10 +136,9 @@ class WhooshIndexer:
                 hits.append(
                     IndexerHit(
                         document_id=hit["document_id"],
-                        score=float(hit.score), #type: ignore[assignment]
+                        score=float(hit.score),  # type: ignore[assignment]
                         metadata=metadata,
                     )
                 )
         logger.debug("Whoosh search terms=%s -> %d hits", terms, len(hits))
         return hits
-

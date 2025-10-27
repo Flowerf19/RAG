@@ -8,14 +8,12 @@ lý cache tránh index trùng lặp chunk.
 """
 
 from __future__ import annotations
-
 import json
 import logging
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Protocol, Sequence
-
+from typing import Any, Dict, Iterable, List, Optional, Protocol
 from .keyword_extractor import KeywordExtractor
 
 logger = logging.getLogger(__name__)
@@ -114,7 +112,9 @@ class BM25IngestManager:
             self._cache.pop(chunk_id, None)
             self._persist_cache()
         removed = self.indexer.delete_documents([chunk_id])
-        logger.debug("Removed %d document(s) from BM25 index for chunk_id=%s", removed, chunk_id)
+        logger.debug(
+            "Removed %d document(s) from BM25 index for chunk_id=%s", removed, chunk_id
+        )
 
     # ------------------------------------------------------------------
     # Ingest
@@ -136,7 +136,10 @@ class BM25IngestManager:
         """
         chunks = getattr(chunk_set, "chunks", None)
         if not chunks:
-            logger.info("Chunk set rỗng, bỏ qua ingest BM25 (doc_id=%s)", getattr(chunk_set, "doc_id", "unknown"))
+            logger.info(
+                "Chunk set rỗng, bỏ qua ingest BM25 (doc_id=%s)",
+                getattr(chunk_set, "doc_id", "unknown"),
+            )
             return 0
 
         documents: List[BM25Document] = []
@@ -199,7 +202,9 @@ class BM25IngestManager:
     # ------------------------------------------------------------------
     # Utilities
     # ------------------------------------------------------------------
-    def _build_metadata(self, chunk_set: Any, chunk: Any, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _build_metadata(
+        self, chunk_set: Any, chunk: Any, extra: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         metadata: Dict[str, Any] = {
             "doc_id": getattr(chunk_set, "doc_id", None),
             "chunk_id": getattr(chunk, "chunk_id", None),
@@ -234,7 +239,9 @@ class BM25IngestManager:
         if isinstance(value, Path):
             return str(value)
         if isinstance(value, Mapping):
-            return {str(key): self._sanitize_for_json(val) for key, val in value.items()}
+            return {
+                str(key): self._sanitize_for_json(val) for key, val in value.items()
+            }
         if isinstance(value, (list, tuple, set)):
             return [self._sanitize_for_json(item) for item in value]
         if is_dataclass(value):
@@ -247,6 +254,10 @@ class BM25IngestManager:
                 return str(value)
         if hasattr(value, "__dict__"):
             return self._sanitize_for_json(
-                {key: val for key, val in vars(value).items() if not key.startswith("_")}
+                {
+                    key: val
+                    for key, val in vars(value).items()
+                    if not key.startswith("_")
+                }
             )
         return str(value)

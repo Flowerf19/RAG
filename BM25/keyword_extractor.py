@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional
 
 try:
     import spacy
@@ -47,17 +47,25 @@ class KeywordExtractor:
         if "en" not in self.language_models:
             self.language_models["en"] = "en_core_web_sm"
         self._nlp_cache: Dict[str, Language] = {}
-        self._accent_pattern = re.compile(r"[àáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệ"
-                                          r"ìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụ"
-                                          r"ưứừửữựỳýỷỹỵ]", re.IGNORECASE)
-        logger.debug("KeywordExtractor initialised with languages: %s", list(self.language_models))
+        self._accent_pattern = re.compile(
+            r"[àáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệ"
+            r"ìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụ"
+            r"ưứừửữựỳýỷỹỵ]",
+            re.IGNORECASE,
+        )
+        logger.debug(
+            "KeywordExtractor initialised with languages: %s",
+            list(self.language_models),
+        )
 
     def ensure_pipeline(self, lang: str) -> Language:
         """
         Lazily load spaCy pipeline for the given language.
         """
         if lang not in self.language_models:
-            raise ValueError(f"Unsupported language '{lang}'. Configure a spaCy model before use.")
+            raise ValueError(
+                f"Unsupported language '{lang}'. Configure a spaCy model before use."
+            )
 
         if lang not in self._nlp_cache:
             model_name = self.language_models[lang]
@@ -96,7 +104,10 @@ class KeywordExtractor:
 
         language = (lang or self.detect_language(text)).lower()
         if language not in self.language_models:
-            logger.debug("Language '%s' not configured — falling back to English model.", language)
+            logger.debug(
+                "Language '%s' not configured — falling back to English model.",
+                language,
+            )
             language = "en"
         nlp = self.ensure_pipeline(language)
         doc = nlp(text)

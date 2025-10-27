@@ -1,4 +1,4 @@
-"""
+﻿"""
 RAG Retrieval Service
 =====================
 Module chỉ phụ trách phần Retrieval (FAISS search) để UI có thể hiển thị nguồn
@@ -22,7 +22,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 import math
 
+import numpy as np
+
 from pipeline.rag_pipeline import RAGPipeline
+from pipeline.query_enhancement import QueryEnhancementModule, load_qem_settings
+from llm.config_loader import get_config
 
 
 logger = logging.getLogger(__name__)
@@ -357,6 +361,8 @@ class RAGRetrievalService:
         *,
         vector_weight: Optional[float] = None,
         bm25_weight: Optional[float] = None,
+        query_embedding: Optional[List[float]] = None,
+        bm25_query: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Run FAISS and BM25 searches in parallel and merge results by weighted z-score.
@@ -381,6 +387,7 @@ class RAGRetrievalService:
                     metadata_map_file=metadata_file,
                     query_text=query_text,
                     top_k=top_k * 2,
+                    query_embedding=query_embedding,
                 )
                 vector_results.extend(results)
             except Exception as exc:
@@ -389,10 +396,14 @@ class RAGRetrievalService:
         vector_results = self._deduplicate_results(vector_results, score_key="similarity_score")
         self._normalize_scores(vector_results, "similarity_score", "vector_normalized_score")
 
-        bm25_results = self.pipeline.search_bm25(
-            query_text,
-            top_k=top_k * 2,
-        )
+        bm25_input = bm25_query if bm25_query is not None else query_text
+        if bm25_input:
+            bm25_results = self.pipeline.search_bm25(
+                bm25_input,
+                top_k=top_k * 2,
+            )
+        else:
+            bm25_results = []
 
         merged = self._merge_vector_and_bm25(
             vector_results,
@@ -404,41 +415,69 @@ class RAGRetrievalService:
         return merged
 
 
+def _fuse_query_embeddings(
+    queries: List[str],
+    embedder,
+    logger: logging.Logger,
+) -> Optional[List[float]]:
+    """
+    Generate embeddings for each query and return their mean vector.
+    """
+    vectors: List[np.ndarray] = []
+    for query in queries:
+        try:
+            embedding = embedder.embed(query)
+            if embedding:
+                vectors.append(np.asarray(embedding, dtype=np.float32))
+        except Exception as exc:
+            logger.warning("Failed to embed query '%s': %s", query, exc)
+
+    if not vectors:
+        return None
+
+    stacked = np.stack(vectors, axis=0)
+    mean_vector = stacked.mean(axis=0)
+    return mean_vector.astype(np.float32).tolist()
+
+
 def fetch_retrieval(query_text: str, top_k: int = 5, max_chars: int = 8000) -> Dict[str, Any]:
     """
-    Hàm tiện ích để retrieval từ FAISS indexes.
-    Tự động tìm FAISS index mới nhất và thực hiện search.
-
-    Args:
-        query_text: Câu hỏi cần tìm
-        top_k: Số lượng kết quả trả về
-        max_chars: Độ dài tối đa của context
-
-    Returns:
-        Dict với keys: "context" (str), "sources" (list)
+    Entry point for hybrid retrieval. Optionally enhances the query before executing searches.
     """
     try:
-        # Khởi tạo pipeline và retriever
-        from pipeline.rag_pipeline import RAGPipeline
+        app_config = get_config()
+        qem_settings = load_qem_settings()
+        qem = QueryEnhancementModule(app_config, qem_settings, logger=logger)
+        expanded_queries = qem.enhance(query_text)
+        unique_queries = [q for q in expanded_queries if q and q.strip()]
+
         pipeline = RAGPipeline()
         retriever = RAGRetrievalService(pipeline)
+        fusion_inputs = unique_queries or [query_text]
+        fused_embedding = _fuse_query_embeddings(fusion_inputs, pipeline.embedder, logger)
+        bm25_query = " ".join(fusion_inputs).strip() or query_text
 
-        results = retriever.retrieve_hybrid(query_text, top_k=top_k)
+        results = retriever.retrieve_hybrid(
+            query_text=query_text,
+            top_k=top_k,
+            query_embedding=fused_embedding,
+            bm25_query=bm25_query,
+        )
         if not results:
-            logger.warning("Không tìm thấy kết quả từ hybrid retrieval")
-            return {"context": "", "sources": []}
+            logger.warning("No hybrid retrieval results found.")
+            return {"context": "", "sources": [], "queries": expanded_queries}
 
-        # Build context
         context = retriever.build_context(results, max_chars=max_chars)
-
-        # Convert to UI format
         sources = retriever.to_ui_items(results)
 
         return {
             "context": context,
-            "sources": sources
+            "sources": sources,
+            "queries": expanded_queries,
         }
 
-    except Exception as e:
-        logger.error(f"Lỗi trong fetch_retrieval: {e}")
-        return {"context": "", "sources": []}
+    except Exception as exc:
+        logger.error("Lỗi trong fetch_retrieval: %s", exc)
+        return {"context": "", "sources": [], "queries": [query_text]}
+
+

@@ -20,6 +20,6 @@ llm:
       default: lm-studio  # local default; override in env for prod
     model: google/gemma-3-4b
     sampling:
-      temperature: 0.0
+      temperature: 0.7
       top_p: 0.9
-      max_tokens: 512
+      max_tokens: 2048

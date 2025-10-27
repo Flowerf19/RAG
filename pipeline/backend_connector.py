@@ -43,7 +43,7 @@ class RAGRetrievalService:
     def __init__(self, pipeline: RAGPipeline):
         self.pipeline = pipeline
         self.vector_weight = 0.4  # default contribution from vector search
-        self.bm25_weight = 0.6    # default contribution from BM25 search
+        self.bm25_weight = 0.6  # default contribution from BM25 search
 
     def _as_float(self, value: Any, default: float = 0.0) -> float:
         """
@@ -65,7 +65,9 @@ class RAGRetrievalService:
         name = vectors_file.name
         if "_vectors_" not in name:
             return None
-        candidate = self.pipeline.vectors_dir / name.replace("_vectors_", "_metadata_map_").replace(".faiss", ".pkl")
+        candidate = self.pipeline.vectors_dir / name.replace(
+            "_vectors_", "_metadata_map_"
+        ).replace(".faiss", ".pkl")
         return candidate if candidate.exists() else None
 
     def get_all_index_pairs(self) -> List[Tuple[Path, Path]]:
@@ -95,6 +97,7 @@ class RAGRetrievalService:
         """
         try:
             import faiss
+
             faiss.read_index(str(faiss_file))
             return True
         except Exception as e:
@@ -120,7 +123,9 @@ class RAGRetrievalService:
         except Exception as e:
             logger.error(f"Failed to cleanup corrupted files: {e}")
 
-    def build_context(self, results: List[Dict[str, Any]], max_chars: int = 8000) -> str:
+    def build_context(
+        self, results: List[Dict[str, Any]], max_chars: int = 8000
+    ) -> str:
         """
         Tạo chuỗi context gọn từ danh sách kết quả retrieval (top-k).
         Sử dụng provenance information để tạo source attribution chi tiết hơn.
@@ -128,14 +133,16 @@ class RAGRetrievalService:
         """
         parts: List[str] = []
         total = 0
-        max_per_chunk = max(400, max_chars // 8)  # Mỗi chunk tối đa 400 ký tự để đảm bảo capture keywords
-        
+        max_per_chunk = max(
+            400, max_chars // 8
+        )  # Mỗi chunk tối đa 400 ký tự để đảm bảo capture keywords
+
         for i, r in enumerate(results, 1):
             file_name = r.get("file_name", "?")
             page = r.get("page_number", "?")
             score = r.get("similarity_score", 0.0)
             text = r.get("text", "")
-            
+
             # Cắt ngắn text
             if len(text) > max_per_chunk:
                 text = text[:max_per_chunk] + "..."
@@ -146,7 +153,11 @@ class RAGRetrievalService:
                 # Use provenance for more detailed source info
                 page_nums = provenance.get("page_numbers", [])
                 if page_nums:
-                    page_range = f"pages {min(page_nums)}-{max(page_nums)}" if len(page_nums) > 1 else f"page {page_nums[0]}"
+                    page_range = (
+                        f"pages {min(page_nums)}-{max(page_nums)}"
+                        if len(page_nums) > 1
+                        else f"page {page_nums[0]}"
+                    )
                 else:
                     page_range = f"page {page}"
 
@@ -168,14 +179,18 @@ class RAGRetrievalService:
             else:
                 table_note = ""
 
-            piece = f"[{i}] Source: {source_info}, score {score:.3f}{table_note}\n{text}"
+            piece = (
+                f"[{i}] Source: {source_info}, score {score:.3f}{table_note}\n{text}"
+            )
             parts.append(piece)
             total += len(piece)
             if total > max_chars:
                 break
         return "\n\n".join(parts)
 
-    def to_ui_items(self, results: List[Dict[str, Any]], max_text_len: int = 500) -> List[Dict[str, Any]]:
+    def to_ui_items(
+        self, results: List[Dict[str, Any]], max_text_len: int = 500
+    ) -> List[Dict[str, Any]]:
         """
         Chuyển danh sách kết quả sang dạng dễ hiển thị ở UI.
         Mỗi item gồm: title, snippet, file_name, page_number, similarity_score, vector_similarity, rerank_score.
@@ -186,8 +201,10 @@ class RAGRetrievalService:
             page = r.get("page_number", "?")
             score = self._as_float(r.get("similarity_score"))
             text = r.get("text", "") or ""
-            snippet = (text[: max_text_len - 3] + "...") if len(text) > max_text_len else text
-            
+            snippet = (
+                (text[: max_text_len - 3] + "...") if len(text) > max_text_len else text
+            )
+
             item = {
                 "title": f"{file_name} - trang {page}",
                 "snippet": snippet,
@@ -196,15 +213,17 @@ class RAGRetrievalService:
                 "similarity_score": round(score, 4),
                 "distance": self._as_float(r.get("distance")),
             }
-            
+
             # Include vector_similarity (raw cosine) if available
             if "vector_similarity" in r and r["vector_similarity"] is not None:
-                item["vector_similarity"] = round(self._as_float(r["vector_similarity"]), 4)
-            
+                item["vector_similarity"] = round(
+                    self._as_float(r["vector_similarity"]), 4
+                )
+
             # Include rerank_score if present
             if "rerank_score" in r:
                 item["rerank_score"] = round(self._as_float(r.get("rerank_score")), 4)
-            
+
             ui_items.append(item)
         return ui_items
 
@@ -254,7 +273,9 @@ class RAGRetrievalService:
                 continue
             current_best = best_by_chunk.get(chunk_id)
             result_score = self._as_float(result.get(score_key))
-            current_score = self._as_float(current_best.get(score_key)) if current_best else None
+            current_score = (
+                self._as_float(current_best.get(score_key)) if current_best else None
+            )
             if current_best is None or result_score > current_score:
                 best_by_chunk[chunk_id] = result
         return list(best_by_chunk.values())
@@ -293,9 +314,19 @@ class RAGRetrievalService:
 
             vector_norm = vec.get("vector_normalized_score") if vec else None
             bm25_norm = bm25.get("bm25_normalized_score") if bm25 else None
+            if bm25_norm is None and bm25:
+                bm25_norm = self._as_float(bm25.get("bm25_raw_score"))
 
-            weighted_vector = self._as_float(vector_norm) * vector_weight if vector_norm is not None else 0.0
-            weighted_bm25 = self._as_float(bm25_norm) * bm25_weight if bm25_norm is not None else 0.0
+            weighted_vector = (
+                self._as_float(vector_norm) * vector_weight
+                if vector_norm is not None
+                else 0.0
+            )
+            weighted_bm25 = (
+                self._as_float(bm25_norm) * bm25_weight
+                if bm25_norm is not None
+                else 0.0
+            )
 
             total_weight = 0.0
             if vector_norm is not None:
@@ -303,7 +334,11 @@ class RAGRetrievalService:
             if bm25_norm is not None:
                 total_weight += bm25_weight
 
-            final_score = (weighted_vector + weighted_bm25) / total_weight if total_weight else 0.0
+            final_score = (
+                (weighted_vector + weighted_bm25) / total_weight
+                if total_weight
+                else 0.0
+            )
 
             # Prefer vector text as it includes provenance-rich payload; fallback to BM25 metadata
             text = ""
@@ -319,7 +354,9 @@ class RAGRetrievalService:
 
             if vec:
                 file_name = vec.get("file_name") or file_name
-                source_path = vec.get("file_path") or vec.get("source_path") or source_path
+                source_path = (
+                    vec.get("file_path") or vec.get("source_path") or source_path
+                )
                 page_number = vec.get("page_number") or page_number
                 page_numbers = vec.get("page_numbers") or page_numbers
             if bm25:
@@ -347,7 +384,9 @@ class RAGRetrievalService:
                     "score_components": {
                         "vector_normalized": vector_norm,
                         "bm25_normalized": bm25_norm,
-                        "vector_weight": vector_weight if vector_norm is not None else 0.0,
+                        "vector_weight": vector_weight
+                        if vector_norm is not None
+                        else 0.0,
                         "bm25_weight": bm25_weight if bm25_norm is not None else 0.0,
                         "vector_contribution": weighted_vector,
                         "bm25_contribution": weighted_bm25,
@@ -355,13 +394,18 @@ class RAGRetrievalService:
                     "vector_similarity": vec.get("similarity_score") if vec else None,
                     "distance": self._as_float(vec.get("distance")) if vec else 0.0,
                     "bm25_raw_score": bm25.get("bm25_raw_score") if bm25 else None,
-                    "keywords": bm25.get("keywords") if bm25 else vec.get("keywords", []),
-                    "provenance": (vec or {}).get("provenance") or (bm25 or {}).get("metadata"),
+                    "keywords": bm25.get("keywords")
+                    if bm25
+                    else vec.get("keywords", []),
+                    "provenance": (vec or {}).get("provenance")
+                    or (bm25 or {}).get("metadata"),
                     "retrieval_mode": "hybrid",
                 }
             )
 
-        merged_results.sort(key=lambda item: item.get("similarity_score", 0.0), reverse=True)
+        merged_results.sort(
+            key=lambda item: item.get("similarity_score", 0.0), reverse=True
+        )
         return merged_results[:top_k]
 
     def retrieve_hybrid(
@@ -384,7 +428,9 @@ class RAGRetrievalService:
 
         weight_sum = vector_weight + bm25_weight
         if weight_sum == 0:
-            raise ValueError("At least one of vector_weight or bm25_weight must be greater than zero.")
+            raise ValueError(
+                "At least one of vector_weight or bm25_weight must be greater than zero."
+            )
         vector_weight /= weight_sum
         bm25_weight /= weight_sum
 
@@ -403,8 +449,12 @@ class RAGRetrievalService:
             except Exception as exc:
                 logger.warning("Vector search failed for %s: %s", faiss_file, exc)
 
-        vector_results = self._deduplicate_results(vector_results, score_key="similarity_score")
-        self._normalize_scores(vector_results, "similarity_score", "vector_normalized_score")
+        vector_results = self._deduplicate_results(
+            vector_results, score_key="similarity_score"
+        )
+        self._normalize_scores(
+            vector_results, "similarity_score", "vector_normalized_score"
+        )
 
         bm25_input = bm25_query if bm25_query is not None else query_text
         if bm25_input:
@@ -414,7 +464,7 @@ class RAGRetrievalService:
             )
         else:
             bm25_results = []
-
+        self._normalize_scores(bm25_results, "bm25_raw_score", "bm25_normalized_score")
         merged = self._merge_vector_and_bm25(
             vector_results,
             bm25_results,
@@ -457,7 +507,7 @@ def fetch_retrieval(
     embedder_type: str = "ollama",
     reranker_type: str = "none",
     use_query_enhancement: bool = True,
-    api_tokens: Optional[Dict[str, str]] = None
+    api_tokens: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Enhanced retrieval function combining query enhancement and reranking.
@@ -489,7 +539,9 @@ def fetch_retrieval(
                 if not expanded_queries:
                     expanded_queries = [query_text]
             except Exception as exc:
-                logger.warning("Query enhancement failed, using original query: %s", exc)
+                logger.warning(
+                    "Query enhancement failed, using original query: %s", exc
+                )
                 expanded_queries = [query_text]
 
         # Setup embedder
@@ -514,7 +566,9 @@ def fetch_retrieval(
 
         # Create fused embedding for multiple queries
         fusion_inputs = expanded_queries
-        fused_embedding = _fuse_query_embeddings(fusion_inputs, pipeline.embedder, logger)
+        fused_embedding = _fuse_query_embeddings(
+            fusion_inputs, pipeline.embedder, logger
+        )
         bm25_query = " ".join(fusion_inputs).strip()
 
         # Hybrid retrieval - get more results for potential reranking
@@ -537,8 +591,8 @@ def fetch_retrieval(
                     "reranked": False,
                     "embedder": embedder_type,
                     "reranker": reranker_type,
-                    "query_enhanced": use_query_enhancement
-                }
+                    "query_enhanced": use_query_enhancement,
+                },
             }
 
         initial_count = len(results)
@@ -576,12 +630,16 @@ def fetch_retrieval(
                             api_token = api_tokens.get("cohere")
                         elif reranker_type == "jina":
                             api_token = api_tokens.get("jina")
-                    
-                    reranker = RerankerFactory.create(reranker_enum, api_token=api_token)
+
+                    reranker = RerankerFactory.create(
+                        reranker_enum, api_token=api_token
+                    )
                     doc_texts = [r.get("text", "") for r in results]
-                    
+
                     # Rerank and directly get top_k results (no need to rerank all then slice)
-                    reranked_results = reranker.rerank(query_text, doc_texts, top_k=top_k)
+                    reranked_results = reranker.rerank(
+                        query_text, doc_texts, top_k=top_k
+                    )
 
                     # Reorder results based on reranking
                     reranked_indices = [rr.index for rr in reranked_results]
@@ -590,13 +648,19 @@ def fetch_retrieval(
                     # Add rerank_score (keep original similarity_score intact)
                     for i, rr in enumerate(reranked_results):
                         results[i]["rerank_score"] = rr.score
-                        logger.debug(f"Result {i}: hybrid={results[i].get('similarity_score'):.4f}, rerank={rr.score:.4f}")
+                        logger.debug(
+                            f"Result {i}: hybrid={results[i].get('similarity_score'):.4f}, rerank={rr.score:.4f}"
+                        )
 
                     reranked = True
-                    logger.info(f"Applied {reranker_type} reranking: {initial_count} -> {len(results)} results")
+                    logger.info(
+                        f"Applied {reranker_type} reranking: {initial_count} -> {len(results)} results"
+                    )
 
             except Exception as e:
-                logger.warning(f"Reranking failed ({reranker_type}): {e}. Using top {top_k} from original results.")
+                logger.warning(
+                    f"Reranking failed ({reranker_type}): {e}. Using top {top_k} from original results."
+                )
                 results = results[:top_k]
         else:
             results = results[:top_k]
@@ -615,8 +679,8 @@ def fetch_retrieval(
                 "reranked": reranked,
                 "embedder": embedder_type,
                 "reranker": reranker_type if reranked else "none",
-                "query_enhanced": use_query_enhancement
-            }
+                "query_enhanced": use_query_enhancement,
+            },
         }
 
     except Exception as exc:
@@ -629,8 +693,6 @@ def fetch_retrieval(
                 "error": str(exc),
                 "embedder": embedder_type,
                 "reranker": reranker_type,
-                "query_enhanced": use_query_enhancement
-            }
+                "query_enhanced": use_query_enhancement,
+            },
         }
-
-

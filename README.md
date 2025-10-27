@@ -106,7 +106,7 @@ Hệ thống hỗ trợ multiple embedding providers:
 |----------|-------|------------|------------|--------------|-----------|------|
 | HF Local | BAAI/bge-m3 | **1024** | 8192 | ✅ | 100+ | FREE |
 | HF API | intfloat/multilingual-e5-large | **1024** | 512 | ✅ | **100+** | FREE |
-| Ollama | embeddinggemma | 768 | 8192 | ❌ | EN only | FREE |
+| Ollama | embeddinggemma | 768 | 8192 | ✅ | 100+ | FREE |
 | Ollama | bge-m3 | 1024 | 8192 | ✅ | 100+ | FREE |
 
 **Lưu ý**: 

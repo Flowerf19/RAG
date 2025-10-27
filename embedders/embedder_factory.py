@@ -12,6 +12,8 @@ from .i_embedder import IEmbedder
 from .providers.ollama_embedder import OllamaEmbedder
 from .providers.ollama.gemma_embedder import GemmaEmbedder
 from .providers.ollama.bge3_embedder import BGE3Embedder
+from .providers.huggingface.hf_api_embedder import HuggingFaceApiEmbedder
+from .providers.huggingface.hf_local_embedder import HuggingFaceLocalEmbedder
 
 
 class EmbedderFactory:
@@ -31,6 +33,21 @@ class EmbedderFactory:
                 profile=profile,
                 base_url=kwargs.get('base_url', 'http://localhost:11434')
             ) # pyright: ignore[reportAbstractUsage]
+        elif embedder_type == EmbedderType.HUGGINGFACE:
+            # Create HuggingFace embedder (default to API mode)
+            use_api = kwargs.get('use_api', True)
+            if use_api:
+                return HuggingFaceApiEmbedder(
+                    profile=profile,
+                    model_name=kwargs.get('model_name'),
+                    api_token=kwargs.get('api_token')
+                ) # pyright: ignore[reportAbstractUsage]
+            else:
+                return HuggingFaceLocalEmbedder(
+                    profile=profile,
+                    model_name=kwargs.get('model_name'),
+                    device=kwargs.get('device', 'cpu')
+                ) # pyright: ignore[reportAbstractUsage]
         raise ValueError(f"Unsupported embedder type: {embedder_type!r}")
 
     def create_ollama_nomic(self, base_url: str = "http://localhost:11434", **kwargs: Any) -> OllamaEmbedder:
@@ -77,3 +94,47 @@ class EmbedderFactory:
             GemmaEmbedder: Ollama Embedding Gemma embedder
         """
         return GemmaEmbedder.create_default(base_url=base_url)
+
+    def create_huggingface_api(
+        self,
+        model_name: Optional[str] = None,
+        api_token: Optional[str] = None,
+        **kwargs: Any
+    ) -> HuggingFaceApiEmbedder:
+        """
+        Factory method cho HuggingFace API embedder.
+
+        Args:
+            model_name: HF model name (default: intfloat/multilingual-e5-large - 1024 dim)
+            api_token: HF API token (auto-loaded if None)
+            **kwargs: Additional arguments
+
+        Returns:
+            HuggingFaceApiEmbedder: HuggingFace API embedder (E5-Large Multilingual 1024-dim, FREE)
+        """
+        return HuggingFaceApiEmbedder.create_default(
+            api_token=api_token,
+            **kwargs
+        )
+    
+    def create_huggingface_local(
+        self,
+        model_name: Optional[str] = None,
+        device: str = "cpu",
+        **kwargs: Any
+    ) -> HuggingFaceLocalEmbedder:
+        """
+        Factory method cho HuggingFace Local embedder.
+
+        Args:
+            model_name: HF model name (default: BAAI/bge-m3 - 1024 dim)
+            device: Device for local inference
+            **kwargs: Additional arguments
+
+        Returns:
+            HuggingFaceLocalEmbedder: HuggingFace Local embedder (BGE-M3 1024-dim)
+        """
+        return HuggingFaceLocalEmbedder.create_default(
+            device=device,
+            **kwargs
+        )

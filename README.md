@@ -34,6 +34,7 @@ cd RAG
 
 # Tạo virtual environment
 python -m venv .venv
+py -3 -m venv .venv
 .venv\Scripts\Activate.ps1  # Windows
 # source .venv/bin/activate  # Linux/Mac
 

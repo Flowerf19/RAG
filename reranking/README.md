@@ -266,4 +266,4 @@ def test_reranker_interface_basic():
 
 ---
 
-Nếu cần, tôi có thể đọc code để đồng bộ chi tiết.
+

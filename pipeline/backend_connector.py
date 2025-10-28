@@ -618,6 +618,8 @@ def fetch_retrieval(
                     reranker_enum = RerankerType.COHERE
                 elif reranker_type == "jina":
                     reranker_enum = RerankerType.JINA
+                elif reranker_type == "msmarco_minilm_local":
+                    reranker_enum = RerankerType.MSMARCO_MINILM_LOCAL
 
                 if reranker_enum:
                     # Get API token for API-based rerankers
@@ -631,7 +633,8 @@ def fetch_retrieval(
                             api_token = api_tokens.get("jina")
 
                     reranker = RerankerFactory.create(
-                        reranker_enum, api_token=api_token
+                        reranker_enum,
+                        api_token=api_token,
                     )
                     doc_texts = [r.get("text", "") for r in results]
 

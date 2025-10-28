@@ -92,6 +92,15 @@ streamlit run llm/LLM_FE.py
 - Phần trăm hoàn thành
 - Trạng thái chi tiết
 
+#### Reranker trong UI
+
+- **BGE v2-m3 Local (HF)**: Reranker BAAI/bge-reranker-v2-m3 ch?y local
+- **BGE-M3 Ollama**: Cross-encoder BGE-M3 qua Ollama daemon
+- **BGE v2-m3 via HF API**: G?i cross-encoder qua Hugging Face Inference API
+- **MiniLM-L6-v2 Local (offline)**: D?ng model `cross-encoder/ms-marco-MiniLM-L-6-v2` ? th? m?c `rerank_model/model`, kh?ng c?n internet
+- **No Reranking**: B? qua reranker, gi? nguy?n k?t qu? FAISS/BM25
+
+
 ### Cấu hình Embedder
 
 Hệ thống hỗ trợ multiple embedding providers:

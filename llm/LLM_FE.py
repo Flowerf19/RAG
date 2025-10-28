@@ -114,7 +114,13 @@ with st.sidebar:
     
     # Reranker Model Selection
     st.markdown("---")
-    reranker_options = ["none", "bge_m3_hf_local", "bge_m3_ollama", "bge_m3_hf_api"]
+    reranker_options = [
+        "none",
+        "bge_m3_hf_local",
+        "bge_m3_ollama",
+        "bge_m3_hf_api",
+        "msmarco_minilm_local",
+    ]
     if "reranker_type" not in st.session_state:
         st.session_state["reranker_type"] = "bge_m3_hf_local"  # Default to BGE-M3 HF local
     
@@ -129,7 +135,8 @@ with st.sidebar:
             "bge_m3_ollama": "BGE-M3 Ollama",
             "bge_m3_hf_api": "Sentence-Transformers HF API",
             "cohere": "Cohere API",
-            "jina": "Jina API"
+            "jina": "Jina API",
+            "msmarco_minilm_local": "MiniLM-L6-v2 Local",
         }.get(x, x)
     )
     

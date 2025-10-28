@@ -14,3 +14,4 @@ class RerankerType(Enum):
     BGE_M3_HF_LOCAL = "bge_m3_hf_local"  # BGE-M3 via HuggingFace Local (v2-m3)
     COHERE = "cohere"  # Cohere API reranker
     JINA = "jina"  # Jina API reranker
+    MSMARCO_MINILM_LOCAL = "msmarco_minilm_local"  # MiniLM reranker from local disk

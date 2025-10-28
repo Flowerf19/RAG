@@ -59,6 +59,27 @@ class RerankerFactory:
         """
         from reranking.providers.bge_m3_hf_local_reranker import BGE3HuggingFaceLocalReranker
         return BGE3HuggingFaceLocalReranker(model_name=model_name, device=device)
+
+    @staticmethod
+    def create_msmarco_minilm_local(
+        model_path: str | None = None,
+        device: str = "cpu",
+    ) -> IReranker:
+        """
+        Create MiniLM reranker that loads weights from disk.
+
+        Args:
+            model_path: Local directory containing the pretrained MiniLM reranker.
+            device: Torch device to run on.
+
+        Returns:
+            MSMARCOMiniLMLocalReranker instance
+        """
+        from reranking.providers.msmarco_minilm_local_reranker import (
+            MSMARCOMiniLMLocalReranker,
+        )
+
+        return MSMARCOMiniLMLocalReranker(model_path=model_path, device=device)
     
     @staticmethod
     def create_cohere(
@@ -110,7 +131,7 @@ class RerankerFactory:
         Args:
             reranker_type: Type of reranker
             api_token: API token (for API-based rerankers)
-            model_name: Model name (optional, uses defaults)
+            model_name: Model identifier or local path (type dependent)
             device: Device for local rerankers
             
         Returns:
@@ -136,6 +157,12 @@ class RerankerFactory:
             if not api_token:
                 raise ValueError("API token required for Jina reranker")
             return cls.create_jina(api_token=api_token, model_name=model_name)
+
+        elif reranker_type == RerankerType.MSMARCO_MINILM_LOCAL:
+            return cls.create_msmarco_minilm_local(
+                model_path=model_name,  # Reuse model_name parameter to pass local path
+                device=device,
+            )
         
         else:
             raise ValueError(f"Unknown reranker type: {reranker_type}")

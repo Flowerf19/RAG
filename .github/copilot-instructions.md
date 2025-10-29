@@ -37,6 +37,16 @@ python reranking/test_reranker.py
 ### Chunk Caching Behavior
 Pipeline maintains cache (`data/cache/processed_chunks.json`) - skips identical chunks on re-runs. Delete cache to force re-processing.
 
+### UI Integration Pattern
+```python
+# Backend connector pattern for UI separation
+from pipeline.backend_connector import RAGRetrievalService
+retriever = RAGRetrievalService(pipeline)
+results = retriever.retrieve("query", top_k=5)
+context = retriever.build_context(results)
+ui_items = retriever.to_ui_items(results)  # For UI display
+```
+
 ---
 
 ## 🏗️ Critical Code Patterns
@@ -104,6 +114,17 @@ pdf_doc = loader.load("doc.pdf")
 pdf_doc = pdf_doc.normalize()  # Deduplication, text cleaning
 ```
 
+### 6. Error Handling with Graceful Degradation
+Optional dependencies handled gracefully:
+```python
+try:
+    from BM25.ingest_manager import BM25IngestManager
+    _BM25_IMPORT_ERROR = None
+except Exception as exc:
+    BM25IngestManager = None
+    _BM25_IMPORT_ERROR = exc
+```
+
 ---
 
 ## 🔧 Integration Points & Dependencies
@@ -151,6 +172,17 @@ if chunk.metadata.get("block_type") == "table":
     table_payload = chunk.metadata.get("table_payload")
     headers = table_payload.header
     rows = table_payload.rows
+```
+
+### Import Path Handling
+Dual import patterns for both module and direct execution:
+```python
+try:
+    # When run as module
+    from .chat_handler import build_messages
+except ImportError:
+    # When run directly as script
+    from chat_handler import build_messages
 ```
 
 ### Common Pitfalls

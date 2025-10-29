@@ -1,5 +1,4 @@
 
-import typing
 import fitz
 import pdfminer.high_level
 import io

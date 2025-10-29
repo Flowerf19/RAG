@@ -141,9 +141,19 @@ weasel==0.4.1
 Whoosh==2.7.4
 wrapt==2.0.0
 
-transformers
+transformers # trung voi matplotlib
 torch
 sentence-transformers
 generativeai
 openai
 hf_xet
+
+# Newloaders dependencies (CPU-only)
+omegaconf
+matplotlib
+ultralytics
+doclayout-yolo
+unimernet
+paddlepaddle  # CPU version for machines without GPU
+paddleocr
+struct-eqtable

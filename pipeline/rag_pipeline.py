@@ -92,7 +92,14 @@ class RAGPipeline:
        
         # Initialize components
         logger.info("Initializing RAG Pipeline...")
-        self.loader = PDFLoader.create_default()
+        # Use newloaders adapter instead of direct PDFLoader
+        try:
+            from newloaders.newloaders_adapter import create_compatible_loader
+            self.loader = create_compatible_loader()
+            logger.info("Using newloaders adapter for PDF loading")
+        except ImportError as e:
+            logger.warning(f"Newloaders adapter not available, falling back to PDFLoader: {e}")
+            self.loader = PDFLoader.create_default()
         self.chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
 
         # Initialize embedder based on type
@@ -299,6 +306,13 @@ class RAGPipeline:
             Dict with processing results and file paths
         """
         pdf_path = Path(pdf_path)
+        if not pdf_path.is_absolute():
+            # If relative path, resolve relative to pdf_dir
+            pdf_path = self.pdf_dir / pdf_path
+            # Then resolve to absolute path from project root
+            if not pdf_path.is_absolute():
+                project_root = Path(__file__).parent.parent
+                pdf_path = (project_root / pdf_path).resolve()
         file_name = pdf_path.stem
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -502,6 +516,9 @@ class RAGPipeline:
             raise FileNotFoundError(f"PDF directory not found: {pdf_dir}")
        
         pdf_files = list(pdf_dir.glob("*.pdf"))
+        
+        # Convert to absolute paths
+        pdf_files = [f.resolve() for f in pdf_files]
        
         if not pdf_files:
             logger.warning(f"No PDF files found in {pdf_dir}")

@@ -120,8 +120,12 @@ class VectorStore:
                 "block_type": item["block_type"],
                 "block_ids": item["block_ids"],
                 "is_table": item["is_table"],
+                "is_figure": item.get("is_figure", False),
                 "token_count": item["token_count"],
-                "provenance": item.get("provenance", {})
+                "provenance": item.get("provenance", {}),
+                "metadata": item.get("metadata"),
+                "source_blocks": item.get("source_blocks"),
+                "figure": item.get("figure"),
             }
         return metadata_map
 

@@ -13,7 +13,7 @@ from .model import (
     ProvenanceAgg, BlockSpan, Score
 )
 from loaders.model.document import PDFDocument
-from loaders.model.block import Block
+from loaders.model.block import Block, FigureBlock, TableBlock
 
 
 class RuleBasedChunker(BaseChunker):
@@ -92,7 +92,7 @@ class RuleBasedChunker(BaseChunker):
                     groups.append((cur_type, cur_blocks, cur_title))
                 cur_title, cur_type, cur_blocks = b.text.strip(), "heading", [b]
                 continue
-            if btype in {"table", "code"}:
+            if btype in {"table", "code", "figure"}:
                 if cur_blocks:
                     groups.append((cur_type, cur_blocks, cur_title))
                 groups.append((btype, [b], cur_title))
@@ -127,19 +127,22 @@ class RuleBasedChunker(BaseChunker):
     # Block classification
     # -------------------------------
     def _detect_block_type(self, block: Block) -> str:
+        meta = block.metadata or {}
+        block_type_meta = meta.get("block_type")
+        type_meta = meta.get("type")
+
+        if block_type_meta == "figure" or type_meta == "figure":
+            return "figure"
+        if block_type_meta == "table" or type_meta == "table":
+            return "table"
+        if type_meta in ("heading", "list", "code"):
+            return type_meta
+
         text = block.text.strip()
         if not text:
             return "empty"
 
-        # metadata hint - check both 'type' and 'block_type'
-        if block.metadata:
-            if block.metadata.get("type") in ("heading", "table", "list", "code"):
-                return block.metadata["type"]
-            if block.metadata.get("block_type") == "table":
-                return "table"
-
-        # Check if block is TableBlock
-        from loaders.model.block import TableBlock
+        # Check if block is TableBlock (fallback)
         if isinstance(block, TableBlock):
             return "table"
 
@@ -230,6 +233,14 @@ class RuleBasedChunker(BaseChunker):
         }.get(gtype, ChunkStrategy.PARAGRAPH_BASED)
 
         metadata = {"group_type": gtype, "block_count": len(blocks), "chunk_index": idx}
+
+        # Preserve original block metadata for downstream consumers (figures, tables, etc.)
+        block_metadatas = []
+        for block in blocks:
+            block_metadatas.append(block.metadata or {})
+        metadata["source_blocks"] = block_metadatas
+        if any(m.get("block_type") == "figure" for m in block_metadatas):
+            metadata.setdefault("block_type", "figure")
 
         # Nếu là bảng, lưu payload và embedding_text
         if gtype == "table" and blocks:

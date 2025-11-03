@@ -1,119 +1,91 @@
+"""
+Block level models representing the atomic units coming out of the loader.
+"""
+
+from __future__ import annotations
+
 import hashlib
-import re
-import ftfy
 from dataclasses import dataclass, field
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional, Tuple
 
-from .table import TableSchema
 from .base import LoaderBaseModel
+from .table import TableSchema
 
-def calc_stable_id(doc_id: str, page_number: int, norm_text: str, bbox: Any) -> str:
-    # Băm dựa trên doc_id, page_number, text[:N], bbox (làm tròn)
-    N = 32
-    text_part = norm_text[:N] if isinstance(norm_text, str) else ""
-    bbox_part = tuple(round(float(x), 2) for x in bbox) if bbox else ()
-    raw = f"{doc_id}|{page_number}|{text_part}|{bbox_part}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
+
+BBox = Tuple[float, float, float, float]
+
+
+def _compute_hash(text: str, block_type: str) -> str:
+    payload = f"{block_type}|{text}".encode("utf-8", errors="ignore")
+    return hashlib.sha256(payload).hexdigest()
+
 
 @dataclass
 class Block(LoaderBaseModel):
-    
-    text: str = ""
-    bbox: Any = None
-    text_source: Optional[str] = None
+    block_id: str
+    page_number: int
+    text: str
+    bbox: BBox
+    block_type: str = "text"
+    category: Optional[str] = None
+    score: Optional[float] = None
     stable_id: Optional[str] = None
+    text_source: str = "pdf_extract_kit"
+    metadata: Dict[str, Any] = field(default_factory=dict)
     content_sha256: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = field(default_factory=dict)
 
-    def validate(self):
-        # Có thể mở rộng kiểm tra, hiện tại chỉ trả về True để khớp base
-        return True
+    def __post_init__(self) -> None:
+        if self.stable_id is None:
+            self.stable_id = self.block_id
 
-    def set_stable_id_and_hash(self, doc_id: str, page_number: int):
-        self.stable_id = calc_stable_id(doc_id, page_number, self.text, self.bbox)
-        self.content_sha256 = hashlib.sha256((self.text or "").encode("utf-8")).hexdigest()
-        
-    def normalize(self, config: Optional[dict] = None) -> 'Block':
-        """
-        Chuẩn hóa text (dùng clean-text, ftfy), bbox, metadata, tính lại stable_id và content_sha256.
-        CHỈ chuẩn hóa dữ liệu, KHÔNG lọc tại đây.
-        Filtering sẽ được thực hiện ở tầng document sau khi thu thập block_hash_counter.
-        Trả về self (có thể chain).
-        """
-        if config is None:
-            config = {}
-        
-        # 1. Chuẩn hóa text
-        if self.text:
-            text = self.text.strip()
-            
-            # Fix unicode và encoding issues
-            text = ftfy.fix_text(text)
-            
-            # REMOVED: Clean text using cleantext library (was corrupting text)
-            # text = clean(text)
-            
-            # De-hyphenation: nối từ bị ngắt dòng bởi dấu gạch ngang cuối dòng
-            text = re.sub(r"(\w+)-\n(\w+)", r"\1\2", text)
-            
-            # Normalize line breaks and control characters
-            text = re.sub(r"[\r\f]+", "\n", text)  # Convert \r, \f to \n
-            
-            # Remove zero-width characters and invisible Unicode
-            text = re.sub(r"[\u200b\u200c\u200d\ufeff]+", "", text)
-            
-            # Remove TOC dots (e.g., "1. INTRODUCTION ....................")
-            text = re.sub(r'\.{3,}', '', text)
-            
-            # Normalize whitespace (multiple spaces -> single, multiple newlines -> max 2)
-            from loaders.normalizers.block_utils import normalize_whitespace
-            text = normalize_whitespace(text)
-            
-            self.text = text
-            
-            # Tách câu bằng spaCy nếu text đủ dài
-            if len(self.text) > 40:
-                try:
-                    from loaders.normalizers.spacy_utils import sent_tokenize
-                    self.sentences = sent_tokenize(self.text)
-                except Exception:
-                    self.sentences = []
-        
-        # 2. Chuẩn hóa bbox
-        if self.bbox and isinstance(self.bbox, (tuple, list)) and len(self.bbox) == 4:
-            self.bbox = tuple(round(float(x), 2) for x in self.bbox)
-        
-        # 3. Chuẩn hóa metadata
-        if self.metadata:
-            self.metadata = {k: v for k, v in self.metadata.items() if k and v is not None}
-        
-        # 4. Tính lại stable_id và content_sha256 nếu có doc_id, page_number trong metadata
-        doc_id = self.metadata.get('doc_id') if self.metadata else None
-        page_number = self.metadata.get('page_number') if self.metadata else None
-        if doc_id is not None and page_number is not None:
-            self.set_stable_id_and_hash(doc_id, page_number)
-        else:
-            self.content_sha256 = hashlib.sha256((self.text or "").encode("utf-8")).hexdigest()
-        
-        return self
+        if self.content_sha256 is None:
+            normalized = (self.text or "").strip()
+            self.content_sha256 = _compute_hash(normalized, self.block_type)
+
+    def normalized(self) -> Optional["Block"]:
+        normalized_text = (self.text or "").strip()
+        if not normalized_text and self.block_type not in {"table", "figure", "image", "formula"}:
+            return None
+
+        return Block(
+            block_id=self.block_id,
+            page_number=self.page_number,
+            text=normalized_text,
+            bbox=self.bbox,
+            block_type=self.block_type,
+            category=self.category,
+            score=self.score,
+            stable_id=self.stable_id,
+            text_source=self.text_source,
+            metadata=dict(self.metadata or {}),
+            content_sha256=self.content_sha256,
+        )
+
 
 @dataclass
 class TableBlock(Block):
-    """
-    Block đại diện cho bảng. Kế thừa từ Block và có thêm table data.
-    """
-    table: Optional['TableSchema'] = None
-    block_type: str = "table"
+    table: Optional[TableSchema] = None
 
-    def normalize(self, config: Optional[dict] = None) -> 'TableBlock':
-        """
-        Chuẩn hóa TableBlock: gọi normalize của Block và normalize table.
-        """
-        # Gọi normalize của Block trước
-        super().normalize(config)
-        
-        # Normalize table nếu có
-        if self.table and hasattr(self.table, 'normalize'):
-            self.table.normalize(config)
-        
-        return self
+    def normalized(self) -> Optional["TableBlock"]:
+        normalized_text = (self.text or "").strip()
+        if not normalized_text and (self.table is None or self.table.is_empty()):
+            return None
+
+        metadata = dict(self.metadata or {})
+        if self.table and "table_schema" not in metadata:
+            metadata["table_schema"] = self.table
+
+        return TableBlock(
+            block_id=self.block_id,
+            page_number=self.page_number,
+            text=normalized_text,
+            bbox=self.bbox,
+            block_type=self.block_type,
+            category=self.category,
+            score=self.score,
+            stable_id=self.stable_id,
+            text_source=self.text_source,
+            metadata=metadata,
+            content_sha256=self.content_sha256 or _compute_hash(normalized_text, "table"),
+            table=self.table,
+        )

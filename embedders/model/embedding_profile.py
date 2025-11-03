@@ -7,9 +7,7 @@ Cấu hình cho embedding models và providers.
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
 
-# Local base class for embedding profile models
-class LoaderBaseModel:
-    pass
+from loaders.model.base import LoaderBaseModel
 
 
 @dataclass

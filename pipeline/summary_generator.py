@@ -68,7 +68,8 @@ class SummaryGenerator:
             },
             "statistics": {
                 "text_chunks": sum(1 for e in embeddings_data if not e["is_table"]),
-                "table_chunks": sum(1 for e in embeddings_data if e["is_table"])
+                "table_chunks": sum(1 for e in embeddings_data if e["is_table"]),
+                "figure_chunks": sum(1 for e in embeddings_data if e.get("is_figure"))
             }
         }
  

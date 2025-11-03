@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from loaders.pdf_loader import PDFLoader
 from chunkers.hybrid_chunker import HybridChunker
 from embedders.embedder_factory import EmbedderFactory
 from embedders.embedder_type import EmbedderType
@@ -92,14 +91,15 @@ class RAGPipeline:
        
         # Initialize components
         logger.info("Initializing RAG Pipeline...")
-        # Use newloaders adapter instead of direct PDFLoader
+        # Use new PDFLoader with PDF-Extract-Kit integration
         try:
-            from newloaders.newloaders_adapter import create_compatible_loader
-            self.loader = create_compatible_loader()
-            logger.info("Using newloaders adapter for PDF loading")
-        except ImportError as e:
-            logger.warning(f"Newloaders adapter not available, falling back to PDFLoader: {e}")
+            from loaders.pdf_loader import PDFLoader
             self.loader = PDFLoader.create_default()
+            logger.info("Using PDF-Extract-Kit integrated PDFLoader")
+        except ImportError as e:
+            logger.warning(f"PDFLoader not available, falling back to basic loader: {e}")
+            # Fallback if needed
+            self.loader = None
         self.chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
 
         # Initialize embedder based on type
@@ -192,7 +192,7 @@ class RAGPipeline:
             "model_type": self.model_type.value,
             "embedder_model": self.embedder.profile.model_id,
             "embedder_dimension": self.embedder.dimension,
-            "loader": "PDFLoader",
+            "loader": "PDFLoader (PDF-Extract-Kit)",
             "chunker": str(self.chunker),
             "vector_store": "FAISS",
             "cache_enabled": True
@@ -336,6 +336,14 @@ class RAGPipeline:
         embeddings_data = []
         skipped_chunks = 0
         total_chunks = len(chunk_set.chunks)
+        def _to_serializable(value):
+            if hasattr(value, "to_dict"):
+                return _to_serializable(value.to_dict())
+            if isinstance(value, dict):
+                return {k: _to_serializable(v) for k, v in value.items()}
+            if isinstance(value, (list, tuple, set)):
+                return [_to_serializable(v) for v in value]
+            return value
 
         # Call callback with initial state
         if chunk_callback:
@@ -401,7 +409,39 @@ class RAGPipeline:
                         "num_rows": len(getattr(table_payload, "rows", [])),
                         "page_number": getattr(table_payload, "page_number", None)
                     }
-           
+            
+            # Attach full metadata for downstream use (figures, tables, etc.)
+            metadata_serialized = _to_serializable(chunk.metadata or {})
+            chunk_embedding["metadata"] = metadata_serialized
+            source_blocks_meta_raw = chunk.metadata.get("source_blocks", []) if chunk.metadata else []
+            source_blocks_meta = [_to_serializable(meta) for meta in source_blocks_meta_raw]
+            chunk_embedding["source_blocks"] = source_blocks_meta
+
+            is_figure = False
+            figure_meta = None
+            if chunk.metadata:
+                block_type = chunk.metadata.get("block_type")
+                if block_type == "figure":
+                    figure_info = chunk.metadata.get("figure")
+                    if figure_info:
+                        is_figure = True
+                        figure_meta = _to_serializable(figure_info)
+            if not is_figure and source_blocks_meta:
+                for block_meta in source_blocks_meta:
+                    if (block_meta or {}).get("block_type") == "figure":
+                        is_figure = True
+                        figure_meta = block_meta
+                        break
+            chunk_embedding["is_figure"] = is_figure
+            if figure_meta:
+                chunk_embedding["figure"] = {
+                    "caption": figure_meta.get("caption"),
+                    "image_path": figure_meta.get("image_path"),
+                    "bbox": figure_meta.get("bbox"),
+                    "page_number": figure_meta.get("page_number"),
+                    "figure_order": figure_meta.get("figure_order"),
+                }
+
             embeddings_data.append(chunk_embedding)
 
             # Update progress via callback

@@ -141,19 +141,18 @@ weasel==0.4.1
 Whoosh==2.7.4
 wrapt==2.0.0
 
-transformers # trung voi matplotlib
-torch
+# RAG / embeddings / HF extras
 sentence-transformers
-generativeai
-openai
 hf_xet
 
 # Newloaders dependencies (CPU-only)
 omegaconf
 matplotlib
-ultralytics
-doclayout-yolo
-unimernet
+ultralytics>=8.2.85
+doclayout-yolo==0.0.3  # Updated to available version
 paddlepaddle  # CPU version for machines without GPU
-paddleocr
+paddleocr==2.7.3
 struct-eqtable
+
+# If (and only if) bạn thực sự cần package này ngoài google-generativeai
+# generativeai

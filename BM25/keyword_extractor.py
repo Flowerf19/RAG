@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+import unicodedata
+from typing import Dict, Iterable, List, Optional
 
 try:
     import spacy
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LANGUAGE_MODELS: Dict[str, str] = {
     "en": "en_core_web_sm",
-    #     "vi": "vi_core_news_lg",
+    "vi": "vi_core_news_lg",
 }
 
 
@@ -47,9 +48,9 @@ class KeywordExtractor:
         if "en" not in self.language_models:
             self.language_models["en"] = "en_core_web_sm"
         self._nlp_cache: Dict[str, Language] = {}
-        self._accent_pattern = re.compile(r"[àáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệ"
-                                          r"ìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụ"
-                                          r"ưứừửữựỳýỷỹỵ]", re.IGNORECASE)
+        # ă \u0103, â \u00E2, đ \u0111, ê \u00EA, ô \u00F4, ơ \u01A1, ư \u01B0
+        self._vi_markers = re.compile(r"[\u0103\u00E2\u0111\u00EA\u00F4\u01A1\u01B0]", re.IGNORECASE)
+
         logger.debug("KeywordExtractor initialised with languages: %s", list(self.language_models))
 
     def ensure_pipeline(self, lang: str) -> Language:
@@ -62,7 +63,13 @@ class KeywordExtractor:
         if lang not in self._nlp_cache:
             model_name = self.language_models[lang]
             logger.info("Loading spaCy model '%s' for language '%s'", model_name, lang)
-            self._nlp_cache[lang] = spacy.load(model_name, disable=("ner",))
+            try:
+                self._nlp_cache[lang] = spacy.load(model_name, disable=("ner",))
+            except OSError as e:
+                raise RuntimeError(
+                    f"Cannot load spaCy model '{model_name}' for '{lang}'. "
+                    f"Install it with: python -m spacy download {model_name}"
+                ) from e
         return self._nlp_cache[lang]
 
     def detect_language(self, text: str) -> str:
@@ -70,9 +77,10 @@ class KeywordExtractor:
         Lightweight language detection based on accented characters.
         Default to English when no clear Vietnamese markers appear.
         """
-        if self._accent_pattern.search(text):
-            return "vi"
-        return "en"
+        if not text:
+            return "en"
+        text = unicodedata.normalize("NFC", text)
+        return "vi" if self._vi_markers.search(text) else "en"
 
     def extract_keywords(
         self,
@@ -93,6 +101,7 @@ class KeywordExtractor:
         """
         if not text:
             return []
+        text = unicodedata.normalize("NFC", text)
 
         language = (lang or self.detect_language(text)).lower()
         if language not in self.language_models:

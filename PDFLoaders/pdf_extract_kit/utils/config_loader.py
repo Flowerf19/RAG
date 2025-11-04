@@ -15,6 +15,12 @@ def load_config(config_path):
     return config
 
 
+# Alias for backward compatibility
+def get_config(config_path):
+    """Alias for load_config for backward compatibility"""
+    return load_config(config_path)
+
+
 # def initialize_task_and_model(config):
 #     task_name = config['task']
 #     model_name = config['model']

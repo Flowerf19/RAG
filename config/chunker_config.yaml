@@ -1,0 +1,47 @@
+# Chunker Configuration
+# =====================
+# Cấu hình cho các chiến lược chunking
+
+# Default chunker settings
+default:
+  max_tokens: 500
+  overlap_tokens: 50
+  
+# Fixed Size Chunker
+fixed_size:
+  max_tokens: 500
+  overlap_tokens: 50
+  respect_sentence_boundary: true
+  encoding_name: "cl100k_base"  # tiktoken encoding
+
+# Semantic Chunker  
+semantic:
+  max_tokens: 500
+  overlap_tokens: 50
+  similarity_threshold: 0.7
+  min_chunk_size: 100
+  spacy_model: "en_core_web_sm"
+  
+# Rule-based Chunker
+rule_based:
+  max_tokens: 500
+  overlap_tokens: 50
+  preserve_structure: true
+  split_by_headers: true
+  
+# Hybrid Chunker (recommended)
+hybrid:
+  max_tokens: 500
+  overlap_tokens: 50
+  use_semantic: true
+  use_structure: true
+  semantic_weight: 0.6
+  structure_weight: 0.4
+  
+# Block-aware Chunker
+block_aware:
+  max_tokens: 500
+  overlap_tokens: 50
+  respect_block_boundaries: true
+  merge_small_blocks: true
+  min_block_size: 50

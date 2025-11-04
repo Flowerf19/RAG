@@ -8,11 +8,11 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from .chunk import Chunk
 from .score import Score
-from loaders.model.base import LoaderBaseModel
+
 
 
 @dataclass
-class ChunkSet(LoaderBaseModel):
+class ChunkSet:
     """
     Tập hợp các chunks cho một document.
     Single Responsibility: Quản lý collection của chunks và thống kê tổng thể.

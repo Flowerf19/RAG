@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from chunkers.hybrid_chunker import HybridChunker
+from chunkers.semantic_chunker import SemanticChunker
+from chunkers.providers import create_semantic_provider
 from embedders.embedder_factory import EmbedderFactory
 from embedders.embedder_type import EmbedderType
 from embedders.providers.ollama import OllamaModelSwitcher, OllamaModelType
@@ -91,16 +92,31 @@ class RAGPipeline:
        
         # Initialize components
         logger.info("Initializing RAG Pipeline...")
-        # Use new PDFLoader with PDF-Extract-Kit integration
-        try:
-            from loaders.pdf_loader import PDFLoader
-            self.loader = PDFLoader.create_default()
-            logger.info("Using PDF-Extract-Kit integrated PDFLoader")
-        except ImportError as e:
-            logger.warning(f"PDFLoader not available, falling back to basic loader: {e}")
-            # Fallback if needed
-            self.loader = None
-        self.chunker = HybridChunker(max_tokens=200, overlap_tokens=20)
+        
+        # Use PDFProvider with full OCR + Layout detection capabilities
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent / "PDFLoaders"))
+        from pdf_provider import PDFProvider
+        
+        self.loader = PDFProvider(
+            use_ocr="auto",      # Smart OCR detection (text vs image-based)
+            ocr_lang="multilingual",  # Support multiple languages
+            min_text_threshold=50     # Min chars to consider text-based
+        )
+        logger.info("Using PDFProvider with smart OCR + Layout detection")
+        
+        # Use SemanticChunker for better chunking
+        self.chunker = SemanticChunker(max_tokens=500, overlap_tokens=50)
+        
+        # Initialize chunker provider for preprocessing
+        self.chunker_provider = create_semantic_provider(
+            normalize=True,
+            stopwords=False,  # Keep stopwords for semantic meaning
+            entities=True,    # Extract entities
+            language=True,    # Detect language
+            min_length=10
+        )
+        logger.info("Using SemanticChunker with provider preprocessing")
 
         # Initialize embedder based on type
         if embedder_type == EmbedderType.OLLAMA:
@@ -152,11 +168,14 @@ class RAGPipeline:
 
         self._setup_bm25_components()
 
-        logger.info("Loader: PDFLoader")
-        logger.info("Chunker: HybridChunker")
+        logger.info("=== RAG Pipeline Configuration ===")
+        logger.info("Loader: PDFProvider (OCR=auto, multilingual)")
+        logger.info("Chunker: SemanticChunker (500 tokens, 50 overlap)")
+        logger.info("Provider: SemanticChunkerProvider (normalize+entities+language)")
         logger.info(f"Embedder: {self.embedder.profile.model_id}")
         logger.info(f"Dimension: {self.embedder.dimension}")
         logger.info(f"Output: {self.output_dir}")
+        logger.info("==================================")
 
     def switch_model(self, model_type: OllamaModelType) -> None:
         """
@@ -192,9 +211,21 @@ class RAGPipeline:
             "model_type": self.model_type.value,
             "embedder_model": self.embedder.profile.model_id,
             "embedder_dimension": self.embedder.dimension,
-            "loader": "PDFLoader (PDF-Extract-Kit)",
-            "chunker": str(self.chunker),
-            "vector_store": "FAISS",
+            "loader": {
+                "type": "PDFProvider",
+                "features": ["OCR (auto)", "Layout detection", "Table extraction", "Figure extraction"],
+                "ocr_lang": "multilingual"
+            },
+            "chunker": {
+                "type": "SemanticChunker",
+                "max_tokens": 500,
+                "overlap_tokens": 50
+            },
+            "provider": {
+                "type": "SemanticChunkerProvider",
+                "features": ["Text normalization", "Entity extraction", "Language detection", "POS tagging"]
+            },
+            "vector_store": "FAISS (cosine similarity)",
             "cache_enabled": True
         }
 
@@ -306,23 +337,30 @@ class RAGPipeline:
             Dict with processing results and file paths
         """
         pdf_path = Path(pdf_path)
+        # Resolve path properly
         if not pdf_path.is_absolute():
-            # If relative path, resolve relative to pdf_dir
-            pdf_path = self.pdf_dir / pdf_path
-            # Then resolve to absolute path from project root
-            if not pdf_path.is_absolute():
-                project_root = Path(__file__).parent.parent
-                pdf_path = (project_root / pdf_path).resolve()
+            # If relative path, make it absolute from current working directory
+            pdf_path = pdf_path.resolve()
+        
+        # Verify file exists
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+        
         file_name = pdf_path.stem
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         logger.info(f"Processing PDF: {pdf_path.name}")
        
-        # Step 1: Load PDF
-        logger.info("Loading PDF...")
+        # Step 1: Load PDF with smart extraction
+        logger.info("Loading PDF with OCR + Layout detection...")
         pdf_doc = self.loader.load(str(pdf_path))
-        pdf_doc = pdf_doc.normalize()
-        logger.info(f"Loaded {len(pdf_doc.pages)} pages, {sum(len(p.blocks) for p in pdf_doc.pages)} blocks")
+        
+        logger.info(
+            f"Loaded {pdf_doc.total_pages} pages - "
+            f"Method: {[p.extraction_method for p in pdf_doc.pages[:3]]} - "
+            f"Tables: {sum(len(p.tables) for p in pdf_doc.pages)} - "
+            f"Figures: {sum(len(p.figures) for p in pdf_doc.pages)}"
+        )
        
         # Step 2: Chunk document
         logger.info("Chunking document...")
@@ -349,6 +387,8 @@ class RAGPipeline:
         if chunk_callback:
             chunk_callback(0, total_chunks)
         
+        logger.info(f"Starting embedding generation for {total_chunks} chunks...")
+        
         for idx, chunk in enumerate(chunk_set.chunks, 1):
             # Create content hash for duplicate checking
             hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
@@ -357,6 +397,9 @@ class RAGPipeline:
             if idx == 1 and not self.embedder.test_connection():
                 raise ConnectionError("Cannot connect to Ollama server!")
            
+            # Log progress for every chunk
+            logger.info(f"📝 Embedding chunk {idx}/{total_chunks} ({(idx/total_chunks)*100:.1f}%) - {len(chunk.text)} chars")
+            
             try:
                 embedding = self.embedder.embed(chunk.text)
             except Exception as e:
@@ -457,6 +500,14 @@ class RAGPipeline:
         logger.info("Saving chunks and embeddings...")
        
         # Save chunks as simple text file (for debugging)
+        # Overwrite mode: delete old chunk files for this PDF
+        for old_file in self.chunks_dir.glob(f"{file_name}_chunks_*.txt"):
+            try:
+                old_file.unlink()
+                logger.debug(f"Deleted old chunk file: {old_file.name}")
+            except Exception:
+                pass
+        
         chunks_file = self.chunks_dir / f"{file_name}_chunks_{timestamp}.txt"
         with open(chunks_file, 'w', encoding='utf-8') as f:
             f.write(f'Document: {pdf_path.name}\n')

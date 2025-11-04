@@ -33,6 +33,10 @@ from embedders.embedder_type import EmbedderType
 logger = logging.getLogger(__name__)
 
 
+# Global cache for pipeline instances to avoid reloading models
+_PIPELINE_CACHE: Dict[str, RAGPipeline] = {}
+
+
 class RAGRetrievalService:
     """
     Dịch vụ Retrieval thuần: tìm kiếm Top-K đoạn liên quan từ FAISS index và
@@ -528,16 +532,20 @@ def fetch_retrieval(
     """
     try:
         # Query Enhancement
+        logger.info(f"📥 Received query: {query_text[:100]}...")
         expanded_queries = [query_text]
         if use_query_enhancement:
             try:
+                logger.info("🔧 Initializing Query Enhancement Module...")
                 app_config = get_config()
                 qem_settings = load_qem_settings()
                 qem = QueryEnhancementModule(app_config, qem_settings, logger=logger)
+                logger.info("✨ Enhancing query...")
                 expanded_queries = qem.enhance(query_text)
                 expanded_queries = [q for q in expanded_queries if q and q.strip()]
                 if not expanded_queries:
                     expanded_queries = [query_text]
+                logger.info(f"✅ Query enhanced: {len(expanded_queries)} queries generated")
             except Exception as exc:
                 logger.warning(
                     "Query enhancement failed, using original query: %s", exc
@@ -560,20 +568,31 @@ def fetch_retrieval(
         elif embedder_type.lower() == "ollama":
             embedder_enum = EmbedderType.OLLAMA
 
-        # Initialize pipeline
-        pipeline = RAGPipeline(embedder_type=embedder_enum, hf_use_api=use_api)
+        # Initialize pipeline with caching to avoid reloading models
+        cache_key = f"{embedder_enum.value}_{use_api}"
+        if cache_key not in _PIPELINE_CACHE:
+            logger.info(f"🔄 Creating new pipeline instance for {cache_key} (first time may take 30-60s)")
+            _PIPELINE_CACHE[cache_key] = RAGPipeline(embedder_type=embedder_enum, hf_use_api=use_api)
+            logger.info(f"✅ Pipeline cached for {cache_key}")
+        else:
+            logger.info(f"♻️ Using cached pipeline for {cache_key}")
+        
+        pipeline = _PIPELINE_CACHE[cache_key]
         retriever = RAGRetrievalService(pipeline)
 
         # Create fused embedding for multiple queries
+        logger.info(f"🔍 Embedding {len(expanded_queries)} queries...")
         fusion_inputs = expanded_queries
         fused_embedding = _fuse_query_embeddings(
             fusion_inputs, pipeline.embedder, logger
         )
         bm25_query = " ".join(fusion_inputs).strip()
+        logger.info(f"✅ Query embeddings created")
 
         # Hybrid retrieval - get more results for potential reranking
         # Use 5x candidates for reranking to have better pool for selection
         retrieval_top_k = top_k * 5 if reranker_type != "none" else top_k
+        logger.info(f"📚 Searching documents (retrieving top {retrieval_top_k} candidates)...")
         results = retriever.retrieve_hybrid(
             query_text=query_text,
             top_k=retrieval_top_k,

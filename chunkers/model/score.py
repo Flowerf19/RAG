@@ -6,11 +6,11 @@ Metrics đánh giá chất lượng của chunk.
 
 from dataclasses import dataclass
 from typing import Dict, Optional
-from loaders.model.base import LoaderBaseModel
+
 
 
 @dataclass
-class Score(LoaderBaseModel):
+class Score:
     """
     Metrics đánh giá chất lượng của chunk.
     Single Responsibility: Đo lường và đánh giá chất lượng chunk.

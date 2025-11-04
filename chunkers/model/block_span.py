@@ -6,11 +6,10 @@ Block Span Model
 
 from dataclasses import dataclass
 from typing import Optional
-from loaders.model.base import LoaderBaseModel
 
 
 @dataclass
-class BlockSpan(LoaderBaseModel):
+class BlockSpan:
     """
     Đại diện cho character offsets trong source blocks.
     Single Responsibility: Quản lý vị trí và phạm vi của text trong block nguồn.

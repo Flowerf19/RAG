@@ -3,6 +3,13 @@ import os
 from pathlib import Path
 import streamlit as st
 import shutil
+import warnings
+
+# Suppress warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=UserWarning, module='paddle')
+warnings.filterwarnings('ignore', category=UserWarning, module='google')
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 sys.path.append(os.path.dirname(__file__))  # Add current directory
 
@@ -331,7 +338,7 @@ sources = st.session_state.get("last_sources", [])
 retrieval_info = st.session_state.get("last_retrieval_info", {})
 
 if sources or retrieval_info:
-    st.markdown("### Nguồn tham khảo")
+    st.markdown("### Source Information")
     
     # Display retrieval info if available
     if retrieval_info:
@@ -431,6 +438,7 @@ def ask_backend(prompt_text: str) -> str:
             reranker_type = st.session_state.get("reranker_type", "bge_m3_hf_local")
             top_k_rerank = st.session_state.get("top_k_rerank", 5)
             use_query_enhancement = st.session_state.get("use_query_enhancement", True)
+            st.write(f"⚙️ Embedder: **{embedder_type}** | Reranker: **{reranker_type}** | Top-K: **{top_k_rerank}**")
             
             # Collect API tokens for rerankers
             api_tokens = {}
@@ -456,6 +464,12 @@ def ask_backend(prompt_text: str) -> str:
                 if not token:
                     st.warning("⚠️ Jina token not found in environment")
             
+            st.write("🔍 Initializing retrieval system (first time may take 30-60s to load models)...")
+            
+            # Add detailed progress tracking
+            progress_text = st.empty()
+            progress_text.write("⏳ Step 1/3: Loading embedder model...")
+            
             ret = fetch_retrieval(
                 prompt_text, 
                 top_k=top_k_rerank,  # Use final top_k for simplified API
@@ -465,16 +479,23 @@ def ask_backend(prompt_text: str) -> str:
                 use_query_enhancement=use_query_enhancement,
                 api_tokens=api_tokens
             )
+            
+            progress_text.write("✅ Retrieval complete!")
             context = ret.get("context", "") or ""
-            st.session_state["last_sources"] = ret.get("sources", [])
+            sources = ret.get("sources", [])
+            st.session_state["last_sources"] = sources
             st.session_state["last_retrieval_info"] = ret.get("retrieval_info", {})
             st.session_state["last_queries"] = ret.get("queries", [])
+            st.write(f"✅ Found **{len(sources)}** relevant documents ({len(context)} chars)")
         except Exception as e:
             st.error(f"Lỗi retrieval: {e}")
+            import traceback
+            st.code(traceback.format_exc())  # Show full traceback
             context = ""
             st.session_state["last_sources"] = []
             st.session_state["last_retrieval_info"] = {}
 
+        st.write(f"🤖 Generating answer with **{backend.upper()}**...")
         messages = build_messages(
             query=prompt_text,
             context=context,
@@ -490,6 +511,9 @@ def ask_backend(prompt_text: str) -> str:
         return reply
     
     except Exception as e:
+        st.error(f"[Error in ask_backend] {e}")
+        import traceback
+        st.code(traceback.format_exc())
         return f"[Error] {e}"
 
 # === CHAT INPUT ===
@@ -504,8 +528,19 @@ if prompt and not st.session_state.get("is_generating", False):
 
 # === GENERATE RESPONSE ===
 if st.session_state.get("is_generating") and st.session_state.get("pending_prompt"):
-    with st.spinner("Assistant is typing..."):
-        reply = ask_backend(st.session_state["pending_prompt"])
+    status_container = st.empty()
+    with status_container.status("🔄 Processing your question...", expanded=True) as status:
+        try:
+            st.write("📝 Step 1: Retrieving relevant documents...")
+            reply = ask_backend(st.session_state["pending_prompt"])
+            st.write("✅ Complete!")
+            status.update(label="✅ Done!", state="complete")
+        except Exception as e:
+            st.error(f"Error: {e}")
+            import traceback
+            st.code(traceback.format_exc())
+            reply = f"[Error] {e}"
+            status.update(label="❌ Failed", state="error")
 
     # Thêm assistant response vào history (OpenAI format)
     st.session_state["messages"].append({"role": "assistant", "content": reply})

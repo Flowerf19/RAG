@@ -7,21 +7,28 @@ Semantic Chunker (spaCy-optimized, compact)
 
 import hashlib
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from .base_chunker import BaseChunker
 from .model import (
     Chunk, ChunkSet, ChunkType, ChunkStrategy,
     ProvenanceAgg, BlockSpan, Score
 )
-from loaders.model.document import PDFDocument
-from loaders.model.block import Block
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent / "PDFLoaders"))
+try:
+    from PDFLoaders.provider import PDFDocument 
+except ImportError:
+    from provider import PDFDocument  # type: ignore
+
+# Block removed - using PageContent
 
 
 class SemanticChunker(BaseChunker):
     def __init__(
         self,
-        max_tokens: int = 250,
-        overlap_tokens: int = 35,
+        max_tokens: int = 500,
+        overlap_tokens: int = 50,
         min_sentences_per_chunk: int = 3,
         spacy_model: Optional[str] = "en_core_web_sm",
         nlp=None,                 # inject sẵn nlp (khuyên dùng)
@@ -67,31 +74,29 @@ class SemanticChunker(BaseChunker):
         self._current_file_path = document.file_path
         
         cs = ChunkSet(
-            doc_id=document.meta.get("doc_id", "unknown"),
+            doc_id=document.metadata.get("doc_id", Path(document.file_path).stem),
             file_path=document.file_path,
             chunk_strategy="semantic",
         )
-        # No filtering - loader already cleaned blocks
-        blocks: List[Block] = [
-            b for p in document.pages for b in p.blocks
-        ]
-        if not blocks:
+        # Use pages directly instead of blocks
+        pages = document.pages
+        if not pages:
             return cs
 
-        for ch in self.chunk_blocks(blocks, cs.doc_id):
+        for ch in self.chunk_pages(pages, cs.doc_id):
             cs.add_chunk(ch)
         cs.link_chunks()
         return cs
 
-    def chunk_blocks(self, blocks: List[Block], doc_id: str) -> List[Chunk]:
+    def chunk_pages(self, pages, doc_id: str):
         sentences: List[str] = []
-        sent2block: List[Block] = []
+        sent2page = []
 
-        for b in blocks:
-            for s in self._split_into_sentences(b.text):
+        for page in pages:
+            for s in self._split_into_sentences(page.text):
                 if s:
                     sentences.append(s)
-                    sent2block.append(b)
+                    sent2page.append(page)
 
         if not sentences:
             return []
@@ -99,7 +104,7 @@ class SemanticChunker(BaseChunker):
         groups = self._group_by_coherence(sentences)
         out: List[Chunk] = []
         for idx, g in enumerate(groups):
-            ch = self._build_chunk_from_group(g, sentences, sent2block, doc_id, self._current_file_path, idx)
+            ch = self._build_chunk_from_group(g, sentences, sent2page, doc_id, self._current_file_path, idx)
             if ch:
                 out.append(ch)
         
@@ -226,7 +231,7 @@ class SemanticChunker(BaseChunker):
         self,
         idxs: List[int],
         sents: List[str],
-        sent2block: List[Block],
+        sent2page,
         doc_id: str,
         file_path: str,
         chunk_index: int,
@@ -241,15 +246,15 @@ class SemanticChunker(BaseChunker):
         prov = ProvenanceAgg(doc_id=doc_id, file_path=file_path)
         seen = set()
         for i in idxs:
-            b = sent2block[i]
-            if id(b) in seen:
+            page = sent2page[i]
+            if id(page) in seen:
                 continue
-            seen.add(id(b))
+            seen.add(id(page))
             prov.add_span(BlockSpan(
-                block_id=getattr(b, "stable_id", None) or f"block_{id(b)}",
+                block_id=f"page_{page.page_number}",
                 start_char=0,
-                end_char=len(b.text or ""),
-                page_number=b.metadata.get("page_number") if b.metadata else None
+                end_char=len(page.text or ""),
+                page_number=page.page_number
             ))
 
         token_count = self.estimate_tokens(text)
@@ -266,16 +271,26 @@ class SemanticChunker(BaseChunker):
             structural_integrity=0.7,
         )
 
+        # Collect unique page numbers for metadata
+        page_numbers = sorted(set(sent2page[i].page_number for i in idxs))
+        
         return Chunk(
             chunk_id=self._make_chunk_id(doc_id, chunk_index, text),
             text=text,
+            doc_id=doc_id,
             token_count=token_count,
             char_count=len(text),
             chunk_type=ChunkType.SEMANTIC,
             strategy=ChunkStrategy.SEMANTIC_COHERENCE,
             provenance=prov,
             score=score,
-            metadata={"sentence_count": len(idxs), "chunk_index": chunk_index, "avg_coherence": round(avg_coh, 3)},
+            metadata={
+                "sentence_count": len(idxs),
+                "chunk_index": chunk_index,
+                "avg_coherence": round(avg_coh, 3),
+                "page_numbers": page_numbers,
+                "page_span": f"{page_numbers[0]}-{page_numbers[-1]}" if page_numbers else "unknown"
+            },
         )
 
     def _make_chunk_id(self, doc_id: str, idx: int, text: str) -> str:

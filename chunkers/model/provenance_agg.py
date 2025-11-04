@@ -7,11 +7,11 @@ Tổng hợp thông tin provenance từ các blocks đóng góp.
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Set
 from .block_span import BlockSpan
-from loaders.model.base import LoaderBaseModel
+
 
 
 @dataclass
-class ProvenanceAgg(LoaderBaseModel):
+class ProvenanceAgg:
     """
     Tổng hợp thông tin provenance từ tất cả các blocks đóng góp.
     Single Responsibility: Theo dõi nguồn gốc và metadata của chunk.

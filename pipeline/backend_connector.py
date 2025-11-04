@@ -212,6 +212,7 @@ class RAGRetrievalService:
             item = {
                 "title": f"{file_name} - trang {page}",
                 "snippet": snippet,
+                "full_text": text,  # Thêm full text để UI có thể hiển thị đầy đủ
                 "file_name": file_name,
                 "page_number": page,
                 "similarity_score": round(score, 4),

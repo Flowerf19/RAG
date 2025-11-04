@@ -73,3 +73,13 @@ def get_chunker_config(chunker_type: str = "default") -> Dict[str, Any]:
         Configuration dictionary
     """
     return ChunkerConfig.get_chunker_config(chunker_type)
+
+
+def load_chunker_config() -> Dict[str, Any]:
+    """
+    Load full chunker configuration
+    
+    Returns:
+        Full configuration dictionary
+    """
+    return ChunkerConfig.load()

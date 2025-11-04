@@ -25,7 +25,7 @@ except ImportError:
 
 
 class SemanticChunker(BaseChunker):
-    # spaCy model mapping for different languages
+    # spaCy model mapping for different languages (fallback if config not found)
     SPACY_MODEL_MAP = {
         "en": "en_core_web_sm",        # English (small)
         "vi": "vi_core_news_lg",       # Vietnamese (large)
@@ -42,37 +42,82 @@ class SemanticChunker(BaseChunker):
         "multilingual": "xx_ent_wiki_sm",  # Multilingual (small, basic)
     }
     
+    def _load_config(self) -> dict:
+        """Load semantic chunker config from chunker_config.yaml"""
+        try:
+            from .config_loader import load_chunker_config
+            config = load_chunker_config()
+            return config.get('semantic', {
+                'max_tokens': 500,
+                'overlap_tokens': 50,
+                'similarity_threshold': 0.7,
+                'min_chunk_size': 100,
+                'spacy_models': self.SPACY_MODEL_MAP,
+                'default_language': 'auto',
+                'discourse_weight': 0.4,
+                'lexical_weight': 0.4,
+                'entity_weight': 0.2
+            })
+        except Exception:
+            # Fallback to default values
+            return {
+                'max_tokens': 500,
+                'overlap_tokens': 50,
+                'similarity_threshold': 0.7,
+                'min_chunk_size': 100,
+                'spacy_models': self.SPACY_MODEL_MAP,
+                'default_language': 'auto',
+                'discourse_weight': 0.4,
+                'lexical_weight': 0.4,
+                'entity_weight': 0.2
+            }
+    
     def __init__(
         self,
-        max_tokens: int = 500,
-        overlap_tokens: int = 50,
-        min_sentences_per_chunk: int = 3,
-        spacy_model: Optional[str] = None,  # Auto-detect or specify
+        config: Optional[dict] = None,      # Load from config
+        max_tokens: Optional[int] = None,   # Override config
+        overlap_tokens: Optional[int] = None,
         language: Optional[str] = None,     # Language code for auto model selection
         nlp=None,                           # inject sẵn nlp (khuyên dùng)
-        use_entity_overlap: bool = True,
+        **kwargs                            # Backward compatibility
     ):
         """
         Args:
-            max_tokens: giới hạn token mỗi chunk
-            overlap_tokens: token chồng lấn giữa các chunk
-            min_sentences_per_chunk: số câu tối thiểu trong 1 chunk
-            spacy_model: tên model spaCy cụ thể (override auto-detection)
+            config: Config dict from chunker_config.yaml['semantic']
+            max_tokens: Override config max_tokens 
+            overlap_tokens: Override config overlap_tokens
             language: language code (en, vi, zh, etc.) để auto-select model
             nlp: spaCy Language đã được tạo sẵn & truyền vào (khuyến nghị)
-            use_entity_overlap: có tính overlap thực thể hay không
         """
-        super().__init__(max_tokens, overlap_tokens)
-        self.min_sentences_per_chunk = min_sentences_per_chunk
-        self.use_entity_overlap = use_entity_overlap
+        # Load config from file if not provided
+        if config is None:
+            config = self._load_config()
+        
+        # Apply overrides
+        final_max_tokens = max_tokens or config.get('max_tokens', 500)
+        final_overlap_tokens = overlap_tokens or config.get('overlap_tokens', 50)
+        
+        super().__init__(final_max_tokens, final_overlap_tokens)
+        
+        # Load from config
+        self.min_sentences_per_chunk = config.get('min_chunk_size', 100) // 20  # Approx chars to sentences
+        self.similarity_threshold = config.get('similarity_threshold', 0.7)
+        self.discourse_weight = config.get('discourse_weight', 0.4)
+        self.lexical_weight = config.get('lexical_weight', 0.4)
+        self.entity_weight = config.get('entity_weight', 0.2)
+        self.use_entity_overlap = self.entity_weight > 0
+        
+        # Language and model selection
+        self.language = language or config.get('default_language', 'auto')
+        self.spacy_models = config.get('spacy_models', self.SPACY_MODEL_MAP)
 
         self._nlp = nlp
         if self._nlp is None:
             # Auto-select model based on language
-            if spacy_model is None and language:
-                spacy_model = self.SPACY_MODEL_MAP.get(language.lower(), "en_core_web_sm")
-            elif spacy_model is None:
-                spacy_model = "en_core_web_sm"  # Default to English
+            if self.language != 'auto':
+                spacy_model = self.spacy_models.get(self.language.lower(), "en_core_web_sm")
+            else:
+                spacy_model = "en_core_web_sm"  # Default to English for auto
             
             # Try to load model (KHÔNG auto-download)
             try:

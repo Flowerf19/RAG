@@ -16,32 +16,26 @@ fixed_size:
 
 # Semantic Chunker  
 semantic:
-  max_tokens: 500
-  overlap_tokens: 50
+  max_tokens: 256
+  overlap_tokens: 25
   similarity_threshold: 0.7
   min_chunk_size: 100
-  spacy_model: "en_core_web_sm"
+  spacy_models:
+    en: "en_core_web_sm"        # English (small)
+    vi: "vi_core_news_lg"       # Vietnamese (large)
+    zh: "zh_core_web_sm"        # Chinese (small)
+    de: "de_core_news_sm"       # German (small)
+    fr: "fr_core_news_sm"       # French (small)
+    es: "es_core_news_sm"       # Spanish (small)
+    it: "it_core_news_sm"       # Italian (small)
+    pt: "pt_core_news_sm"       # Portuguese (small)
+    nl: "nl_core_news_sm"       # Dutch (small)
+    pl: "pl_core_news_sm"       # Polish (small)
+    ru: "ru_core_news_sm"       # Russian (small)
+    ja: "ja_core_news_sm"       # Japanese (small)
+    multilingual: "xx_ent_wiki_sm"  # Multilingual (small, basic)
+  default_language: "auto"      # Auto-detect or specify language
+  discourse_weight: 0.4         # Weight for discourse markers
+  lexical_weight: 0.4           # Weight for lexical overlap
+  entity_weight: 0.2            # Weight for entity overlap
   
-# Rule-based Chunker
-rule_based:
-  max_tokens: 500
-  overlap_tokens: 50
-  preserve_structure: true
-  split_by_headers: true
-  
-# Hybrid Chunker (recommended)
-hybrid:
-  max_tokens: 500
-  overlap_tokens: 50
-  use_semantic: true
-  use_structure: true
-  semantic_weight: 0.6
-  structure_weight: 0.4
-  
-# Block-aware Chunker
-block_aware:
-  max_tokens: 500
-  overlap_tokens: 50
-  respect_block_boundaries: true
-  merge_small_blocks: true
-  min_block_size: 50

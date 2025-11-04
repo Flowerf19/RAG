@@ -105,8 +105,8 @@ class RAGPipeline:
         )
         logger.info("Using PDFProvider with smart OCR + Layout detection")
         
-        # Use SemanticChunker for better chunking
-        self.chunker = SemanticChunker(max_tokens=500, overlap_tokens=50)
+        # Use SemanticChunker with config (no hardcode values)
+        self.chunker = SemanticChunker()
         
         # Initialize chunker provider for preprocessing
         self.chunker_provider = create_semantic_provider(
@@ -170,7 +170,7 @@ class RAGPipeline:
 
         logger.info("=== RAG Pipeline Configuration ===")
         logger.info("Loader: PDFProvider (OCR=auto, multilingual)")
-        logger.info("Chunker: SemanticChunker (500 tokens, 50 overlap)")
+        logger.info(f"Chunker: SemanticChunker ({self.chunker.max_tokens} tokens, {self.chunker.overlap_tokens} overlap)")
         logger.info("Provider: SemanticChunkerProvider (normalize+entities+language)")
         logger.info(f"Embedder: {self.embedder.profile.model_id}")
         logger.info(f"Dimension: {self.embedder.dimension}")

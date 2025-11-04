@@ -6,8 +6,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 import logging
 import os
-from PIL import Image
-import io
+import fitz
 
 if TYPE_CHECKING:
     from .ocr_extractor import OCRExtractor
@@ -81,26 +80,23 @@ class FigureExtractor:
             # Group nearby images into figures
             figures = self._group_images(unique_images, page)
             
-            # Extract OCR text from each figure (if OCR available)
+            # Extract OCR text from each figure region (if OCR available)
             if self.ocr_extractor:
                 for figure in figures:
-                    # Get unique xrefs from figure images
-                    xrefs = list(set(img['xref'] for img in figure['images']))
+                    # Use region-based OCR instead of individual image OCR
+                    figure_bbox = figure['bbox']
+                    text = self._extract_text_from_figure_region(fitz_doc, page, figure_bbox)
                     
-                    # Run OCR on each image and combine
-                    ocr_texts = []
-                    for xref in xrefs:
-                        text = self._extract_text_from_image(fitz_doc, xref)
-                        if text.strip():
-                            ocr_texts.append(text)
-                            logger.debug(f"Figure OCR extracted {len(text)} chars from xref {xref} - {doc_name}")
+                    figure['text'] = text.strip()
+                    if figure['text']:
+                        logger.debug(f"Figure OCR extracted {len(figure['text'])} chars from region {figure_bbox} - {doc_name}")
+                    else:
+                        # Only warn if figure is large enough to potentially contain text
+                        figure_area = (figure_bbox[2] - figure_bbox[0]) * (figure_bbox[3] - figure_bbox[1])
+                        if figure_area > 5000:  # Only warn for substantial figures
+                            logger.warning(f"Figure on page {page_num+1} has no OCR text (area: {figure_area:.0f}, images: {figure.get('image_count', 0)}) - {doc_name}")
                         else:
-                            logger.debug(f"Figure OCR returned empty for xref {xref} - {doc_name}")
-                    
-                    # Add combined text to figure
-                    figure['text'] = " ".join(ocr_texts) if ocr_texts else ""
-                    if not figure['text']:
-                        logger.warning(f"Figure on page {page_num+1} has no OCR text (images: {len(xrefs)}) - {doc_name}")
+                            logger.debug(f"Small figure on page {page_num+1} has no text (area: {figure_area:.0f}) - {doc_name}")
             else:
                 # No OCR - set empty text
                 for figure in figures:
@@ -113,16 +109,17 @@ class FigureExtractor:
             logger.warning(f"Figure extraction failed for page {page_num+1} in {doc_name}: {e}")
             return []
     
-    def _extract_text_from_image(self, fitz_doc, xref: int) -> str:
+    def _extract_text_from_figure_region(self, fitz_doc, page, figure_bbox: list) -> str:
         """
-        Extract OCR text FROM figure image
+        Extract OCR text from figure region (better for workflow diagrams)
         
         Args:
             fitz_doc: PyMuPDF document
-            xref: Image xref
+            page: PyMuPDF page object
+            figure_bbox: Figure bounding box [x0, y0, x1, y1]
             
         Returns:
-            Extracted text from figure using OCR
+            Extracted text from figure region using OCR
         """
         if not self.ocr_extractor or not self.ocr_extractor.is_available:
             return ""
@@ -133,21 +130,28 @@ class FigureExtractor:
             if self.ocr_extractor.ocr_engine is None:
                 return ""
             
-            # Extract image bytes
-            base_image = fitz_doc.extract_image(xref)
-            image_bytes = base_image["image"]
+            # Create clipped region from page
+            # Add padding to ensure we capture text near figure boundaries
+            padding = 10
+            clip_rect = fitz.Rect(
+                max(0, figure_bbox[0] - padding),
+                max(0, figure_bbox[1] - padding), 
+                min(page.rect.width, figure_bbox[2] + padding),
+                min(page.rect.height, figure_bbox[3] + padding)
+            )
             
-            # Convert to PIL Image
-            img = Image.open(io.BytesIO(image_bytes))
+            # Render region at 2x scale for better OCR
+            mat = fitz.Matrix(2, 2)
+            pix = page.get_pixmap(matrix=mat, clip=clip_rect)
             
-            # Save temp image for OCR
+            # Save temp region image for OCR
             cache_dir = Path("data/cache/ocr_temp")
             cache_dir.mkdir(parents=True, exist_ok=True)
-            temp_path = cache_dir / f"figure_xref_{xref}.png"
-            img.save(temp_path)
+            temp_path = cache_dir / f"figure_region_{hash(str(figure_bbox))}.png"
+            pix.save(str(temp_path))
             
             try:
-                # Run OCR
+                # Run OCR on region
                 result = self.ocr_extractor.ocr_engine.ocr(str(temp_path), cls=True)
                 if result and result[0]:
                     # Convert OCR result to span format for bbox-based line detection
@@ -156,6 +160,11 @@ class FigureExtractor:
                         if line and len(line) >= 2:
                             bbox_points = line[0]  # [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
                             text_content = line[1][0]
+                            confidence = line[1][1]
+                            
+                            # Skip low-confidence results
+                            if confidence < 0.7:
+                                continue
                             
                             # Convert to [x0, y0, x1, y1] format
                             x_coords = [p[0] for p in bbox_points]
@@ -172,29 +181,33 @@ class FigureExtractor:
                         return ""
                     
                     # Use PDF-Extract-Kit's merge logic for proper line detection
-                    from pdf_extract_kit.utils.merge_blocks_and_spans import (
-                        merge_spans_to_line,
-                        line_sort_spans_by_left_to_right
-                    )
-                    
-                    # Merge spans into lines based on Y-axis overlap
-                    lines = merge_spans_to_line(spans)
-                    
-                    # Sort spans within each line from left to right
-                    line_objects = line_sort_spans_by_left_to_right(lines)
-                    
-                    # Build formatted text with proper line breaks
-                    formatted_lines = []
-                    for line_obj in line_objects:
-                        line_text = ""
-                        for span in line_obj['spans']:
-                            line_text += span['content'].strip() + " "
-                        formatted_lines.append(line_text.strip())
-                    
-                    text = "\n".join(formatted_lines)
+                    try:
+                        from pdf_extract_kit.utils.merge_blocks_and_spans import (
+                            merge_spans_to_line,
+                            line_sort_spans_by_left_to_right
+                        )
+                        
+                        # Merge spans into lines based on Y-axis overlap
+                        lines = merge_spans_to_line(spans)
+                        
+                        # Sort spans within each line from left to right
+                        line_objects = line_sort_spans_by_left_to_right(lines)
+                        
+                        # Build formatted text with proper line breaks
+                        formatted_lines = []
+                        for line_obj in line_objects:
+                            line_text = ""
+                            for span in line_obj['spans']:
+                                line_text += span['content'].strip() + " "
+                            formatted_lines.append(line_text.strip())
+                        
+                        text = "\n".join(formatted_lines)
+                    except ImportError:
+                        # Fallback: simple text extraction
+                        text = " ".join([span['content'] for span in spans])
                     
                     if text.strip():
-                        logger.debug(f"OCR extracted {len(text)} chars ({len(formatted_lines)} lines) from figure xref={xref}")
+                        logger.debug(f"Region OCR extracted {len(text)} chars from figure region {figure_bbox}")
                     return text
                 return ""
             finally:
@@ -205,7 +218,7 @@ class FigureExtractor:
                     pass
                     
         except Exception as e:
-            logger.debug(f"Figure OCR failed for xref {xref}: {e}")
+            logger.debug(f"Figure region OCR failed for bbox {figure_bbox}: {e}")
             return ""
     
     def _group_images(self, images: List[Dict], page) -> List[Dict[str, Any]]:

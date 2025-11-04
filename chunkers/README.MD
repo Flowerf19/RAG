@@ -117,11 +117,13 @@ from PDFLoaders import PDFProvider
 pdf_provider = PDFProvider()
 pdf_doc = pdf_provider.load("document.pdf")
 
-# Initialize chunker với auto language detection
+# Initialize chunker với config (recommended)
+chunker = SemanticChunker()  # Auto-load from config/chunker_config.yaml
+
+# Or with custom overrides
 chunker = SemanticChunker(
-    max_tokens=500,           # Max tokens per chunk
-    overlap_tokens=50,        # Overlap giữa chunks
-    language="auto"           # Auto-detect language
+    max_tokens=600,           # Override config max_tokens
+    language="vi"             # Force Vietnamese
 )
 
 # Chunk document
@@ -311,8 +313,8 @@ python -c "import spacy; spacy.cli.download('en_core_web_sm')"
 
 **Poor Chunk Quality:**
 ```python
-# Debug coherence scoring
-chunker = SemanticChunker(debug=True)
+# Use config with language override
+chunker = SemanticChunker(language="vi")
 chunks = chunker.chunk_document(doc)
 
 for chunk in chunks.chunks:

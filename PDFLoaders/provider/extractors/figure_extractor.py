@@ -37,6 +37,9 @@ class FigureExtractor:
         Returns:
             List of figure dictionaries with bbox, image_count, text (OCR), etc.
         """
+        # Get filename for logging
+        doc_name = Path(fitz_doc.name).name if fitz_doc.name else "unknown"
+        
         try:
             # Get all images on page
             image_list = page.get_images()
@@ -90,18 +93,24 @@ class FigureExtractor:
                         text = self._extract_text_from_image(fitz_doc, xref)
                         if text.strip():
                             ocr_texts.append(text)
+                            logger.debug(f"Figure OCR extracted {len(text)} chars from xref {xref} - {doc_name}")
+                        else:
+                            logger.debug(f"Figure OCR returned empty for xref {xref} - {doc_name}")
                     
                     # Add combined text to figure
                     figure['text'] = " ".join(ocr_texts) if ocr_texts else ""
+                    if not figure['text']:
+                        logger.warning(f"Figure on page {page_num+1} has no OCR text (images: {len(xrefs)}) - {doc_name}")
             else:
                 # No OCR - set empty text
                 for figure in figures:
                     figure['text'] = ""
+                logger.debug(f"OCR extractor not available, skipping figure text extraction - {doc_name}")
             
             return figures
             
         except Exception as e:
-            logger.warning(f"Figure extraction failed for page {page_num+1}: {e}")
+            logger.warning(f"Figure extraction failed for page {page_num+1} in {doc_name}: {e}")
             return []
     
     def _extract_text_from_image(self, fitz_doc, xref: int) -> str:

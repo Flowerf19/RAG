@@ -5,21 +5,21 @@ Chunk Model
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from .enums import ChunkType, ChunkStrategy
 from .provenance_agg import ProvenanceAgg
 from .score import Score
-from loaders.model.base import LoaderBaseModel
 
 
 @dataclass
-class Chunk(LoaderBaseModel):
+class Chunk:
     """
     Đại diện cho một đoạn văn bản sẵn sàng để embedding.
     Single Responsibility: Lưu trữ nội dung chunk và metadata liên quan.
     """
     chunk_id: str                                    # Unique ID của chunk
     text: str                                        # Nội dung text
+    doc_id: str = ""                                 # Document ID
     token_count: int = 0                             # Số tokens (ước lượng)
     char_count: int = 0                              # Số ký tự
     chunk_type: ChunkType = ChunkType.HYBRID         # Loại chunk

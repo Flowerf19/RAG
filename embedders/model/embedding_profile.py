@@ -4,14 +4,12 @@ Embedding Configuration Profile
 Cấu hình cho embedding models và providers.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Any, Optional
-
-from loaders.model.base import LoaderBaseModel
 
 
 @dataclass
-class EmbeddingProfile(LoaderBaseModel):
+class EmbeddingProfile:
     """
     Profile cấu hình cho embedding model.
     Single Responsibility: Quản lý cấu hình cho embedding provider.

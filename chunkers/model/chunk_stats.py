@@ -7,11 +7,11 @@ Thống kê tổng hợp về chunking.
 from dataclasses import dataclass, field
 from typing import Dict
 from .chunk_set import ChunkSet
-from loaders.model.base import LoaderBaseModel
+
 
 
 @dataclass
-class ChunkStats(LoaderBaseModel):
+class ChunkStats:
     """
     Thống kê tổng hợp về chunking.
     Single Responsibility: Tính toán và lưu trữ thống kê chunking.

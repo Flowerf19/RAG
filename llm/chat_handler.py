@@ -3,14 +3,23 @@ Chat Handler - Xử lý logic chat
 Không phụ thuộc vào LLM cụ thể nào
 """
 from typing import List, Dict, Optional
- 
+import sys
+from pathlib import Path
+
 # Handle both direct execution and module import
 try:
     # When run as module
     from .config_loader import paths_prompt_path
 except ImportError:
-    # When run directly as script
-    from config_loader import paths_prompt_path
+    # When run directly as script - use absolute import from llm package
+    try:
+        from llm.config_loader import paths_prompt_path
+    except ImportError:
+        # Fallback: add parent dir and import from llm package
+        _repo_root = Path(__file__).parent.parent
+        if str(_repo_root) not in sys.path:
+            sys.path.insert(0, str(_repo_root))
+        from llm.config_loader import paths_prompt_path
  
 # Đường dẫn cố định tới system prompt
  

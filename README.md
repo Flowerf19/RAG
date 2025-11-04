@@ -1,6 +1,6 @@
 # RAG Pipeline - Retrieval-Augmented Generation System
 
-[![Python Version](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Hệ thống RAG (Retrieval-Augmented Generation) modular, xử lý PDF thành FAISS vector index và BM25 keyword index cho tìm kiếm ngữ nghĩa và keyword-based siêu nhanh. Hỗ trợ multiple LLM providers (Ollama, OpenAI, Google Gemini) với giao diện Streamlit.
@@ -20,7 +20,7 @@ Hệ thống RAG (Retrieval-Augmented Generation) modular, xử lý PDF thành F
 
 ### Yêu cầu hệ thống
 
-- **Python**: >= 3.13
+- **Python**: 3.10 (khuyến nghị - đã test và tương thích với tất cả dependencies)
 - **Ollama**: Server chạy tại `http://localhost:11434`
 - **Models**: `embeddinggemma:latest`, `bge-m3:latest`
 - **spaCy**: `en_core_web_sm`, `vi_core_news_lg`
@@ -34,7 +34,7 @@ cd RAG
 
 # Tạo virtual environment
 python -m venv .venv
-py -3 -m venv .venv
+py -3.10 -m venv .venv  # Sử dụng Python 3.10 cụ thể
 .venv\Scripts\Activate.ps1  # Windows
 # source .venv/bin/activate  # Linux/Mac
 

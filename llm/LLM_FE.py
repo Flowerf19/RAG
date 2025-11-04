@@ -405,12 +405,26 @@ if sources or retrieval_info:
         
         score_text = " | ".join(score_parts)
         
-        text = src.get("snippet", "") or ""  # Sử dụng 'snippet' thay vì 'text'
-        snippet = text if len(text) <= 500 else text[:500] + "..."
+        # Lấy snippet cho preview và full_text cho hiển thị đầy đủ
+        snippet = src.get("snippet", "") or ""
+        full_text = src.get("full_text", snippet) or snippet  # Fallback to snippet if no full_text
+        
         st.markdown(f"- [{i}] {file_name} - trang {page} ({score_text})")
         with st.expander(f"Xem trích đoạn {i}"):
-            if snippet.strip():
-                st.markdown(snippet)
+            if full_text.strip():
+                # Hiển thị full text với chiều cao động
+                st.markdown("**Full Chunk Content:**")
+                # Tính chiều cao dựa trên số dòng (ước lượng 80 ký tự/dòng)
+                estimated_lines = max(10, len(full_text) // 80 + 1)
+                # Giới hạn tối đa 40 dòng để không quá dài
+                display_height = min(estimated_lines * 25, 1000)
+                st.text_area(
+                    f"Full content for source {i}", 
+                    full_text, 
+                    height=display_height, 
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
             else:
                 st.write("Không có nội dung trích đoạn")
 else:

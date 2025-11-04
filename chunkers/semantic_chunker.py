@@ -25,13 +25,31 @@ except ImportError:
 
 
 class SemanticChunker(BaseChunker):
+    # spaCy model mapping for different languages
+    SPACY_MODEL_MAP = {
+        "en": "en_core_web_sm",        # English (small)
+        "vi": "vi_core_news_lg",       # Vietnamese (large)
+        "zh": "zh_core_web_sm",        # Chinese (small)
+        "de": "de_core_news_sm",       # German (small)
+        "fr": "fr_core_news_sm",       # French (small)
+        "es": "es_core_news_sm",       # Spanish (small)
+        "it": "it_core_news_sm",       # Italian (small)
+        "pt": "pt_core_news_sm",       # Portuguese (small)
+        "nl": "nl_core_news_sm",       # Dutch (small)
+        "pl": "pl_core_news_sm",       # Polish (small)
+        "ru": "ru_core_news_sm",       # Russian (small)
+        "ja": "ja_core_news_sm",       # Japanese (small)
+        "multilingual": "xx_ent_wiki_sm",  # Multilingual (small, basic)
+    }
+    
     def __init__(
         self,
         max_tokens: int = 500,
         overlap_tokens: int = 50,
         min_sentences_per_chunk: int = 3,
-        spacy_model: Optional[str] = "en_core_web_sm",
-        nlp=None,                 # inject sẵn nlp (khuyên dùng)
+        spacy_model: Optional[str] = None,  # Auto-detect or specify
+        language: Optional[str] = None,     # Language code for auto model selection
+        nlp=None,                           # inject sẵn nlp (khuyên dùng)
         use_entity_overlap: bool = True,
     ):
         """
@@ -39,7 +57,8 @@ class SemanticChunker(BaseChunker):
             max_tokens: giới hạn token mỗi chunk
             overlap_tokens: token chồng lấn giữa các chunk
             min_sentences_per_chunk: số câu tối thiểu trong 1 chunk
-            spacy_model: tên model spaCy (nếu nlp=None thì sẽ cố load; không auto-download)
+            spacy_model: tên model spaCy cụ thể (override auto-detection)
+            language: language code (en, vi, zh, etc.) để auto-select model
             nlp: spaCy Language đã được tạo sẵn & truyền vào (khuyến nghị)
             use_entity_overlap: có tính overlap thực thể hay không
         """
@@ -48,8 +67,14 @@ class SemanticChunker(BaseChunker):
         self.use_entity_overlap = use_entity_overlap
 
         self._nlp = nlp
-        if self._nlp is None and spacy_model:
-            # Cố gắng load, KHÔNG download runtime
+        if self._nlp is None:
+            # Auto-select model based on language
+            if spacy_model is None and language:
+                spacy_model = self.SPACY_MODEL_MAP.get(language.lower(), "en_core_web_sm")
+            elif spacy_model is None:
+                spacy_model = "en_core_web_sm"  # Default to English
+            
+            # Try to load model (KHÔNG auto-download)
             try:
                 import spacy
                 self._nlp = spacy.load(spacy_model)
@@ -93,7 +118,10 @@ class SemanticChunker(BaseChunker):
         sent2page = []
 
         for page in pages:
-            for s in self._split_into_sentences(page.text):
+            # Aggregate ALL content: text + tables + figures (OCR-extracted)
+            full_page_text = self._aggregate_page_content(page)
+            
+            for s in self._split_into_sentences(full_page_text):
                 if s:
                     sentences.append(s)
                     sent2page.append(page)
@@ -138,6 +166,47 @@ class SemanticChunker(BaseChunker):
         # Regex fallback (EN+VI cơ bản)
         patt = r'(?<=[.!?])\s+(?=[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỬỮỰỲÝỶỸỴĐ])'
         return [s.strip() for s in re.split(patt, text) if s.strip()]
+
+    # ---------------- Page Content Aggregation ----------------
+    
+    def _aggregate_page_content(self, page) -> str:
+        """
+        Aggregate ALL page content: text + tables + figures (OCR-extracted).
+        
+        Critical: This ensures tables/figures (image-based) aren't lost during chunking.
+        PDFProvider extracts them with OCR, but we must include them in chunks!
+        
+        Args:
+            page: PageContent object from PDFProvider
+            
+        Returns:
+            Full page text with tables and figures integrated
+        """
+        parts = []
+        
+        # 1. Main text content
+        if page.text and page.text.strip():
+            parts.append(page.text.strip())
+        
+        # 2. Tables (already extracted as text by PDFProvider with OCR enhancement)
+        if page.tables:
+            for table_idx, table in enumerate(page.tables, 1):
+                table_text = f"\n[Table {table_idx}]\n"
+                for row in table:
+                    # Convert row to readable text
+                    row_text = " | ".join(str(cell) for cell in row)
+                    table_text += row_text + "\n"
+                parts.append(table_text.strip())
+        
+        # 3. Figures (OCR-extracted text from images/diagrams)
+        if page.figures:
+            for fig_idx, figure in enumerate(page.figures, 1):
+                # Figures contain OCR text in 'text' field
+                fig_text = figure.get('text', '').strip()
+                if fig_text:
+                    parts.append(f"\n[Figure {fig_idx}]\n{fig_text}")
+        
+        return "\n\n".join(parts)
 
     # ---------------- Grouping by coherence ----------------
 

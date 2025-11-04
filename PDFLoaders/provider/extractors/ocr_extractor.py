@@ -22,21 +22,74 @@ logger = logging.getLogger(__name__)
 class OCRExtractor:
     """Extract text using PaddleOCR"""
     
+    # PaddleOCR language mapping
+    LANG_MAP = {
+        # Multilingual & English
+        "multilingual": "en",
+        "en": "en",
+        "english": "en",
+        
+        # Asian languages
+        "ch": "ch",
+        "chinese": "ch",
+        "zh": "ch",
+        "korean": "korean",
+        "ko": "korean",
+        "japan": "japan",
+        "japanese": "japan",
+        "ja": "japan",
+        
+        # European languages (Latin-based)
+        "vi": "latin",
+        "vietnamese": "latin",
+        "fr": "latin",  # French
+        "french": "latin",
+        "de": "latin",  # German
+        "german": "latin",
+        "es": "latin",  # Spanish
+        "spanish": "latin",
+        "it": "latin",  # Italian
+        "italian": "latin",
+        "pt": "latin",  # Portuguese
+        "portuguese": "latin",
+        "pl": "latin",  # Polish
+        "polish": "latin",
+        "nl": "latin",  # Dutch
+        "dutch": "latin",
+        
+        # Cyrillic script (Russian, etc.)
+        "ru": "cyrillic",
+        "russian": "cyrillic",
+        "uk": "cyrillic",  # Ukrainian
+        "ukrainian": "cyrillic",
+        
+        # Arabic script
+        "ar": "arabic",
+        "arabic": "arabic",
+        
+        # Other scripts
+        "devanagari": "devanagari",  # Hindi, Sanskrit, etc.
+        "hi": "devanagari",
+        "hindi": "devanagari",
+    }
+    
     def __init__(self, lang: str = "multilingual"):
         """
         Args:
-            lang: Language for OCR ("multilingual", "en", "ch", "vi")
+            lang: Language for OCR ("multilingual", "en", "ch", "vi", etc.)
+                  Will be mapped to PaddleOCR supported languages
         """
-        self.lang = lang
+        self.input_lang = lang
+        self.paddle_lang = self.LANG_MAP.get(lang.lower(), "en")
         self.ocr_engine: Optional[Any] = None
     
     def _init_ocr(self):
         """Initialize OCR engine if not already initialized"""
         if self.ocr_engine is None and PADDLEOCR_AVAILABLE:
-            logger.info(f"Initializing PaddleOCR (lang={self.lang})...")
+            logger.info(f"Initializing PaddleOCR (input_lang={self.input_lang} → paddle_lang={self.paddle_lang})...")
             self.ocr_engine = PaddleOCR(
                 use_angle_cls=True,
-                lang=self.lang,
+                lang=self.paddle_lang,  # Use mapped language
                 show_log=False,
                 use_gpu=False
             )

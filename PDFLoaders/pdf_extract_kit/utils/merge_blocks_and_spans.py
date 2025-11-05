@@ -5,7 +5,7 @@ import re
 
 
 def __is_overlaps_y_exceeds_threshold(bbox1, bbox2, overlap_ratio_threshold=0.8):
-    """检查两个bbox在y轴上是否有重叠，并且该重叠区域的高度占两个bbox高度更低的那个超过80%"""
+    """Check if two bboxes overlap on the y-axis, and the overlap height exceeds 80% of the shorter bbox's height"""
     _, y0_1, _, y1_1 = bbox1
     _, y0_2, _, y1_2 = bbox2
 
@@ -20,41 +20,41 @@ def merge_spans_to_line(spans):
     if len(spans) == 0:
         return []
     else:
-        # 按照y0坐标排序
+        # Sort by y0 coordinate
         spans.sort(key=lambda span: span['bbox'][1])
 
         lines = []
         current_line = [spans[0]]
         for span in spans[1:]:
-            # 如果当前的span类型为"isolated" 或者 当前行中已经有"isolated"
-            # image和table类型，同上
+            # If current span type is "isolated" or current line already has "isolated"
+            # Same applies to image and table types
             if span['type'] in ['isolated'] or any(
                     s['type'] in ['isolated'] for s in
                     current_line):
-                # 则开始新行
+                # Start a new line
                 lines.append(current_line)
                 current_line = [span]
                 continue
 
-            # 如果当前的span与当前行的最后一个span在y轴上重叠，则添加到当前行
+            # If current span overlaps with the last span of current line on y-axis, add to current line
             if __is_overlaps_y_exceeds_threshold(span['bbox'], current_line[-1]['bbox']):
                 current_line.append(span)
             else:
-                # 否则，开始新行
+                # Otherwise, start a new line
                 lines.append(current_line)
                 current_line = [span]
 
-        # 添加最后一行
+        # Add the last line
         if current_line:
             lines.append(current_line)
 
         return lines
 
-# 将每一个line中的span从左到右排序
+# Sort spans in each line from left to right
 def line_sort_spans_by_left_to_right(lines):
     line_objects = []
     for line in lines:
-        # 按照x0坐标排序
+        # Sort by x0 coordinate
         line.sort(key=lambda span: span['bbox'][0])
         line_bbox = [
             min(span['bbox'][0] for span in line),  # x0
@@ -69,7 +69,7 @@ def line_sort_spans_by_left_to_right(lines):
     return line_objects
 
 def fix_text_block(block):
-    # 文本block中的公式span都应该转换成行内type
+    # Formula spans in text blocks should be converted to inline type
     for span in block['spans']:
         if span['type'] == "isolated":
             span['type'] = "inline"
@@ -89,7 +89,7 @@ def fix_interline_block(block):
 
 def calculate_overlap_area_in_bbox1_area_ratio(bbox1, bbox2):
     """
-    计算box1和box2的重叠面积占bbox1的比例
+    Calculate the ratio of overlap area between box1 and box2 to bbox1's area
     """
     # Determine the coordinates of the intersection rectangle
     x_left = max(bbox1[0], bbox2[0])
@@ -110,7 +110,7 @@ def calculate_overlap_area_in_bbox1_area_ratio(bbox1, bbox2):
 
 def fill_spans_in_blocks(blocks, spans, radio):
     '''
-    将allspans中的span按位置关系，放入blocks中
+    Place spans into blocks based on their positional relationships
     '''
     block_with_spans = []
     for block in blocks:
@@ -133,21 +133,21 @@ def fill_spans_in_blocks(blocks, spans, radio):
             if calculate_overlap_area_in_bbox1_area_ratio(span_bbox, block_bbox) > radio:
                 block_spans.append(span)
 
-        '''行内公式调整, 高度调整至与同行文字高度一致(优先左侧, 其次右侧)'''
+        '''Inline formula adjustment: adjust height to match text height on the same line (prioritize left side, then right side)'''
         # displayed_list = []
         # text_inline_lines = []
         # modify_y_axis(block_spans, displayed_list, text_inline_lines)
 
-        '''模型识别错误的行间公式, type类型转换成行内公式'''
+        '''Convert incorrectly recognized displayed formulas to inline formulas'''
         # block_spans = modify_inline(block_spans, displayed_list, text_inline_lines)
 
-        '''bbox去除粘连'''  # 去粘连会影响span的bbox，导致后续fill的时候出错
+        '''Remove bbox overlaps'''  # Removing overlaps affects span bbox, causing errors in subsequent fill operations
         # block_spans = remove_overlap_between_bbox_for_span(block_spans)
 
         block_dict['spans'] = block_spans
         block_with_spans.append(block_dict)
 
-        # 从spans删除已经放入block_spans中的span
+        # Remove spans that have been added to block_spans from the spans list
         if len(block_spans) > 0:
             for span in block_spans:
                 spans.remove(span)
@@ -156,10 +156,10 @@ def fill_spans_in_blocks(blocks, spans, radio):
 
 def fix_block_spans(block_with_spans):
     '''
-    1、img_block和table_block因为包含caption和footnote的关系，存在block的嵌套关系
-        需要将caption和footnote的text_span放入相应img_block和table_block内的
-        caption_block和footnote_block中
-    2、同时需要删除block中的spans字段
+    1. img_block and table_block have nested block relationships because they contain captions and footnotes.
+       Need to place caption and footnote text_spans into the corresponding caption_block and footnote_block 
+       within img_block and table_block
+    2. Also need to remove the spans field from blocks
     '''
     fix_blocks = []
     for block in block_with_spans:
@@ -194,19 +194,86 @@ def fix_block_spans(block_with_spans):
 
 def detect_lang(string):
     """
-    检查整个字符串是否包含中文
-    :param string: 需要检查的字符串
-    :return: bool
+    Detect language from text based on Unicode character ranges.
+    Supports: Chinese (zh), Vietnamese (vi), Japanese (ja), Korean (ko), 
+    Thai (th), Arabic (ar), Hebrew (he), Cyrillic (ru), and defaults to English (en).
+    
+    :param string: Text string to detect language from
+    :return: Language code string ('zh', 'vi', 'ja', 'ko', 'th', 'ar', 'he', 'ru', 'en')
     """
-
+    if not string or not string.strip():
+        return 'en'
+    
+    # Count characters in each language category
+    char_counts = {
+        'zh': 0,      # Chinese
+        'vi': 0,      # Vietnamese (Latin + Vietnamese marks)
+        'ja': 0,      # Japanese (Hiragana, Katakana)
+        'ko': 0,      # Korean (Hangul)
+        'th': 0,      # Thai
+        'ar': 0,      # Arabic
+        'he': 0,      # Hebrew
+        'ru': 0,      # Cyrillic (Russian and related)
+        'latin': 0    # Basic Latin (for English/French/German/etc.)
+    }
+    
     for ch in string:
+        # Chinese: CJK Unified Ideographs
         if u'\u4e00' <= ch <= u'\u9fff':
-            return 'zh'
-    return 'en'
+            char_counts['zh'] += 1
+        # Japanese: Hiragana and Katakana
+        elif (u'\u3040' <= ch <= u'\u309f') or (u'\u30a0' <= ch <= u'\u30ff'):
+            char_counts['ja'] += 1
+        # Korean: Hangul
+        elif (u'\uac00' <= ch <= u'\ud7af') or (u'\u1100' <= ch <= u'\u11ff'):
+            char_counts['ko'] += 1
+        # Thai
+        elif u'\u0e00' <= ch <= u'\u0e7f':
+            char_counts['th'] += 1
+        # Arabic
+        elif u'\u0600' <= ch <= u'\u06ff':
+            char_counts['ar'] += 1
+        # Hebrew
+        elif u'\u0590' <= ch <= u'\u05ff':
+            char_counts['he'] += 1
+        # Cyrillic (Russian, Ukrainian, etc.)
+        elif u'\u0400' <= ch <= u'\u04ff':
+            char_counts['ru'] += 1
+        # Vietnamese marks (combining diacritics)
+        elif u'\u0300' <= ch <= u'\u036f':
+            char_counts['vi'] += 1
+        # Basic Latin
+        elif u'\u0000' <= ch <= u'\u007f':
+            char_counts['latin'] += 1
+        # Latin Extended (includes Vietnamese base characters)
+        elif u'\u0080' <= ch <= u'\u024f':
+            char_counts['vi'] += 1
+    
+    # Determine language by highest count
+    # Remove 'latin' from direct comparison since it's common
+    max_lang = 'en'
+    max_count = 0
+    
+    for lang, count in char_counts.items():
+        if lang == 'latin':
+            continue
+        if count > max_count:
+            max_count = count
+            max_lang = lang
+    
+    # If no specific language detected but has Latin characters → English
+    if max_count == 0 and char_counts['latin'] > 0:
+        return 'en'
+    
+    # If Vietnamese detected (Vietnamese marks or extended Latin)
+    if char_counts['vi'] > 0 and char_counts['latin'] > 0:
+        return 'vi'
+    
+    return max_lang if max_count > 0 else 'en'
 
 def ocr_escape_special_markdown_char(content):
     """
-    转义正文里对markdown语法有特殊意义的字符
+    Escape characters that have special meaning in markdown syntax
     """
     special_chars = ["*", "`", "~", "$"]
     for char in special_chars:
@@ -243,7 +310,7 @@ def merge_para_with_text(para_block):
                 content = span['content']
                 content = ocr_escape_special_markdown_char(content)
                 # language = detect_lang(content)
-                # if language == 'en':  # 只对英文长词进行分词处理，中文分词会丢失文本
+                # if language == 'en':  # Only perform word segmentation for English long words, Chinese segmentation loses text
                     # content = ocr_escape_special_markdown_char(split_long_words(content))
                 # else:
                 #     content = ocr_escape_special_markdown_char(content)
@@ -261,8 +328,8 @@ def merge_para_with_text(para_block):
                     content = f" $^{content_ori}$ "
 
             if content != '':
-                if 'zh' in line_lang:  # 遇到一些一个字一个span的文档，这种单字语言判断不准，需要用整行文本判断
-                    para_text += content.strip()  # 中文语境下，content间不需要空格分隔
+                if 'zh' in line_lang:  # For documents with one character per span, single character language detection is inaccurate; use full line text for detection
+                    para_text += content.strip()  # In Chinese context, no space separation needed between contents
                 else:
-                    para_text += content.strip() + ' '  # 英文语境下 content间需要空格分隔
+                    para_text += content.strip() + ' '  # In English context, space separation needed between contents
     return para_text

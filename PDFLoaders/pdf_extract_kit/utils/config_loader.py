@@ -1,6 +1,6 @@
 import yaml
 import warnings
-from pdf_extract_kit.registry.registry import TASK_REGISTRY, MODEL_REGISTRY
+from PDFLoaders.pdf_extract_kit.registry.registry import TASK_REGISTRY, MODEL_REGISTRY
 
 
 def load_config(config_path):

@@ -60,7 +60,7 @@ except (ImportError, RuntimeError) as e:
 
 # Import registry for registration
 try:
-    from ..registry.registry import TASK_REGISTRY
+    from PDFLoaders.pdf_extract_kit.registry.registry import TASK_REGISTRY
 except ImportError:
     TASK_REGISTRY = None
 

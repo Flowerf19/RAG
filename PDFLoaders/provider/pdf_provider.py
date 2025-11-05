@@ -47,7 +47,44 @@ class PDFProvider:
         self.table_extractor = TableExtractor(ocr_extractor=self.ocr_extractor)
         self.figure_extractor = FigureExtractor(ocr_extractor=self.ocr_extractor)
         
-        logger.info(f"PDFProvider initialized: use_ocr={use_ocr}, lang={ocr_lang}")
+        # Check GPU status for OCR
+        gpu_available = False
+        if self.ocr_extractor:
+            from .extractors.ocr_extractor import check_gpu_available
+            gpu_available = check_gpu_available()
+        
+        # Check PDF-Extract-Kit task availability
+        kit_tasks_status = self._check_kit_tasks_availability()
+        
+        gpu_status = "GPU" if gpu_available else "CPU"
+        logger.info(f"PDFProvider initialized: use_ocr={use_ocr}, lang={ocr_lang}, OCR={gpu_status}")
+        if kit_tasks_status:
+            logger.info(f"PDF-Extract-Kit tasks available: {kit_tasks_status}")
+    
+    def _check_kit_tasks_availability(self) -> str:
+        """Check which PDF-Extract-Kit tasks are available"""
+        try:
+            from PDFLoaders.pdf_extract_kit.tasks import (
+                _layout_available, _formula_available, _formula_recog_available,
+                _ocr_available, _table_available
+            )
+            available_tasks = []
+            if _layout_available:
+                available_tasks.append("Layout")
+            if _formula_available:
+                available_tasks.append("Formula")
+            if _formula_recog_available:
+                available_tasks.append("FormulaRecog")
+            if _ocr_available:
+                available_tasks.append("OCR")
+            if _table_available:
+                available_tasks.append("Table")
+            
+            if available_tasks:
+                return f"{len(available_tasks)}/5 ({', '.join(available_tasks)})"
+            return ""
+        except ImportError:
+            return ""
     
     def load(self, pdf_path: str | Path) -> PDFDocument:
         """
@@ -91,11 +128,30 @@ class PDFProvider:
             )
             pages.append(page_content)
             
+            # Compute enhanced table / figure stats for clearer logging
+            tables_count = len(page_content.tables)
+            tables_enhanced = 0
+            for t in page_content.tables:
+                try:
+                    # TableExtractor adds an OCR supplement row when enhanced
+                    if isinstance(t, list) and t and any(isinstance(r, list) and len(r) > 0 and isinstance(r[0], str) and r[0].startswith("[OCR Supplement]") for r in [t[-1]]):
+                        tables_enhanced += 1
+                except Exception:
+                    continue
+
+            figures_count = len(page_content.figures)
+            figures_with_text = sum(1 for f in page_content.figures if f.get("text"))
+
+            # Human-friendly method labels
+            text_method_label = "PaddleOCR" if page_content.extraction_method == "ocr" else "PyMuPDF(text)"
+            tables_method_label = "pdfplumber" + ("+OCR" if tables_enhanced > 0 else "")
+            figures_method_label = "OCR(text extracted)" if figures_with_text > 0 else "images-only"
+
             logger.info(
-                f"Page {page_num+1}/{total_pages}: "
-                f"{page_content.char_count} chars, "
-                f"{len(page_content.tables)} tables, "
-                f"method={page_content.extraction_method}"
+                f"Page {page_num+1}/{total_pages}: {page_content.char_count} chars; "
+                f"Tables: {tables_count} [{tables_method_label}]; "
+                f"Figures: {figures_count} [{figures_method_label}]; "
+                f"Page-extraction: {text_method_label}"
             )
         
         fitz_doc.close()
@@ -313,7 +369,6 @@ class PDFProvider:
         fitz_doc = fitz.open(str(pdf_path))
         
         for page_content in doc.pages:
-            page_num = page_content.page_number - 1  # 0-indexed
             
             for fig_idx, figure in enumerate(page_content.figures, 1):
                 try:

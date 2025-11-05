@@ -1,5 +1,5 @@
 """
-OCR Extractor - PaddleOCR integration for text extraction
+OCR Extractor - PaddleOCR integration for text extraction with optional PDF-Extract-Kit OCRTask
 """
 
 import fitz
@@ -16,7 +16,43 @@ except ImportError:
     PADDLEOCR_AVAILABLE = False
     PaddleOCR = None
 
+# Try to import PDF-Extract-Kit OCRTask (optional alternative OCR backend)
+try:
+    from PDFLoaders.pdf_extract_kit.tasks import OCRTask, _ocr_available
+    OCRTASK_AVAILABLE = _ocr_available
+except ImportError:
+    OCRTask = None
+    OCRTASK_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+
+def check_gpu_available() -> bool:
+    """
+    Check if GPU is available for PaddleOCR.
+    Returns True if CUDA GPU is available and properly configured.
+    """
+    if not PADDLEOCR_AVAILABLE:
+        return False
+    
+    try:
+        import paddle
+        # Check if CUDA is available
+        if paddle.is_compiled_with_cuda():
+            # Try to get GPU device count
+            gpu_count = paddle.device.cuda.device_count()
+            if gpu_count > 0:
+                # Test if we can actually use GPU
+                try:
+                    paddle.device.set_device('gpu:0')
+                    return True
+                except Exception:
+                    logger.warning("GPU detected but cannot be initialized - falling back to CPU")
+                    return False
+        return False
+    except Exception as e:
+        logger.debug(f"GPU check failed: {e}")
+        return False
 
 
 class OCRExtractor:
@@ -73,25 +109,42 @@ class OCRExtractor:
         "hindi": "devanagari",
     }
     
-    def __init__(self, lang: str = "multilingual"):
+    def __init__(self, lang: str = "multilingual", use_kit_ocr: bool = False):
         """
         Args:
             lang: Language for OCR ("multilingual", "en", "ch", "vi", etc.)
                   Will be mapped to PaddleOCR supported languages
+            use_kit_ocr: Use PDF-Extract-Kit's OCRTask instead of direct PaddleOCR
         """
         self.input_lang = lang
         self.paddle_lang = self.LANG_MAP.get(lang.lower(), "en")
         self.ocr_engine: Optional[Any] = None
+        self.use_kit_ocr = use_kit_ocr and OCRTASK_AVAILABLE
+        self.ocr_task = None
+        
+        if self.use_kit_ocr:
+            try:
+                logger.info("PDF-Extract-Kit OCRTask is available but requires model configuration")
+                # OCRTask requires a model instance to be initialized
+                # For now, fall back to PaddleOCR
+                self.use_kit_ocr = False
+            except Exception as e:
+                logger.warning(f"Could not initialize OCRTask: {e}")
+                self.use_kit_ocr = False
     
     def _init_ocr(self):
         """Initialize OCR engine if not already initialized"""
         if self.ocr_engine is None and PADDLEOCR_AVAILABLE:
-            logger.info(f"Initializing PaddleOCR (input_lang={self.input_lang} → paddle_lang={self.paddle_lang})...")
+            # Check GPU availability
+            use_gpu = check_gpu_available()
+            gpu_status = "GPU" if use_gpu else "CPU"
+            logger.info(f"Initializing PaddleOCR (input_lang={self.input_lang} → paddle_lang={self.paddle_lang}) using {gpu_status}...")
+            
             self.ocr_engine = PaddleOCR(
                 use_angle_cls=True,
                 lang=self.paddle_lang,  # Use mapped language
                 show_log=False,
-                use_gpu=False
+                use_gpu=use_gpu
             )
     
     def extract(self, page, page_num: int) -> str:

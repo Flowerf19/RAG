@@ -1,5 +1,5 @@
-from pdf_extract_kit.tasks.ocr.models.paddle_ocr import ModifiedPaddleOCR
-# from pdf_extract_kit.registry.registry import MODEL_REGISTRY
+from PDFLoaders.pdf_extract_kit.tasks.ocr.models.paddle_ocr import ModifiedPaddleOCR
+# from PDFLoaders.pdf_extract_kit.registry.registry import MODEL_REGISTRY
 
 
 __all__ = [

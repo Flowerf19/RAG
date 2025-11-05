@@ -10,7 +10,7 @@ import unimernet.tasks as tasks
 from unimernet.common.config import Config
 from unimernet.processors import load_processor
 
-from pdf_extract_kit.registry import MODEL_REGISTRY
+from PDFLoaders.pdf_extract_kit.registry import MODEL_REGISTRY
 
 
 @MODEL_REGISTRY.register('formula_recognition_unimernet')

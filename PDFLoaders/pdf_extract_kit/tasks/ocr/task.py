@@ -2,9 +2,9 @@ import os
 import json
 import random
 from PIL import Image, ImageDraw
-from pdf_extract_kit.registry.registry import TASK_REGISTRY
-from pdf_extract_kit.utils.data_preprocess import load_pdf
-from pdf_extract_kit.tasks.base_task import BaseTask
+from PDFLoaders.pdf_extract_kit.registry.registry import TASK_REGISTRY
+from PDFLoaders.pdf_extract_kit.utils.data_preprocess import load_pdf
+from PDFLoaders.pdf_extract_kit.tasks.base_task import BaseTask
 
 
 @TASK_REGISTRY.register("ocr")

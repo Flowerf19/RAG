@@ -1,37 +1,27 @@
 """
-RAG Pipeline - Complete Implementation
-========================================
-Pipeline hoàn chỉnh: PDF -> Chunks -> Embeddings -> Vector Storage -> Retrieval
- 
-Output: Tất cả dữ liệu được lưu vào data folder
+RAG Pipeline - Refactored Implementation
+=========================================
+Orchestrates: PDF -> Chunks -> Embeddings -> Vector Storage -> Retrieval
+Single Responsibility: Pipeline coordination (delegates to specialized modules).
+
+Output: All data saved to data folder
 """
  
-import json
 import logging
-import hashlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
-from chunkers.semantic_chunker import SemanticChunker
-from chunkers.providers import create_semantic_provider
 from embedders.embedder_factory import EmbedderFactory
 from embedders.embedder_type import EmbedderType
 from embedders.providers.ollama import OllamaModelSwitcher, OllamaModelType
-from pipeline.vector_store import VectorStore
-from pipeline.summary_generator import SummaryGenerator
-from pipeline.retriever import Retriever
-
-try:
-    from BM25.ingest_manager import BM25IngestManager
-    from BM25.whoosh_indexer import WhooshIndexer
-    from BM25.search_service import BM25SearchService
-    _BM25_IMPORT_ERROR: Optional[Exception] = None
-except Exception as exc:  # pragma: no cover - optional dependency
-    BM25IngestManager = None  # type: ignore[assignment]
-    WhooshIndexer = None  # type: ignore[assignment]
-    BM25SearchService = None  # type: ignore[assignment]
-    _BM25_IMPORT_ERROR = exc
+from pipeline.storage.vector_store import VectorStore
+from pipeline.storage.summary_generator import SummaryGenerator
+from pipeline.retrieval.retriever import Retriever
+from BM25.bm25_manager import BM25Manager
+from pipeline.processing.pdf_processor import create_pdf_processor, PDFProcessor
+from pipeline.processing.embedding_processor import EmbeddingProcessor
+from pipeline.storage.file_manager import FileManager, BatchSummaryManager
 
 # Configure logging
 logging.basicConfig(
@@ -93,30 +83,11 @@ class RAGPipeline:
         # Initialize components
         logger.info("Initializing RAG Pipeline...")
         
-        # Use PDFProvider with full OCR + Layout detection capabilities
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent / "PDFLoaders"))
-        from pdf_provider import PDFProvider
-        
-        self.loader = PDFProvider(
-            use_ocr="auto",      # Smart OCR detection (text vs image-based)
-            ocr_lang="multilingual",  # Support multiple languages
-            min_text_threshold=50     # Min chars to consider text-based
-        )
-        logger.info("Using PDFProvider with smart OCR + Layout detection")
-        
-        # Use SemanticChunker with config (no hardcode values)
-        self.chunker = SemanticChunker()
-        
-        # Initialize chunker provider for preprocessing
-        self.chunker_provider = create_semantic_provider(
-            normalize=True,
-            stopwords=False,  # Keep stopwords for semantic meaning
-            entities=True,    # Extract entities
-            language=True,    # Detect language
-            min_length=10
-        )
-        logger.info("Using SemanticChunker with provider preprocessing")
+        # Initialize PDF processor (handles loading + chunking)
+        self.pdf_processor = create_pdf_processor()
+        self.loader = self.pdf_processor.loader
+        self.chunker = self.pdf_processor.chunker
+        self.chunker_provider = self.pdf_processor.chunker_provider
 
         # Initialize embedder based on type
         if embedder_type == EmbedderType.OLLAMA:
@@ -165,8 +136,17 @@ class RAGPipeline:
         self.vector_store = VectorStore(self.vectors_dir)
         self.summary_generator = SummaryGenerator(self.metadata_dir, self.output_dir)
         self.retriever = Retriever(self.embedder)
-
-        self._setup_bm25_components()
+        
+        # Initialize BM25 manager
+        self.bm25_manager = BM25Manager(self.output_dir, self.cache_dir)
+        
+        # Initialize file manager
+        self.file_manager = FileManager(
+            self.chunks_dir,
+            self.embeddings_dir,
+            self.vectors_dir,
+            self.metadata_dir,
+        )
 
         logger.info("=== RAG Pipeline Configuration ===")
         logger.info("Loader: PDFProvider (OCR=auto, multilingual)")
@@ -174,6 +154,7 @@ class RAGPipeline:
         logger.info("Provider: SemanticChunkerProvider (normalize+entities+language)")
         logger.info(f"Embedder: {self.embedder.profile.model_id}")
         logger.info(f"Dimension: {self.embedder.dimension}")
+        logger.info(f"BM25: {'Available' if self.bm25_manager.is_available() else 'Unavailable'}")
         logger.info(f"Output: {self.output_dir}")
         logger.info("==================================")
 
@@ -229,50 +210,6 @@ class RAGPipeline:
             "cache_enabled": True
         }
 
-    def _setup_bm25_components(self) -> None:
-        """
-        Initialise BM25 index infrastructure if dependencies are available.
-        """
-        self.bm25_ingest_manager = None
-        self.bm25_indexer = None
-        self.bm25_search_service = None
-
-        if _BM25_IMPORT_ERROR:
-            logger.warning("BM25 components unavailable, skipping BM25 ingest: %s", _BM25_IMPORT_ERROR)
-            return
-
-        try:
-            self.bm25_index_dir = self.output_dir / "bm25_index"
-            self.bm25_index_dir.mkdir(parents=True, exist_ok=True)
-            self.bm25_cache_file = self.cache_dir / "bm25_chunk_cache.json"
-            self.bm25_indexer = WhooshIndexer(self.bm25_index_dir) # type: ignore
-            self.bm25_ingest_manager = BM25IngestManager(
-                indexer=self.bm25_indexer,
-                cache_path=self.bm25_cache_file,
-            ) # type: ignore
-            self.bm25_search_service = BM25SearchService(self.bm25_indexer) # type: ignore
-            logger.info("BM25 ingest manager initialised (index dir=%s)", self.bm25_index_dir)
-        except Exception as exc:
-            logger.warning("Failed to initialise BM25 ingest components: %s", exc)
-            self.bm25_ingest_manager = None
-            self.bm25_indexer = None
-            self.bm25_search_service = None
-
-    def _ingest_bm25_chunk_set(self, chunk_set: Any) -> int:
-        """
-        Push chunk set into BM25 index; failures should not break the pipeline.
-        """
-        if not self.bm25_ingest_manager:
-            return 0
-
-        try:
-            indexed = self.bm25_ingest_manager.ingest_chunk_set(chunk_set)
-            logger.info("BM25 ingest indexed %d chunk(s)", indexed)
-            return indexed
-        except Exception as exc:
-            logger.warning("BM25 ingest failed, continuing without BM25 index: %s", exc)
-            return 0
-
     def search_bm25(
         self,
         query: str,
@@ -281,53 +218,25 @@ class RAGPipeline:
         normalize_scores: bool = True,
     ) -> List[Dict[str, Any]]:
         """
-        Execute BM25 search and return results in dictionary form similar to FAISS retrieval output.
+        Execute BM25 search (delegates to BM25Manager).
+        
+        Args:
+            query: Search query string
+            top_k: Number of results to return
+            normalize_scores: Whether to normalize scores
+            
+        Returns:
+            List of result dictionaries with metadata
         """
-        if not self.bm25_search_service:
-            return []
-        try:
-            results = self.bm25_search_service.search(
-                query,
-                top_k=top_k,
-                normalize_scores=normalize_scores,
-            )
-        except Exception as exc:
-            logger.warning("BM25 search failed: %s", exc)
-            return []
-
-        formatted_results: List[Dict[str, Any]] = []
-        for result in results:
-            metadata = result.metadata or {}
-            source_path = metadata.get("source_path")
-            file_name = metadata.get("file_name")
-            if not file_name and source_path:
-                file_name = Path(source_path).name
-            page_numbers = metadata.get("page_numbers") or []
-            primary_page = None
-            if page_numbers:
-                primary_page = page_numbers[0]
-            else:
-                primary_page = metadata.get("page_number")
-            # Provide uniform fields so downstream merging logic can treat BM25 and FAISS the same.
-            formatted_results.append(
-                {
-                    "chunk_id": result.document_id,
-                    "bm25_raw_score": result.raw_score,
-                    "bm25_normalized_score": result.normalized_score,
-                    "keywords": metadata.get("keywords", []),
-                    "text": metadata.get("text", ""),
-                    "file_name": file_name,
-                    "source_path": source_path,
-                    "page_number": primary_page,
-                    "page_numbers": page_numbers,
-                    "metadata": metadata,
-                }
-            )
-        return formatted_results
+        return self.bm25_manager.search(
+            query,
+            top_k=top_k,
+            normalize_scores=normalize_scores,
+        )
 
     def process_pdf(self, pdf_path: str | Path, chunk_callback=None) -> Dict[str, Any]:
         """
-        Process single PDF through complete pipeline.
+        Process single PDF through complete pipeline (orchestrates all steps).
        
         Args:
             pdf_path: Path to PDF file (str or Path)
@@ -336,206 +245,34 @@ class RAGPipeline:
         Returns:
             Dict with processing results and file paths
         """
-        pdf_path = Path(pdf_path)
-        # Resolve path properly
-        if not pdf_path.is_absolute():
-            # If relative path, make it absolute from current working directory
-            pdf_path = pdf_path.resolve()
-        
-        # Verify file exists
-        if not pdf_path.exists():
-            raise FileNotFoundError(f"PDF file not found: {pdf_path}")
-        
+        # Step 1: Validate PDF path
+        pdf_path = PDFProcessor.validate_pdf_path(pdf_path)
         file_name = pdf_path.stem
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        logger.info(f"Processing PDF: {pdf_path.name}")
-       
-        # Step 1: Load PDF with smart extraction
-        logger.info("Loading PDF with OCR + Layout detection...")
-        pdf_doc = self.loader.load(str(pdf_path))
-        
-        logger.info(
-            f"Loaded {pdf_doc.total_pages} pages - "
-            f"Method: {[p.extraction_method for p in pdf_doc.pages[:3]]} - "
-            f"Tables: {sum(len(p.tables) for p in pdf_doc.pages)} - "
-            f"Figures: {sum(len(p.figures) for p in pdf_doc.pages)}"
+        # Step 2: Load PDF and create chunks (delegates to PDFProcessor)
+        pdf_doc, chunk_set = self.pdf_processor.process(pdf_path)
+
+        # Step 3: Index chunks with BM25 (delegates to BM25Manager)
+        bm25_indexed = self.bm25_manager.ingest_chunk_set(chunk_set)
+
+        # Step 4: Generate embeddings (delegates to EmbeddingProcessor)
+        logger.info("Generating embeddings...")
+        embedding_processor = EmbeddingProcessor(self.embedder, timestamp)
+        embeddings_data, skipped_chunks = embedding_processor.process_chunks(
+            chunk_set, pdf_path, chunk_callback
         )
        
-        # Step 2: Chunk document
-        logger.info("Chunking document...")
-        chunk_set = self.chunker.chunk(pdf_doc)
-        logger.info(f"Created {len(chunk_set.chunks)} chunks, strategy: {chunk_set.chunk_strategy}, tokens: {chunk_set.total_tokens}")
-
-        bm25_indexed = self._ingest_bm25_chunk_set(chunk_set)
-
-        # Step 3: Generate embeddings
-        logger.info("Generating embeddings...")
-        embeddings_data = []
-        skipped_chunks = 0
-        total_chunks = len(chunk_set.chunks)
-        def _to_serializable(value):
-            if hasattr(value, "to_dict"):
-                return _to_serializable(value.to_dict())
-            if isinstance(value, dict):
-                return {k: _to_serializable(v) for k, v in value.items()}
-            if isinstance(value, (list, tuple, set)):
-                return [_to_serializable(v) for v in value]
-            return value
-
-        # Call callback with initial state
-        if chunk_callback:
-            chunk_callback(0, total_chunks)
-        
-        logger.info(f"Starting embedding generation for {total_chunks} chunks...")
-        
-        for idx, chunk in enumerate(chunk_set.chunks, 1):
-            # Create content hash for duplicate checking
-            hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
-
-            # Test connection on first chunk
-            if idx == 1 and not self.embedder.test_connection():
-                raise ConnectionError("Cannot connect to Ollama server!")
-           
-            # Log progress for every chunk
-            logger.info(f"📝 Embedding chunk {idx}/{total_chunks} ({(idx/total_chunks)*100:.1f}%) - {len(chunk.text)} chars")
-            
-            try:
-                embedding = self.embedder.embed(chunk.text)
-            except Exception as e:
-                logger.warning(f"Error embedding chunk {idx}: {e}")
-                embedding = [0.0] * self.embedder.dimension
-           
-            # Prepare embedding data với full metadata
-            chunk_embedding = {
-                "chunk_id": chunk.chunk_id,
-                "chunk_index": idx - 1,
-                "text": chunk.text,
-                "text_length": len(chunk.text),
-                "token_count": chunk.token_count,
-               
-                # Embedding vector
-                "embedding": embedding,
-                "embedding_dimension": len(embedding),
-                "embedding_model": self.embedder.profile.model_id,
-               
-                # Source metadata
-                "file_path": str(pdf_path),
-                "file_name": pdf_path.name,
-                "page_number": list(chunk.provenance.page_numbers)[0] if chunk.provenance and chunk.provenance.page_numbers else None,
-                "page_numbers": sorted(list(chunk.provenance.page_numbers)) if chunk.provenance else [],
-               
-                # Block tracing
-                "block_type": chunk.metadata.get("block_type") or chunk.metadata.get("type"),
-                "block_ids": chunk.provenance.source_blocks if chunk.provenance else [],
-               
-                # Table detection
-                "is_table": chunk.metadata.get("block_type") == "table",
-               
-                # Provenance
-                "provenance": {
-                    "source_file": str(pdf_path),
-                    "extraction_method": "PDFLoader",
-                    "chunking_strategy": chunk_set.chunk_strategy or "unknown",
-                    "embedding_model": self.embedder.profile.model_id,
-                    "timestamp": timestamp
-                }
-            }
-           
-            # Add table data if applicable
-            if chunk_embedding["is_table"]:
-                table_payload = chunk.metadata.get("table_payload")
-                if table_payload:
-                    chunk_embedding["table_data"] = {
-                        "table_id": getattr(table_payload, "id", None),
-                        "header": getattr(table_payload, "header", []),
-                        "num_rows": len(getattr(table_payload, "rows", [])),
-                        "page_number": getattr(table_payload, "page_number", None)
-                    }
-            
-            # Attach full metadata for downstream use (figures, tables, etc.)
-            metadata_serialized = _to_serializable(chunk.metadata or {})
-            chunk_embedding["metadata"] = metadata_serialized
-            source_blocks_meta_raw = chunk.metadata.get("source_blocks", []) if chunk.metadata else []
-            source_blocks_meta = [_to_serializable(meta) for meta in source_blocks_meta_raw]
-            chunk_embedding["source_blocks"] = source_blocks_meta
-
-            is_figure = False
-            figure_meta = None
-            if chunk.metadata:
-                block_type = chunk.metadata.get("block_type")
-                if block_type == "figure":
-                    figure_info = chunk.metadata.get("figure")
-                    if figure_info:
-                        is_figure = True
-                        figure_meta = _to_serializable(figure_info)
-            if not is_figure and source_blocks_meta:
-                for block_meta in source_blocks_meta:
-                    if (block_meta or {}).get("block_type") == "figure":
-                        is_figure = True
-                        figure_meta = block_meta
-                        break
-            chunk_embedding["is_figure"] = is_figure
-            if figure_meta:
-                chunk_embedding["figure"] = {
-                    "caption": figure_meta.get("caption"),
-                    "image_path": figure_meta.get("image_path"),
-                    "bbox": figure_meta.get("bbox"),
-                    "page_number": figure_meta.get("page_number"),
-                    "figure_order": figure_meta.get("figure_order"),
-                }
-
-            embeddings_data.append(chunk_embedding)
-
-            # Update progress via callback
-            if chunk_callback:
-                chunk_callback(idx, total_chunks)
-            
-            if (idx - skipped_chunks) % 10 == 0:
-                logger.info(f"Processed {idx}/{len(chunk_set.chunks)} chunks ({skipped_chunks} skipped)...")
-       
-        logger.info(f"Generated {len(embeddings_data)} embeddings ({skipped_chunks} chunks skipped)")
-       
-        # Step 3.5: Save chunks and embeddings to files
+        # Step 5: Save chunks and embeddings (delegates to FileManager)
         logger.info("Saving chunks and embeddings...")
+        chunks_file = self.file_manager.save_chunks(
+            chunk_set, embeddings_data, file_name, timestamp, pdf_path.name, skipped_chunks
+        )
+        embeddings_file = self.file_manager.save_embeddings(
+            embeddings_data, file_name, timestamp
+        )
        
-        # Save chunks as simple text file (for debugging)
-        # Overwrite mode: delete old chunk files for this PDF
-        for old_file in self.chunks_dir.glob(f"{file_name}_chunks_*.txt"):
-            try:
-                old_file.unlink()
-                logger.debug(f"Deleted old chunk file: {old_file.name}")
-            except Exception:
-                pass
-        
-        chunks_file = self.chunks_dir / f"{file_name}_chunks_{timestamp}.txt"
-        with open(chunks_file, 'w', encoding='utf-8') as f:
-            f.write(f'Document: {pdf_path.name}\n')
-            f.write(f'Total chunks: {len(chunk_set.chunks)}\n')
-            f.write(f'New chunks processed: {len(embeddings_data)}\n')
-            f.write(f'Skipped chunks: {skipped_chunks}\n')
-            f.write(f'Timestamp: {timestamp}\n')
-            f.write('=' * 80 + '\n\n')
-           
-            for i, chunk in enumerate(chunk_set.chunks, 1):
-                # Only write chunks that were actually processed (have embeddings)
-                if any(e['chunk_id'] == chunk.chunk_id for e in embeddings_data):
-                    f.write(f'CHUNK {i}: {chunk.chunk_id}\n')
-                    page = list(chunk.provenance.page_numbers)[0] if chunk.provenance and chunk.provenance.page_numbers else 'N/A'
-                    f.write(f'Page: {page} | Tokens: {chunk.token_count} | Type: {chunk.chunk_type.value}\n')
-                    f.write('-' * 40 + '\n')
-                    f.write(chunk.text.strip())
-                    f.write('\n\n' + '=' * 80 + '\n\n')
-       
-        # Save embeddings
-        embeddings_file = self.embeddings_dir / f"{file_name}_embeddings_{timestamp}.json"
-        with open(embeddings_file, 'w', encoding='utf-8') as f:
-            json.dump(embeddings_data, f, ensure_ascii=False, indent=2)
-       
-        logger.info(f"Saved chunks to: {chunks_file}")
-        logger.info(f"Saved embeddings to: {embeddings_file}")
-       
-        # Step 4: Create FAISS index and save (only if we have new embeddings)
+        # Step 6: Create FAISS index (only if we have embeddings)
         if embeddings_data:
             logger.info("Creating FAISS vector index...")
             faiss_file, metadata_map_file = self.vector_store.create_index(
@@ -543,12 +280,9 @@ class RAGPipeline:
             )
         else:
             logger.info("No new embeddings - skipping FAISS index creation")
-            # Use placeholder paths for skipped processing
-            faiss_file = self.vectors_dir / f"{file_name}_vectors_{timestamp}.faiss"
-            metadata_map_file = self.vectors_dir / f"{file_name}_metadata_map_{timestamp}.pkl"
-            # Create empty files to indicate processing was attempted
-            faiss_file.touch()
-            metadata_map_file.touch()
+            faiss_file, metadata_map_file = self.file_manager.create_placeholder_files(
+                file_name, timestamp
+            )
        
         # Step 5: Save document summary (lightweight)
         logger.info("Creating document summary...")
@@ -632,9 +366,10 @@ class RAGPipeline:
                     "error": str(e)
                 })
        
-        # Create summary
-        batch_summary = self.summary_generator.create_batch_summary(results)
-        self.summary_generator.save_batch_summary(batch_summary)
+        # Create and save batch summary (delegates to BatchSummaryManager)
+        batch_summary_manager = BatchSummaryManager(self.output_dir)
+        batch_summary = batch_summary_manager.create_summary(results)
+        batch_summary_manager.save_summary(batch_summary)
        
         return results
    

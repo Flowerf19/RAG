@@ -2,7 +2,7 @@ import torch
 
 from PIL import Image
 from struct_eqtable import build_model
-from pdf_extract_kit.registry.registry import MODEL_REGISTRY
+from PDFLoaders.pdf_extract_kit.registry.registry import MODEL_REGISTRY
 
 
 @MODEL_REGISTRY.register("table_parsing_struct_eqtable")

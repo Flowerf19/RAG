@@ -1,5 +1,7 @@
 import os
-from pdf_extract_kit.utils.data_preprocess import load_pdf
+from pathlib import Path
+from PIL import Image
+from PDFLoaders.pdf_extract_kit.utils.data_preprocess import load_pdf
 
 
 class BaseTask:

@@ -3,8 +3,8 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from pdf_extract_kit.registry.registry import MODEL_REGISTRY
-from pdf_extract_kit.utils.visualization import visualize_bbox
+from PDFLoaders.pdf_extract_kit.registry.registry import MODEL_REGISTRY
+from PDFLoaders.pdf_extract_kit.utils.visualization import visualize_bbox
 
 from .layoutlmv3_util.model_init import Layoutlmv3_Predictor
 

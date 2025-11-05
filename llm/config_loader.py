@@ -87,33 +87,44 @@ def ui_default_backend() -> str:
     return str(_require(get_config(), "ui.default_backend"))
 
 
-def resolve_gemini_settings(override_model=None, override_temperature=None, override_max_tokens=None):
+def resolve_gemini_settings(
+    override_api_key: Optional[str] = None,
+    override_model: Optional[str] = None,
+    override_temperature: Optional[float] = None,
+    override_top_p: Optional[float] = None,
+    override_max_tokens: Optional[int] = None,
+) -> Dict[str, Any]:
     """Resolve Gemini settings from config and secrets."""
-    try:
-        import streamlit as st
-        # Try to get from Streamlit secrets first
-        if hasattr(st, 'secrets'):
-            # Check for [gemini] section in secrets.toml with gemini_api_key
-            if 'gemini' in st.secrets and 'gemini_api_key' in st.secrets['gemini']:
-                api_key = st.secrets['gemini']['gemini_api_key']
-            # Check for [gemini] section with api_key (old format)
-            elif 'gemini' in st.secrets and 'api_key' in st.secrets['gemini']:
-                api_key = st.secrets['gemini']['api_key']
-            # Fallback to direct gemini_api_key
-            elif 'gemini_api_key' in st.secrets:
-                api_key = st.secrets['gemini_api_key']
+    # If api_key is explicitly provided, use it
+    if override_api_key:
+        api_key = override_api_key
+    else:
+        # Try to get from Streamlit secrets or config
+        try:
+            import streamlit as st
+            # Try to get from Streamlit secrets first
+            if hasattr(st, 'secrets'):
+                # Check for [gemini] section in secrets.toml with gemini_api_key
+                if 'gemini' in st.secrets and 'gemini_api_key' in st.secrets['gemini']:
+                    api_key = st.secrets['gemini']['gemini_api_key']
+                # Check for [gemini] section with api_key (old format)
+                elif 'gemini' in st.secrets and 'api_key' in st.secrets['gemini']:
+                    api_key = st.secrets['gemini']['api_key']
+                # Fallback to direct gemini_api_key
+                elif 'gemini_api_key' in st.secrets:
+                    api_key = st.secrets['gemini_api_key']
+                else:
+                    # Fallback to config file
+                    cfg = _require(get_config(), "llm.gemini")
+                    api_key = cfg.get("api_key", "")
             else:
                 # Fallback to config file
                 cfg = _require(get_config(), "llm.gemini")
                 api_key = cfg.get("api_key", "")
-        else:
-            # Fallback to config file
+        except ImportError:
+            # Streamlit not available, use config file
             cfg = _require(get_config(), "llm.gemini")
             api_key = cfg.get("api_key", "")
-    except ImportError:
-        # Streamlit not available, use config file
-        cfg = _require(get_config(), "llm.gemini")
-        api_key = cfg.get("api_key", "")
 
     if not api_key:
         raise ValueError("Gemini API key not found in secrets.toml or config/app.yaml")
@@ -123,11 +134,14 @@ def resolve_gemini_settings(override_model=None, override_temperature=None, over
         "api_key": api_key,
         "model": override_model or cfg.get("model", "gemini-2.0-flash-exp"),
         "temperature": override_temperature if override_temperature is not None else cfg.get("temperature", 0.7),
+        "top_p": override_top_p if override_top_p is not None else cfg.get("top_p", 0.95),
         "max_tokens": override_max_tokens if override_max_tokens is not None else cfg.get("max_tokens", 2048),
     }
 
 
 def resolve_lmstudio_settings(
+    override_base_url: Optional[str] = None,
+    override_api_key: Optional[str] = None,
     override_model: Optional[str] = None,
     override_temperature: Optional[float] = None,
     override_top_p: Optional[float] = None,
@@ -135,13 +149,21 @@ def resolve_lmstudio_settings(
 ) -> Dict[str, Any]:
     cfg = _require(get_config(), "llm.lmstudio")
 
-    base_url = _require(cfg, "base_url")
-    # Allow env override for base_url if provided
-    base_url = os.getenv("LMSTUDIO_BASE_URL", base_url)
+    # Base URL
+    if override_base_url:
+        base_url = override_base_url
+    else:
+        base_url = _require(cfg, "base_url")
+        # Allow env override for base_url if provided
+        base_url = os.getenv("LMSTUDIO_BASE_URL", base_url)
 
-    api_key_env = _require(cfg, "api_key.env")
-    api_key_default = _require(cfg, "api_key.default")
-    api_key = os.getenv(str(api_key_env), api_key_default)
+    # API Key
+    if override_api_key:
+        api_key = override_api_key
+    else:
+        api_key_env = _require(cfg, "api_key.env")
+        api_key_default = _require(cfg, "api_key.default")
+        api_key = os.getenv(str(api_key_env), api_key_default)
 
     model_cfg = _require(cfg, "model")
     model = override_model if override_model is not None else os.getenv("LMSTUDIO_MODEL", model_cfg)

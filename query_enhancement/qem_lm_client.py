@@ -7,8 +7,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from llm.LLM_API import call_gemini
-from llm.LLM_LOCAL import call_lmstudio
+from llm.client_factory import LLMClientFactory
 
 
 class QEMLLMClient:
@@ -62,7 +61,7 @@ class QEMLLMClient:
 
     def _call_gemini(self, prompt: str) -> str:
         """
-        Call Gemini through the shared helper.
+        Call Gemini through the new LLM client factory.
         """
         temperature = self.overrides.get("temperature")
         max_tokens = self.overrides.get("max_tokens")
@@ -72,21 +71,32 @@ class QEMLLMClient:
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": prompt},
         ]
-        response = call_gemini(messages, model_name=model, temperature=temperature, max_tokens=max_tokens)
+        
+        # Use new LLM client factory
+        client = LLMClientFactory.create_gemini(
+            api_key=None,
+            model=model
+        )
+        response = client.generate(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        
         if self.logger:
             self.logger.debug("Gemini response: %s", response)
         return response
 
     def _call_lmstudio(self, prompt: str) -> str:
         """
-        Call LM Studio through the shared helper.
+        Call LM Studio through the new LLM client factory.
         """
         temperature = self.overrides.get("temperature")
         top_p = self.overrides.get("top_p")
         max_tokens = self.overrides.get("max_tokens")
         model = self.overrides.get("model")
 
-        # call_lmstudio expects floats or None; guard conversions
+        # Prepare kwargs
         kwargs: Dict[str, Any] = {}
         if temperature is not None:
             kwargs["temperature"] = float(temperature)
@@ -99,7 +109,14 @@ class QEMLLMClient:
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": prompt},
         ]
-        response = call_lmstudio(messages, model=model, **kwargs)
+        
+        # Use new LLM client factory
+        client = LLMClientFactory.create_lmstudio(
+            base_url=None,
+            model=model
+        )
+        response = client.generate(messages=messages, **kwargs)
+        
         if self.logger:
             self.logger.debug("LM Studio response: %s", response)
         return response

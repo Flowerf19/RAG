@@ -1,9 +1,10 @@
 import os
 import cv2
 import torch
-from pdf_extract_kit.registry import MODEL_REGISTRY
-from pdf_extract_kit.utils.visualization import visualize_bbox
-from pdf_extract_kit.dataset.dataset import ImageDataset
+import numpy as np
+from PDFLoaders.pdf_extract_kit.registry import MODEL_REGISTRY
+from PDFLoaders.pdf_extract_kit.utils.visualization import visualize_bbox
+from PDFLoaders.pdf_extract_kit.dataset.dataset import ImageDataset
 
 @MODEL_REGISTRY.register('layout_detection_yolo')
 class LayoutDetectionYOLO:

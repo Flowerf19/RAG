@@ -11,7 +11,7 @@ from paddleocr import PaddleOCR
 from ppocr.utils.logging import get_logger
 from ppocr.utils.utility import check_and_read, alpha_to_color, binarize_img
 from tools.infer.utility import draw_ocr_box_txt, get_rotate_crop_image, get_minarea_rect_crop
-from pdf_extract_kit.registry import MODEL_REGISTRY
+from PDFLoaders.pdf_extract_kit.registry import MODEL_REGISTRY
 logger = get_logger()
 
 def img_decode(content: bytes):

@@ -1,5 +1,5 @@
-from pdf_extract_kit.registry.registry import TASK_REGISTRY
-from pdf_extract_kit.tasks.base_task import BaseTask
+from PDFLoaders.pdf_extract_kit.registry.registry import TASK_REGISTRY
+from PDFLoaders.pdf_extract_kit.tasks.base_task import BaseTask
 
 @TASK_REGISTRY.register("formula_detection")
 class FormulaDetectionTask(BaseTask):

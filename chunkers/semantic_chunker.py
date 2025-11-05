@@ -8,18 +8,13 @@ Semantic Chunker (spaCy-optimized, compact)
 import hashlib
 import re
 from typing import List, Optional
+from pathlib import Path
 from .base_chunker import BaseChunker
 from .model import (
     Chunk, ChunkSet, ChunkType, ChunkStrategy,
     ProvenanceAgg, BlockSpan, Score
 )
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "PDFLoaders"))
-try:
-    from PDFLoaders.provider import PDFDocument 
-except ImportError:
-    from provider import PDFDocument  # type: ignore
+from PDFLoaders.provider import PDFDocument
 
 # Block removed - using PageContent
 

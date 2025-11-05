@@ -83,7 +83,7 @@ Module `query_enhancement/` tích hợp với pipeline RAG chính:
 Ví dụ sử dụng trong backend_connector:
 
 ```python
-from pipeline.query_enhancement import QueryEnhancementModule
+from query_enhancement import QueryEnhancementModule
 
 # Khởi tạo QEM
 qem = QueryEnhancementModule(app_config)
@@ -111,7 +111,7 @@ enhanced_queries = qem.enhance("tìm kiếm thông tin về AI")
 ## Ví dụ sử dụng (Python)
 
 ```python
-from pipeline.query_enhancement import QueryEnhancementModule
+from query_enhancement import QueryEnhancementModule
 
 # Khởi tạo với config mặc định
 qem = QueryEnhancementModule(app_config={})

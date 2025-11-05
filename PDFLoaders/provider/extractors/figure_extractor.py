@@ -1,5 +1,5 @@
 """
-Figure Extractor - Extract and group images with OCR
+Figure Extractor - Extract and group images with OCR and optional ML-based detection
 """
 
 from pathlib import Path
@@ -13,16 +13,50 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Try to import PDF-Extract-Kit tasks (optional, for advanced figure/formula detection)
+try:
+    from PDFLoaders.pdf_extract_kit.tasks import (
+        LayoutDetectionTask, 
+        FormulaDetectionTask,
+        _layout_available,
+        _formula_available
+    )
+    LAYOUT_DETECTION_AVAILABLE = _layout_available
+    FORMULA_DETECTION_AVAILABLE = _formula_available
+except ImportError:
+    LayoutDetectionTask = None
+    FormulaDetectionTask = None
+    LAYOUT_DETECTION_AVAILABLE = False
+    FORMULA_DETECTION_AVAILABLE = False
+
 
 class FigureExtractor:
-    """Extract figures (images/diagrams) from PDF with OCR support"""
+    """Extract figures (images/diagrams) from PDF with OCR support and optional ML-based detection"""
     
-    def __init__(self, ocr_extractor: Optional['OCRExtractor'] = None):
+    def __init__(self, ocr_extractor: Optional['OCRExtractor'] = None, use_ml_detection: bool = False):
         """
         Args:
             ocr_extractor: Optional OCR extractor for figure text extraction
+            use_ml_detection: Use PDF-Extract-Kit's ML-based layout and formula detection
         """
         self.ocr_extractor = ocr_extractor
+        self.use_ml_detection = use_ml_detection and (LAYOUT_DETECTION_AVAILABLE or FORMULA_DETECTION_AVAILABLE)
+        self.layout_detector = None
+        self.formula_detector = None
+        
+        if self.use_ml_detection:
+            try:
+                logger.info("ML-based figure detection available (layout + formula detection)")
+                # LayoutDetectionTask and FormulaDetectionTask require model instances
+                # For now, keep them optional and log availability
+                logger.info("ML detection tasks available but not initialized (requires model configuration)")
+                self.use_ml_detection = False  # Disable until models are configured
+            except Exception as e:
+                logger.warning(f"Could not initialize ML detectors: {e}")
+                self.use_ml_detection = False
+        
+        if not self.use_ml_detection:
+            logger.debug("Using spatial-grouping figure extraction (default)")
     
     def extract(self, fitz_doc, page, page_num: int) -> List[Dict[str, Any]]:
         """

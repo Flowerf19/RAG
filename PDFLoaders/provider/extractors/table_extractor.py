@@ -1,5 +1,5 @@
 """
-Table Extractor - Extract tables from PDF with OCR enhancement
+Table Extractor - Extract tables from PDF with OCR enhancement and optional ML-based parsing
 """
 
 import pdfplumber
@@ -17,16 +17,43 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Try to import PDF-Extract-Kit TableParsingTask (optional, for advanced table parsing)
+try:
+    from PDFLoaders.pdf_extract_kit.tasks import TableParsingTask, _table_available
+    TABLE_PARSING_AVAILABLE = _table_available
+except ImportError:
+    TableParsingTask = None
+    TABLE_PARSING_AVAILABLE = False
+
 
 class TableExtractor:
-    """Extract tables using pdfplumber with smart filtering and OCR enhancement"""
+    """Extract tables using pdfplumber with smart filtering, OCR enhancement, and optional ML-based parsing"""
     
-    def __init__(self, ocr_extractor: Optional['OCRExtractor'] = None):
+    def __init__(self, ocr_extractor: Optional['OCRExtractor'] = None, use_ml_parsing: bool = False):
         """
         Args:
             ocr_extractor: Optional OCR extractor for table enhancement
+            use_ml_parsing: Use PDF-Extract-Kit's ML-based table parsing (requires CUDA GPU)
         """
         self.ocr_extractor = ocr_extractor
+        self.use_ml_parsing = use_ml_parsing and TABLE_PARSING_AVAILABLE
+        self.table_parser = None
+        
+        if self.use_ml_parsing:
+            try:
+                # Initialize TableParsingTask with model
+                # Note: This requires CUDA GPU and model weights
+                logger.info("Initializing ML-based table parser (requires CUDA)...")
+                # TableParsingTask requires a model instance
+                # For now, we'll keep it optional and log availability
+                logger.info("ML table parsing is available but not initialized (requires model configuration)")
+                self.use_ml_parsing = False  # Disable until model is configured
+            except Exception as e:
+                logger.warning(f"Could not initialize ML table parser: {e}")
+                self.use_ml_parsing = False
+        
+        if not self.use_ml_parsing:
+            logger.debug("Using pdfplumber-based table extraction (default)")
     
     def extract(self, page_num: int, pdf_path: Path, fitz_page=None) -> List[List[List[str]]]:
         """

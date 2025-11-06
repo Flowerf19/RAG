@@ -1,36 +1,303 @@
-# Module llm — LLM Integration và Chat Interface
+# LLM Module — Large Language Model Integration
 
-Phiên bản: chi tiết module LLM cho hệ thống RAG (Retrieval-Augmented Generation).
+Version: OOP-refactored LLM module for RAG system with factory pattern and multiple providers.
 
-Mô tả ngắn: thư mục `llm/` chứa các thành phần xử lý tích hợp với Large Language Models (LLMs), bao gồm clients cho các API (Gemini, LM Studio), chat interface (Streamlit UI), và logic xử lý messages. Module này kết nối retrieval system với LLMs để tạo ra responses thông minh dựa trên context.
+**Short description**: The `llm/` directory contains components for integrating with Large Language Models (LLMs), including clients for various APIs (Gemini, LM Studio), chat interfaces, and message handling logic. This module connects the retrieval system with LLMs to generate intelligent responses based on context.
 
-## Mục tiêu và phạm vi
+## Objectives and Scope
 
-- Tách trách nhiệm: xử lý giao tiếp với LLMs và UI chat
-- Cung cấp multiple LLM backends (Gemini API, LM Studio local)
-- Hỗ trợ RAG workflow với context retrieval
-- Quản lý cấu hình và message formatting
+- **Single Responsibility**: Handle LLM communication and chat UI
+- **Multiple LLM Backends**: Support Gemini API and LM Studio local servers
+- **RAG Workflow**: Integrate with context retrieval for augmented generation
+- **Configuration Management**: Centralized config handling and message formatting
 
-## Kiến trúc tổng quan
+## High-Level Architecture
 
-Thư mục `llm/` gồm các phần chính:
+The `llm/` module consists of:
 
-- `LLM_FE.py` — Streamlit UI cho chat interface với RAG
-- `LLM_API.py` — Client cho Google Gemini API
-- `LLM_LOCAL.py` — Client cho LM Studio (local LLM)
-- `chat_handler.py` — Logic xử lý messages và format prompts
-- `config_loader.py` — Quản lý cấu hình từ YAML files
-- `chat_styles.css` — CSS styling cho chat UI
+- **`client_factory.py`** — Factory pattern for creating LLM clients
+- **`base_client.py`** — Abstract base class defining the LLM client interface
+- **`gemini_client.py`** — Google Gemini API implementation
+- **`lmstudio_client.py`** — LM Studio local server implementation
+- **`chat_handler.py`** — Message formatting and conversation management
+- **`config_loader.py`** — YAML configuration management
+- **`chat_styles.css`** — CSS styling for chat interfaces
 
-Luồng dữ liệu điển hình:
-
-```text
-User Query → LLM_FE.py (Streamlit UI)
+**Data Flow**:
+```
+User Query → UI (Streamlit)
   → chat_handler.py (format messages)
   → retrieval system (get context)
-  → LLM_API.py or LLM_LOCAL.py (call LLM)
+  → LLM Client (Gemini/LM Studio)
   → format response → display to user
 ```
+
+## Key Components (Detailed)
+
+### `BaseLLMClient` (`base_client.py`)
+
+Abstract base class defining the contract for all LLM providers:
+
+- **`generate(messages, **kwargs)`** — Core method for text generation
+- **`is_available()`** — Check service availability
+- **Configuration management** — Model settings, temperature, max_tokens
+- **Polymorphism support** — All clients implement the same interface
+
+### `LLMClientFactory` (`client_factory.py`)
+
+Factory pattern for easy client instantiation:
+
+- **`create(provider)`** — Create client by enum
+- **`create_gemini()`** — Pre-configured Gemini client
+- **`create_lmstudio()`** — Pre-configured LM Studio client
+- **`create_from_string()`** — Create from string name (UI-friendly)
+
+### `GeminiClient` (`gemini_client.py`)
+
+Google Gemini API implementation:
+
+- **Format conversion**: OpenAI → Gemini message format
+- **Streaming support**: Real-time response generation
+- **Error handling**: API failures, rate limits, authentication
+- **Configuration**: API key, model selection, generation parameters
+
+### `LMStudioClient` (`lmstudio_client.py`)
+
+LM Studio local server implementation:
+
+- **OpenAI compatibility**: Uses OpenAI client library
+- **Local inference**: No API keys required
+- **Parameter tuning**: Temperature, top_p, max_tokens
+- **Model management**: Dynamic model switching
+
+### `ChatHandler` (`chat_handler.py`)
+
+Message processing and formatting:
+
+- **`build_messages()`** — Create conversation with system prompts
+- **`load_system_prompt()`** — Load prompts from files
+- **`format_system_prompt()`** — Inject context into templates
+- **History management** — Conversation state tracking
+
+### `ConfigLoader` (`config_loader.py`)
+
+Centralized configuration management:
+
+- **YAML loading**: Parse configuration files
+- **Environment resolution**: API keys, endpoints, paths
+- **Provider settings**: Gemini and LM Studio configurations
+- **Path management**: File and directory resolution
+
+## Usage Examples
+
+### Python (OOP Style)
+
+```python
+from llm.client_factory import LLMClientFactory
+from llm.chat_handler import ChatHandler
+
+# Create LLM client
+client = LLMClientFactory.create_gemini(temperature=0.7)
+
+# Build messages with RAG context
+handler = ChatHandler()
+messages = handler.build_messages(
+    user_query="What is RAG?",
+    context="RAG stands for Retrieval-Augmented Generation..."
+)
+
+# Generate response
+response = client.generate(messages, max_tokens=512)
+print(response)
+```
+
+### Factory Methods
+
+```python
+# Gemini client
+gemini = LLMClientFactory.create_gemini(
+    api_key="your-key",
+    model="gemini-1.5-pro",
+    temperature=0.8
+)
+
+# LM Studio client
+lmstudio = LLMClientFactory.create_lmstudio(
+    base_url="http://localhost:1234/v1",
+    model="local-model-name"
+)
+
+# Check availability
+if gemini.is_available():
+    response = gemini.generate([{"role": "user", "content": "Hello"}])
+```
+
+### Integration with RAG Pipeline
+
+```python
+from pipeline.backend_connector import BackendConnector
+from llm.client_factory import LLMClientFactory
+
+# Get retrieval context
+connector = BackendConnector()
+context = connector.fetch_retrieval("user query")
+
+# Create client and generate
+client = LLMClientFactory.create_from_string("gemini")
+messages = ChatHandler().build_messages("user query", context)
+response = client.generate(messages)
+```
+
+## API Contracts
+
+### `BaseLLMClient.generate()`
+- **Input**: `messages` (List[Dict[str, str]]) - OpenAI format
+- **Parameters**: `temperature`, `max_tokens`, `**kwargs`
+- **Output**: `str` - Generated response text
+- **Raises**: `Exception` on API failures
+
+### `LLMClientFactory.create_*()`
+- **Input**: Provider-specific configuration
+- **Output**: Configured `BaseLLMClient` instance
+- **Factory Methods**: `create_gemini()`, `create_lmstudio()`, `create_from_string()`
+
+### `ChatHandler.build_messages()`
+- **Input**: `user_query` (str), `context` (str)
+- **Output**: `List[Dict[str, str]]` - Formatted messages
+- **Includes**: System prompt + context injection
+
+## Mermaid: LLM Integration Flow
+
+```mermaid
+flowchart TD
+    A[User Query] --> B[ChatHandler]
+    B --> C[BackendConnector]
+    C --> D[Retrieval System]
+    D --> E[Context Retrieved]
+    E --> F[ChatHandler.build_messages]
+    F --> G{Provider Selection}
+    G -->|Gemini| H[GeminiClient]
+    G -->|LM Studio| I[LMStudioClient]
+    H --> J[API Call]
+    I --> J
+    J --> K[Response Generated]
+    K --> L[UI Display]
+```
+
+ASCII fallback:
+```
+LLM Flow:
+1) User query → ChatHandler
+2) Get context from retrieval
+3) Build messages with context
+4) Select provider (Gemini/LM Studio)
+5) Call LLM API
+6) Return formatted response
+7) Display in UI
+```
+
+## Testing & Validation
+
+### Unit Tests
+```python
+# Test client creation
+client = LLMClientFactory.create_gemini()
+assert client.is_available()
+
+# Test message building
+messages = ChatHandler().build_messages("query", "context")
+assert len(messages) >= 2  # system + user
+
+# Mock API responses for testing
+```
+
+### Integration Tests
+```python
+# Test full RAG flow
+context = connector.fetch_retrieval("test query")
+messages = handler.build_messages("test query", context)
+response = client.generate(messages)
+assert isinstance(response, str)
+```
+
+## Operational Notes
+
+### Gemini Provider
+- **API Key Required**: Set `GEMINI_API_KEY` environment variable
+- **Rate Limits**: Free tier has token limits (~30k/month)
+- **Models**: `gemini-1.5-pro`, `gemini-1.5-flash`
+- **Cost**: Pay-per-token for high usage
+
+### LM Studio Provider
+- **Local Server**: Must run LM Studio locally on port 1234
+- **No API Key**: Uses local models only
+- **Models**: Any GGUF model loaded in LM Studio
+- **Performance**: Depends on local hardware
+
+### Configuration
+- **Primary Config**: `config/app.yaml`
+- **Environment Variables**: Override YAML settings
+- **Secrets**: Use `.streamlit/secrets.toml` for API keys
+
+## Architecture Pattern
+
+**Factory Pattern Implementation**:
+```
+BaseLLMClient (Abstract)
+├── GeminiClient (Concrete)
+└── LMStudioClient (Concrete)
+
+LLMClientFactory
+├── create(provider)
+├── create_gemini()
+├── create_lmstudio()
+└── create_from_string()
+```
+
+**Benefits**:
+- **Polymorphism**: All clients implement same interface
+- **Extensibility**: Easy to add new providers
+- **Configuration**: Centralized client creation
+- **Testing**: Mock clients for unit tests
+
+## Migration from Legacy Code
+
+### Old Way (Deprecated)
+```python
+# ❌ Don't use
+from llm.LLM_API import call_gemini
+response = call_gemini(messages)
+```
+
+### New Way (OOP)
+```python
+# ✅ Use this
+from llm.client_factory import LLMClientFactory
+client = LLMClientFactory.create_gemini()
+response = client.generate(messages)
+```
+
+**Breaking Changes**:
+- `LLM_API.py` → `gemini_client.py`
+- `LLM_LOCAL.py` → `lmstudio_client.py`
+- `LLM_FE.py` → `ui/app.py`
+- Function calls → Object methods
+
+## Contribution Guidelines
+
+- **OOP Principles**: Use inheritance, polymorphism, encapsulation
+- **Factory Pattern**: Always use `LLMClientFactory` for client creation
+- **Error Handling**: Implement proper exception handling in all clients
+- **Documentation**: Add docstrings for all public methods
+- **Testing**: Write unit tests for new providers
+- **Configuration**: Use `config_loader.py` for settings management
+
+## Reference Links
+
+- **Pipeline Integration**: `pipeline/backend_connector.py`
+- **UI Components**: `ui/app.py` and `ui/components/`
+- **System Prompts**: `prompts/rag_system_prompt.txt`
+- **Configuration**: `config/app.yaml`
 
 ## Các module chính (chi tiết)
 

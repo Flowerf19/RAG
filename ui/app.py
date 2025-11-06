@@ -280,7 +280,7 @@ class RAGChatApp:
                             st.caption(f"• {key}: {value}")
                 
                 if sources:
-                    st.write(f"**Top Sources:**")
+                    st.write("**Top Sources:**")
                     for i, src in enumerate(sources[:3], 1):
                         doc_name = src.get('metadata', {}).get('source', 'Unknown')
                         score = src.get('score', 0)

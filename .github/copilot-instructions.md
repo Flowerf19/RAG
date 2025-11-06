@@ -47,6 +47,11 @@ Modular RAG pipeline for PDF processing with hybrid retrieval (vector + keyword 
 - **`BM25/`** - Keyword-based retrieval
   - **`bm25_manager.py`** (151 lines): BM25 indexing and search operations
   - `whoosh_indexer.py`, `ingest_manager.py`, `search_service.py`: Core BM25 infrastructure
+- **`ui/`** - Streamlit UI with OOP components
+  - `app.py` (464 lines): Main Streamlit app with RAGChatApp class
+  - `components/`: ChatDisplay, SourceDisplay, Sidebar classes
+  - Dual import pattern: try/except for `python -m` vs direct execution
+
 # RAG — AI Coding Agent Quick Guide
 
 Short, actionable notes to make an AI coding agent productive in this repo.

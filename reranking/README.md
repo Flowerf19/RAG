@@ -33,28 +33,35 @@ Query + Documents (List[str])
   -> RerankResult[] (sorted by score)
 ```
 
-## Các module chính (chi tiết)
+## Supported Reranker Types
 
-### i_reranker.py
+The module supports the following reranker implementations:
 
-- Mục đích: Định nghĩa interface chung cho tất cả reranker.
-- Tính năng:
-  - `profile` property: Trả về RerankerProfile (model_id, provider, max_lengths, is_local).
-  - `rerank(query: str, documents: List[str], top_k: int = 10) -> List[RerankResult]`: Thực hiện rerank.
-  - `test_connection() -> bool`: Kiểm tra kết nối/model.
+- **`BGE_M3_HF_LOCAL`** — BGE-M3 model running locally via HuggingFace transformers
+- **`BGE_M3_HF_API`** — BGE-M3 model via HuggingFace Inference API
+- **`BGE_M3_OLLAMA`** — BGE-M3 model via Ollama (planned implementation)
+- **`COHERE`** — Cohere's reranking API
+- **`JINA`** — Jina AI's reranking API
 
-### reranker_factory.py
+## Architecture Pattern
 
-- Mục đích: Factory để tạo reranker dễ dàng.
-- Tính năng:
-  - `create(reranker_type, api_token=None, model_name=None, device="cpu")`: Tạo reranker dựa trên type.
+**Factory Pattern Implementation**:
+```
+IReranker (Interface)
+├── BaseAPIReranker (Abstract)
+│   ├── BGE3HFAPIReranker (Concrete)
+│   ├── CohereReranker (Concrete)
+│   └── JinaReranker (Concrete)
+└── BaseLocalReranker (Abstract)
+    ├── BGE3HFLOCALReranker (Concrete)
+    └── Qwen3HFLOCALReranker (Concrete - planned)
+```
 
-### providers/
-
-- `base_api_reranker.py`: Base class cho reranker sử dụng API. Cung cấp `_call_api`, `_initialize_profile`.
-- `base_local_reranker.py`: Base class cho reranker local. Cung cấp `_load_model`, `_compute_scores`.
-- `bge_m3_hf_api_reranker.py`: Implementation cho BGE-M3 via HF API.
-- `bge_m3_hf_local_reranker.py`: Implementation cho BGE-M3 local.
+**Key Design Principles**:
+- **Interface Segregation**: `IReranker` defines minimal contract
+- **Template Method**: Base classes handle common logic
+- **Factory Pattern**: `RerankerFactory` for easy instantiation
+- **Fallback Handling**: Graceful degradation on errors
 
 ## 🔧 Cài đặt và thiết lập model
 

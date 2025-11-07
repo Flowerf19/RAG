@@ -11,7 +11,7 @@ def _repo_root() -> Path:
 
     # Go up until we find a directory containing 'pipeline' and 'llm' directories
     for parent in [current] + list(current.parents):
-        if (parent / 'pipeline').exists() and (parent / 'llm').exists():
+        if (parent / "pipeline").exists() and (parent / "llm").exists():
             return parent
 
     # Fallback to going up 2 levels (original logic)
@@ -71,7 +71,11 @@ def paths_data_dir() -> Path:
     rel = _require(get_config(), "paths.data_dir")
     base_path = Path(str(rel))
     if not base_path.is_absolute():
-        base_path = repo_path(*base_path.parts) if base_path.parts else repo_path(str(base_path))
+        base_path = (
+            repo_path(*base_path.parts)
+            if base_path.parts
+            else repo_path(str(base_path))
+        )
     if base_path.name.lower() != "pdf":
         base_path = base_path / "pdf"
     base_path.mkdir(parents=True, exist_ok=True)
@@ -102,17 +106,18 @@ def resolve_gemini_settings(
         # Try to get from Streamlit secrets or config
         try:
             import streamlit as st
+
             # Try to get from Streamlit secrets first
-            if hasattr(st, 'secrets'):
+            if hasattr(st, "secrets"):
                 # Check for [gemini] section in secrets.toml with gemini_api_key
-                if 'gemini' in st.secrets and 'gemini_api_key' in st.secrets['gemini']:
-                    api_key = st.secrets['gemini']['gemini_api_key']
+                if "gemini" in st.secrets and "gemini_api_key" in st.secrets["gemini"]:
+                    api_key = st.secrets["gemini"]["gemini_api_key"]
                 # Check for [gemini] section with api_key (old format)
-                elif 'gemini' in st.secrets and 'api_key' in st.secrets['gemini']:
-                    api_key = st.secrets['gemini']['api_key']
+                elif "gemini" in st.secrets and "api_key" in st.secrets["gemini"]:
+                    api_key = st.secrets["gemini"]["api_key"]
                 # Fallback to direct gemini_api_key
-                elif 'gemini_api_key' in st.secrets:
-                    api_key = st.secrets['gemini_api_key']
+                elif "gemini_api_key" in st.secrets:
+                    api_key = st.secrets["gemini_api_key"]
                 else:
                     # Fallback to config file
                     cfg = _require(get_config(), "llm.gemini")
@@ -133,9 +138,15 @@ def resolve_gemini_settings(
     return {
         "api_key": api_key,
         "model": override_model or cfg.get("model", "gemini-2.0-flash-exp"),
-        "temperature": override_temperature if override_temperature is not None else cfg.get("temperature", 0.7),
-        "top_p": override_top_p if override_top_p is not None else cfg.get("top_p", 0.95),
-        "max_tokens": override_max_tokens if override_max_tokens is not None else cfg.get("max_tokens", 2048),
+        "temperature": override_temperature
+        if override_temperature is not None
+        else cfg.get("temperature", 0.7),
+        "top_p": override_top_p
+        if override_top_p is not None
+        else cfg.get("top_p", 0.95),
+        "max_tokens": override_max_tokens
+        if override_max_tokens is not None
+        else cfg.get("max_tokens", 2048),
     }
 
 
@@ -166,12 +177,26 @@ def resolve_lmstudio_settings(
         api_key = os.getenv(str(api_key_env), api_key_default)
 
     model_cfg = _require(cfg, "model")
-    model = override_model if override_model is not None else os.getenv("LMSTUDIO_MODEL", model_cfg)
+    model = (
+        override_model
+        if override_model is not None
+        else os.getenv("LMSTUDIO_MODEL", model_cfg)
+    )
 
     sampling = _require(cfg, "sampling")
-    temperature = override_temperature if override_temperature is not None else sampling.get("temperature", None)
-    top_p = override_top_p if override_top_p is not None else sampling.get("top_p", None)
-    max_tokens = override_max_tokens if override_max_tokens is not None else sampling.get("max_tokens", None)
+    temperature = (
+        override_temperature
+        if override_temperature is not None
+        else sampling.get("temperature", None)
+    )
+    top_p = (
+        override_top_p if override_top_p is not None else sampling.get("top_p", None)
+    )
+    max_tokens = (
+        override_max_tokens
+        if override_max_tokens is not None
+        else sampling.get("max_tokens", None)
+    )
 
     return {
         "base_url": base_url,

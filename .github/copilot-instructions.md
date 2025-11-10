@@ -81,6 +81,7 @@ Short, actionable notes to make an AI coding agent productive in this repo.
    - process PDFs to vectors/BM25: `python -c "from pipeline.rag_pipeline import RAGPipeline; RAGPipeline().process_directory('data/pdf')"`
    - run UI: `streamlit run ui/app.py` (open http://localhost:8501)
    - ⚠️ deprecated: `streamlit run llm/LLM_FE.py` (use `ui/app.py` instead)
+   - test single PDF: `python -c "from pipeline.rag_pipeline import RAGPipeline; p = RAGPipeline(); p.process_pdf('path/to/file.pdf')"`
 
 4) Project-specific conventions to follow exactly:
    - Single responsibility: loaders = extraction only; chunkers = text → chunks only; embedders = chunk → vector only; retriever = search only; UI = rendering only; LLM = model calling only.
@@ -95,6 +96,9 @@ Short, actionable notes to make an AI coding agent productive in this repo.
    - Embedding dimensions mismatch: Gemma=768, BGE-M3/E5=1024 → rebuild indexes when switching providers.
    - FAISS storage: `.faiss` + `.pkl` metadata in `data/vectors/`. Whoosh index in `data/bm25_index/` (watch `MAIN_WRITELOCK`).
    - spaCy models required (install `en_core_web_sm`, `vi_core_news_lg` when needed).
+   - **Logging configuration**: `logging.basicConfig()` must be called BEFORE importing modules that create loggers (see `pipeline/rag_pipeline.py`).
+   - **Table filtering**: Enhanced false positive detection removes header tables, watermarks, and non-content tables (reduces chunks by ~50% in document PDFs)
+   - **Embedder fallback**: Pipeline continues with zero vectors if embedder unavailable (graceful degradation).
 
 6) Quick pointers for search & rerank flow (use these files to trace behavior):
    - query enhancement: `query_enhancement/query_processor.py` (uses QEM core)

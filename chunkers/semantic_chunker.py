@@ -14,6 +14,7 @@ from .model import (
     Chunk, ChunkSet, ChunkType, ChunkStrategy,
     ProvenanceAgg, BlockSpan, Score
 )
+from .utils.text_cleaner import TextCleaner
 from PDFLoaders.provider import PDFDocument
 
 # Block removed - using PageContent
@@ -132,6 +133,9 @@ class SemanticChunker(BaseChunker):
         self._contrast_markers = {"however","but","nevertheless","nonetheless","yet","on the other hand","tuy nhiên","nhưng"}
         self._conclusion_markers = {"therefore","thus","hence","consequently","as a result","in conclusion","do đó","vì vậy","kết luận"}
 
+        # Text cleaner for embedding quality
+        self.text_cleaner = TextCleaner()
+
     # ---------------- Public API ----------------
 
     def chunk(self, document: PDFDocument) -> ChunkSet:
@@ -211,42 +215,42 @@ class SemanticChunker(BaseChunker):
     
     def _aggregate_page_content(self, page) -> str:
         """
-        Aggregate ALL page content: text + tables + figures (OCR-extracted).
+        Aggregate page content with priority-based source selection.
         
-        Critical: This ensures tables/figures (image-based) aren't lost during chunking.
-        PDFProvider extracts them with OCR, but we must include them in chunks!
+        Strategy (highest to lowest priority):
+        - Text: PyMuPDF (page.text) - already contains table content as plain text
+        - Tables: SKIP - already in page.text, adding them causes duplication
+        - Figures: OCR-extracted text from images/diagrams
         
         Args:
             page: PageContent object from PDFProvider
             
         Returns:
-            Full page text with tables and figures integrated
+            Full page text with figures integrated (NO tables to avoid duplication)
         """
         parts = []
         
-        # 1. Main text content
+        # 1. Main text content (PyMuPDF) - HIGHEST PRIORITY
+        # This already contains table content extracted as plain text
         if page.text and page.text.strip():
             parts.append(page.text.strip())
         
-        # 2. Tables (already extracted as text by PDFProvider with OCR enhancement)
-        if page.tables:
-            for table_idx, table in enumerate(page.tables, 1):
-                table_text = f"\n[Table {table_idx}]\n"
-                for row in table:
-                    # Convert row to readable text
-                    row_text = " | ".join(str(cell) for cell in row)
-                    table_text += row_text + "\n"
-                parts.append(table_text.strip())
+        # 2. Tables - SKIP TO AVOID DUPLICATION
+        # page.text (PyMuPDF) already contains: "Date\nVersion\n19/05/2015\n1.0"
+        # page.tables (pdfplumber) would add: "[Table 1]\nDate | Version\n19/05/2015 | 1.0"
+        # → Same content in different format = 100% duplication!
+        # Strategy: Use ONLY page.text (already has table content)
         
-        # 3. Figures (OCR-extracted text from images/diagrams)
-        if page.figures:
-            for fig_idx, figure in enumerate(page.figures, 1):
-                # Figures contain OCR text in 'text' field
-                fig_text = figure.get('text', '').strip()
-                if fig_text:
-                    parts.append(f"\n[Figure {fig_idx}]\n{fig_text}")
+        # 3. Figures (OCR-extracted text from images/diagrams) - SKIP TO AVOID DUPLICATION
+        # page.text (PyMuPDF) already contains figure content as plain text
+        # page.figures (OCR) would add the same content again
+        # Strategy: Use ONLY page.text (already has figure content)
         
         return "\n\n".join(parts)
+        
+        # Clean text for better embedding quality
+        aggregated_text = "\n\n".join(parts)
+        return self.text_cleaner.clean(aggregated_text)
 
     # ---------------- Grouping by coherence ----------------
 

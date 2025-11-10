@@ -68,6 +68,7 @@ class EmbeddingProcessor:
         embeddings_data = []
         skipped_chunks = 0
         total_chunks = len(chunk_set.chunks)
+        seen_hashes = set()  # Track processed content hashes
 
         # Call callback with initial state
         if chunk_callback:
@@ -77,11 +78,24 @@ class EmbeddingProcessor:
 
         for idx, chunk in enumerate(chunk_set.chunks, 1):
             # Create content hash for duplicate checking
-            hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
+            content_hash = hashlib.md5(chunk.text.encode('utf-8')).hexdigest()
+            
+            # Skip duplicate chunks
+            if content_hash in seen_hashes:
+                logger.debug(f"Skipping duplicate chunk {idx} (hash: {content_hash[:8]})")
+                skipped_chunks += 1
+                continue
+                
+            seen_hashes.add(content_hash)
 
-            # Test connection on first chunk
-            if idx == 1 and not self.embedder.test_connection():
-                raise ConnectionError("Cannot connect to embedder server!")
+            # Test connection on first chunk (warn but don't fail)
+            if idx == 1:
+                if not self.embedder.test_connection():
+                    logger.warning("⚠️ Cannot connect to embedder server! Using zero vectors as fallback.")
+                    self._embedder_available = False
+                else:
+                    self._embedder_available = True
+                    logger.info("✅ Embedder connection successful")
 
             # Log progress for every chunk
             logger.info(
@@ -89,11 +103,16 @@ class EmbeddingProcessor:
             )
 
             # Generate embedding
-            try:
-                embedding = self.embedder.embed(chunk.text)
-            except Exception as e:
-                logger.warning(f"Error embedding chunk {idx}: {e}")
+            if hasattr(self, '_embedder_available') and not self._embedder_available:
+                # Use zero vector fallback
                 embedding = [0.0] * self.embedder.dimension
+                logger.debug(f"Using zero vector for chunk {idx} (embedder unavailable)")
+            else:
+                try:
+                    embedding = self.embedder.embed(chunk.text)
+                except Exception as e:
+                    logger.warning(f"Error embedding chunk {idx}: {e}")
+                    embedding = [0.0] * self.embedder.dimension
 
             # Build chunk embedding data
             chunk_embedding = self._build_chunk_embedding(

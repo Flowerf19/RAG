@@ -11,7 +11,6 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-
 from embedders.embedder_factory import EmbedderFactory
 from embedders.embedder_type import EmbedderType
 from embedders.providers.ollama import OllamaModelSwitcher, OllamaModelType
@@ -23,11 +22,14 @@ from pipeline.processing.pdf_processor import create_pdf_processor, PDFProcessor
 from pipeline.processing.embedding_processor import EmbeddingProcessor
 from pipeline.storage.file_manager import FileManager, BatchSummaryManager
 
-# Configure logging
+# Configure logging FIRST before any other imports
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+
+
 logger = logging.getLogger(__name__)
  
  

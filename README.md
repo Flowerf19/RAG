@@ -64,13 +64,37 @@ streamlit run ui/app.py
 
 ##  Architecture Overview
 
-### Data Flow
+### System Overview
 
+```mermaid
+graph TD
+    A[PDF Documents] --> B[Document Processing]
+    B --> C[Text Extraction & OCR]
+    C --> D[Semantic Chunking]
+    D --> E[Vector Embeddings]
+    D --> F[Keyword Indexing]
+
+    G[User Query] --> H[Query Enhancement]
+    H --> I[Hybrid Search]
+    I --> J[Result Reranking]
+    J --> K[LLM Generation]
+
+    E --> L[(Vector DB)]
+    I --> L
+    L --> I
+
+    F --> M[(Keyword DB)]
+    I --> M
+    M --> I
+
+    K --> N[Final Answer]
+
+    style A fill:#e1f5fe
+    style N fill:#c8e6c9
+    style L fill:#fff3e0
+    style M fill:#fff3e0
 ```
-PDF Documents → Text Extraction → Semantic Chunking → Embeddings → Vector Index
-                                                                → BM25 Index
-User Query → Query Enhancement → Hybrid Search → Reranking → LLM Generation
-```
+
 
 ### Core Components
 
@@ -90,46 +114,21 @@ User Query → Query Enhancement → Hybrid Search → Reranking → LLM Generat
 
 ```mermaid
 graph TD
-    A[PDF Documents] --> B[PDFProvider]
-    B --> C{Auto-Detection}
-    C -->|Text-based| D[PyMuPDF Text]
-    C -->|Image-based| E[PaddleOCR]
-    C -->|Mixed| F[Hybrid Processing]
+    A[PDF Documents] --> B[PDF Processing]
+    B --> C[Page Content]
 
-    B --> G[TableExtractor]
-    G --> H[pdfplumber]
-    H --> I{>30% Empty?}
-    I -->|Yes| J[OCR Enhancement]
-    I -->|No| K[Clean Tables]
+    C --> D[Semantic Chunking]
+    D --> E[spaCy Segmentation]
+    E --> F[Coherence Analysis]
+    F --> G[ChunkSet]
 
-    B --> L[FigureExtractor]
-    L --> M[Image Grouping]
-    M --> N[PaddleOCR per Figure]
-
-    D --> O[PageContent]
-    E --> O
-    F --> O
-    J --> O
-    K --> O
-    N --> O
-
-    O --> P[SemanticChunker]
-    P --> Q[spaCy Segmentation]
-    Q --> R[Coherence Analysis]
-    R --> S[ChunkSet]
-
-    S --> T[Embedder]
-    T --> U{Provider}
-    U -->|Ollama| V[Local Models]
-    U -->|HuggingFace| W[API/Local]
-    U -->|OpenAI| X[Cloud API]
-
-    T --> Y[FAISS Index]
-    S --> Z[BM25 Index]
+    G --> H[Embedder]
+    H --> I[FAISS Index]
+    G --> J[BM25 Index]
 
     style A fill:#e1f5fe
-    style Y fill:#c8e6c9
-    style Z fill:#c8e6c9
+    style I fill:#c8e6c9
+    style J fill:#c8e6c9
 ```
 
 #### 🔍 Search Workflow
@@ -148,11 +147,6 @@ graph TD
 
     H --> I[Embedder]
     E --> I
-
-    I --> J{Provider}
-    J -->|Ollama| K[Gemma/BGE-M3]
-    J -->|HuggingFace| L[E5-Large/BGE-M3]
-    J -->|OpenAI| M[Text-Embedding]
 
     I --> N[Query Embeddings]
     H --> O[Keyword Extraction]
@@ -183,11 +177,6 @@ graph TD
     L -->|Yes| M[Reranker]
     L -->|No| N[Final Results]
 
-    M --> O{Provider}
-    O -->|BGE-M3 Local| P[HuggingFace Local]
-    O -->|BGE-M3 Ollama| Q[Ollama Models]
-    O -->|Cross-Encoder| R[Sentence Transformers]
-
     M --> S[Re-ranked Results]
     S --> N
 
@@ -211,12 +200,6 @@ graph TD
     E --> K[LLM Client]
     J --> K
 
-    K --> L{Provider}
-    L -->|Gemini| M[Google AI]
-    L -->|Ollama| N[Local Models]
-    L -->|OpenAI| O[GPT Series]
-    L -->|LMStudio| P[Local Server]
-
     K --> Q[Generated Response]
     Q --> R[Source Citations]
     R --> S[Confidence Scores]
@@ -238,21 +221,23 @@ graph TD
 
 ##  Project Structure
 
-`
-RAG/
- PDFLoaders/           # Advanced PDF processing with OCR
- chunkers/             # Semantic text segmentation
- embedders/            # Multi-provider embeddings
- pipeline/             # Core RAG orchestration
- query_enhancement/    # Query expansion module
- reranking/            # Result reranking
- BM25/                 # Keyword-based search
- llm/                  # LLM provider integration
- ui/                   # Streamlit web interface
- data/                 # Indexes and processed data
- config/               # Configuration files
- prompts/              # System prompts
-`
+```
+RAG-2/
+├── PDFLoaders/           # Advanced PDF processing with OCR
+├── chunkers/             # Semantic text segmentation
+├── embedders/            # Multi-provider embeddings
+├── pipeline/             # Core RAG orchestration
+├── query_enhancement/    # Query expansion module
+├── reranking/            # Result reranking
+├── BM25/                 # Keyword-based search
+├── llm/                  # LLM provider integration
+├── ui/                   # Streamlit web interface
+├── data/                 # Indexes and processed data
+├── config/               # Configuration files
+├── prompts/              # System prompts
+├── .github/              # GitHub workflows and templates
+└── .streamlit/           # Streamlit configuration
+```
 
 ##  Configuration
 

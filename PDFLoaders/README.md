@@ -16,17 +16,6 @@ The PDFLoaders module provides an intelligent PDF processing system capable of a
 - 🔄 **Graceful Degradation**: Falls back gracefully when OCR/services are unavailable
 - 📈 **Performance Optimized**: Memory-efficient processing with progress tracking
 
-## 🚀 Quick Start
-
-### Install Dependencies
-
-```bash
-# Install core dependencies
-pip install -r PDFLoaders/requirements/requirements.txt
-
-# Download PaddleOCR models (auto-downloaded on first use)
-# Models stored in ~/.paddleocr/
-```
 
 ### Basic Usage
 
@@ -156,14 +145,6 @@ Use individual extractors directly for specific processing needs, such as OCR on
 ### Progress Tracking for Large PDFs
 Monitor processing progress for large documents with custom callback functions.
 
-## 🧪 Testing
-
-### Unit Tests
-Test individual components like PDF loading, OCR extraction, and table processing.
-
-### Integration Tests
-Test complete workflows with sample PDFs to verify content extraction quality.
-
 ## 📦 Dependencies & Installation
 
 ### Core Dependencies
@@ -229,25 +210,11 @@ Enable detailed logging for the PDF provider and OCR extractor to troubleshoot i
 - `extract_figures(page_fitz, page_num)` → list of dictionaries
 - `__init__(ocr_extractor)`
 
-## 🤝 Contributing
-
-### Adding New Extractors
-Extend the base extractor interface, add to the extractors module, integrate with PDFProvider, create comprehensive tests, and update documentation.
-
-### Language Support Extension
-Add new language codes to the mapping, test with sample documents, and update documentation.
-
-### Performance Improvements
-Implement result caching, add parallel processing, optimize memory usage, and enhance progress callbacks.
-
-## 📄 License
-
-This module is part of the RAG Pipeline project and is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
 
 ## 👥 Authors
 
-- **@Flowerf19** - Nguyen Hoa (Hoaf.n.v@gmail.com) - Lead Developer
-- **@lybachpha** - LeeWar (Bachien0987@gmail.com) - Core Contributor
+- **@Flowerf19** - Nguyen Hoa (Hoaf.n.v@gmail.com) 
+- **@lybachpha** - Le Chien (Bachien0987@gmail.com) 
 
 ---
 

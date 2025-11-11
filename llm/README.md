@@ -299,154 +299,145 @@ response = client.generate(messages)
 - **System Prompts**: `prompts/rag_system_prompt.txt`
 - **Configuration**: `config/app.yaml`
 
-## Các module chính (chi tiết)
+## Key Components (Detailed)
 
 ### LLM_FE.py
 
-- Mục đích: giao diện Streamlit cho chatbot RAG
-- Tính năng:
-  - Chat interface với history
+- **Purpose**: Streamlit interface for RAG chatbot
+- **Features**:
+  - Chat interface with history
   - Backend selection (Gemini/LM Studio)
-  - Integration với retrieval system
-  - File upload và processing
+  - Integration with retrieval system
+  - File upload and processing
   - Settings management
 
 ### LLM_API.py
 
-- Mục đích: client cho Google Gemini API
-- Tính năng:
+- **Purpose**: Client for Google Gemini API
+- **Features**:
   - Convert OpenAI format → Gemini format
-  - Handle API calls với error handling
+  - Handle API calls with error handling
   - Streaming responses
   - Configuration management
 
 ### LLM_LOCAL.py
 
-- Mục đích: client cho LM Studio (local LLM server)
-- Tính năng:
+- **Purpose**: Client for LM Studio (local LLM server)
+- **Features**:
   - OpenAI-compatible API calls
   - Local model management
   - Parameter tuning (temperature, top_p, max_tokens)
 
 ### chat_handler.py
 
-- Mục đích: xử lý logic chat và message formatting
-- Tính năng:
-  - Load system prompts từ files
-  - Format messages với context
+- **Purpose**: Handle chat logic and message formatting
+- **Features**:
+  - Load system prompts from files
+  - Format messages with context
   - Build conversation history
   - Template management
 
 ### config_loader.py
 
-- Mục đích: centralized configuration management
-- Tính năng:
+- **Purpose**: Centralized configuration management
+- **Features**:
   - Load YAML configs
-  - Resolve API keys và endpoints
+  - Resolve API keys and endpoints
   - Path management
   - Environment variable handling
 
-## Hành vi "Auto-quét" (Auto-scan) và tích hợp với pipeline
+## Auto-Scan Behavior and Pipeline Integration
 
-Module `llm/` tích hợp với pipeline thông qua:
+The `llm/` module integrates with the pipeline through:
 
-- **Retrieval Integration**: `LLM_FE.py` gọi `pipeline.backend_connector.fetch_retrieval()`
-- **Config Sharing**: Sử dụng chung `config/app.yaml`
-- **Prompt Templates**: Load từ `prompts/rag_system_prompt.txt`
+- **Retrieval Integration**: `LLM_FE.py` calls `pipeline.backend_connector.fetch_retrieval()`
+- **Config Sharing**: Uses shared `config/app.yaml`
+- **Prompt Templates**: Load from `prompts/rag_system_prompt.txt`
 
-Ví dụ run chat interface:
+Example of running chat interface:
 
 ```powershell
-# Chạy Streamlit chat UI
+# Run Streamlit chat UI
 streamlit run llm/LLM_FE.py
 ```
 
-Hoặc sử dụng trực tiếp LLM clients:
+Or use LLM clients directly:
 
 ```python
 from llm.LLM_API import call_gemini
 from llm.chat_handler import build_messages
 
-# Build messages với context
+# Build messages with context
 messages = build_messages("user query", "retrieved context")
 
 # Call Gemini
 response = call_gemini(messages, temperature=0.7)
 ```
 
-## Contract (tóm tắt API / dữ liệu)
+## 🔌 API Contract
 
-- Input cho `call_gemini()`: messages (List[Dict]), parameters (temperature, etc.)
-- Output: response string từ Gemini API
-- Input cho `call_lmstudio()`: messages, model, temperature, top_p, max_tokens
-- Output: response string từ LM Studio
+### Inputs/Outputs
+- **Input** for `call_gemini()`: messages (List[Dict]), parameters (temperature, etc.)
+- **Output**: Response string from Gemini API
+- **Input** for `call_lmstudio()`: messages, model, temperature, top_p, max_tokens
+- **Output**: Response string from LM Studio
 
-## Edge cases và cách xử lý
+## ⚠️ Operational Notes
 
-- API key missing: config_loader raise exception
-- Network errors: retry logic với exponential backoff
-- Invalid responses: fallback handling
-- Context too long: truncation logic
+### Edge Cases
+- Missing API key: config_loader raises exception
+- Network errors: Retry logic with exponential backoff
+- Invalid responses: Fallback handling
+- Context too long: Truncation logic
 
-## Logging & Debugging
+### Logging & Debugging
+- LLM clients log API calls and errors
+- UI logs user interactions and retrieval calls
+- Debug mode for verbose output
 
-- LLM clients ghi log API calls và errors
-- UI logs user interactions và retrieval calls
-- Debug mode cho verbose output
+## 🤝 Contributing
 
-## Kiểm thử
+### Guidelines
+- Write comments and docstrings in Vietnamese
+- Handle both direct execution and module import patterns
+- Use config_loader instead of hardcoded configs
+- Add proper error handling for API calls
 
-```powershell
-# Test LLM clients
-python -m pytest test/llm/ -v
-```
+## 📚 Technical Reference
 
-## Hướng dẫn đóng góp (contributors)
+### Integration Points
+- **Pipeline**: `pipeline/backend_connector.py` — retrieval integration
+- **Prompts**: `prompts/rag_system_prompt.txt` — system prompts
+- **Config**: `config/app.yaml` — LLM settings
 
-- Viết comment và docstring bằng tiếng Việt
-- Handle both direct execution và module import patterns
-- Use config_loader thay vì hardcode configs
-- Add proper error handling cho API calls
+### Implementation Notes
+- Gemini API key required in environment
+- LM Studio server must run locally
+- Streamlit version compatible with features used
 
-## Tài liệu tham chiếu và liên kết
+### Key Implementation Files
 
-- Pipeline: `pipeline/backend_connector.py` — retrieval integration
-- Prompts: `prompts/rag_system_prompt.txt` — system prompts
-- Config: `config/app.yaml` — LLM settings
-
-## Ghi chú triển khai / Assumptions
-
-- Gemini API key required trong environment
-- LM Studio server phải chạy locally
-- Streamlit version compatible với features used
-
-## Chi tiết kỹ thuật theo file (tham chiếu mã nguồn)
-
-### `llm/LLM_FE.py` — Streamlit Chat Interface
-
-- Main function: `main()` — setup Streamlit UI
-- Features:
-  - `st.sidebar` — backend selection và settings
+#### `llm/LLM_FE.py` — Streamlit Chat Interface
+- **Main function**: `main()` — setup Streamlit UI
+- **Features**:
+  - `st.sidebar` — backend selection and settings
   - Chat history management
   - File upload processing
   - Real-time streaming responses
-
-- Integration points:
-  - `fetch_retrieval()` — get context từ pipeline
+- **Integration points**:
+  - `fetch_retrieval()` — get context from pipeline
   - `call_gemini()` / `call_lmstudio()` — LLM calls
   - `build_messages()` — message formatting
 
-### `llm/LLM_API.py` — Gemini Client
+#### `llm/LLM_API.py` — Gemini Client
+- **Core function**: `call_gemini(messages, **kwargs)`
+- **Format conversion**: `convert_to_gemini_format()` — OpenAI → Gemini
+- **Error handling**: try/catch with detailed logging
 
-- Core function: `call_gemini(messages, **kwargs)`
-- Format conversion: `convert_to_gemini_format()` — OpenAI → Gemini
-- Error handling: try/catch với detailed logging
-
-### `llm/LLM_LOCAL.py` — LM Studio Client
-
-- Core function: `call_lmstudio(messages, model, **kwargs)`
-- Client creation: `get_client()` — OpenAI client instance
-- Direct OpenAI format support (no conversion needed)
+#### `llm/LLM_LOCAL.py` — LM Studio Client
+- **Core function**: `call_lmstudio(messages, model, **kwargs)`
+- **Client creation**: `get_client()` — OpenAI client instance
+- **Direct OpenAI format support** (no conversion needed)
 
 ### `llm/chat_handler.py` — Message Handler
 

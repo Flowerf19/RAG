@@ -1,116 +1,133 @@
-# Module `embedders` — Tạo embedding vectors (Ollama & HuggingFace providers)
+# Embedders Module — Text to Vector Conversion (Ollama & HuggingFace providers)
 
-Mục tiêu: thư mục `embedders/` cung cấp lớp trừu tượng và các implement cụ thể để tạo embedding vectors từ văn bản. Thiết kế theo nguyên tắc Single Responsibility: mỗi lớp có trách nhiệm rõ ràng (profile/config, factory, base provider, provider cụ thể).
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
 
-README này mô tả kiến trúc, API công khai, các lớp/factory có sẵn, ví dụ sử dụng, kiểm thử và các lưu ý vận hành (Ollama server, HuggingFace API).
+The embedders module provides abstraction layers and concrete implementations for converting text into embedding vectors. Designed following Single Responsibility principle: each class has clear responsibilities (profile/config, factory, base provider, specific provider).
 
-## Nội dung thư mục (tóm tắt)
+This README describes the architecture, public API, available classes/factories, usage examples, testing, and operational notes (Ollama server, HuggingFace API).
 
-- `i_embedder.py` — interface `IEmbedder` (embed, embed_batch, test_connection, dimension).
-- `base_embedder.py` (providers/) — `BaseEmbedder` cung cấp hành vi chung (validation, embed_batch default).
-- `embedder_factory.py` — `EmbedderFactory` để khởi tạo embedders theo `EmbeddingProfile` / loại.
-- `embedder_type.py` — enum `EmbedderType` (hiện có `OLLAMA`, `HUGGINGFACE`).
-- `model/embedding_profile.py` — `EmbeddingProfile` dataclass chứa cấu hình (model_id, provider, max_tokens, dimension, normalize).
-- `providers/` — provider implementations:
-  - `ollama_embedder.py` — generic Ollama provider wrapper (`OllamaEmbedder`).
-  - `ollama/` — Ollama-specific model wrappers:
-    - `gemma_embedder.py` — Gemma embedding config (768-dim)
-    - `bge3_embedder.py` — BGE-M3 embedding config (1024-dim)
-    - `base_ollama_embedder.py` — base class for Ollama-specific embedders
-  - `huggingface/` — HuggingFace-specific embedders:
-    - `hf_api_embedder.py` — HF API embedder (BAAI/bge-small-en-v1.5, 384-dim)
-    - `hf_local_embedder.py` — HF Local embedder using transformers
-    - `base_huggingface_embedder.py` — base class for HF embedders
+## ✨ Key Features
+
+- 🔄 **Provider Abstraction**: Unified interface for different embedding providers
+- 🏭 **Factory Pattern**: Easy instantiation of embedders by type and configuration
+- 📏 **Dimension Management**: Consistent vector dimensions across providers
+- 🔗 **Batch Processing**: Efficient processing of multiple texts
+- 🧪 **Connection Testing**: Built-in connectivity validation for providers
+- ⚙️ **Flexible Configuration**: Customizable models, tokens, and normalization settings
+
+## 🚀 Quick Start
+
+### Install Dependencies
+
+```bash
+# Install core dependencies
+pip install -r requirements.txt
+
+# For HuggingFace local embedder
+pip install transformers torch
+```
+
+### Basic Usage
+
+The module provides unified text-to-vector conversion with support for multiple providers and automatic configuration management.
+
+## 📁 Directory Contents
+
+- `i_embedder.py` — `IEmbedder` interface (embed, embed_batch, test_connection, dimension)
+- `embedder_factory.py` — `EmbedderFactory` for creating embedders by profile/type
+- `embedder_type.py` — `EmbedderType` enum (OLLAMA, HUGGINGFACE)
+- `model/embedding_profile.py` — `EmbeddingProfile` dataclass with configuration
+- `providers/` — Provider implementations:
+  - `ollama_embedder.py` — Generic Ollama provider wrapper
+  - `ollama/` — Ollama-specific implementations:
+    - `gemma_embedder.py` — Gemma embedding (768-dim)
+    - `bge3_embedder.py` — BGE-M3 embedding (1024-dim)
+    - `base_ollama_embedder.py` — Base class for Ollama embedders
+  - `huggingface/` — HuggingFace implementations:
+    - `hf_api_embedder.py` — HF API embedder (384-dim)
+    - `hf_local_embedder.py` — Local HF embedder
+    - `base_huggingface_embedder.py` — Base class for HF embedders
     - `token_manager.py` — HF API token management
 
-## Contract (inputs / outputs / error modes)
+## 🔌 API Contract
 
-- Input: text (str) hoặc list[str] cho batch.
-- Output: List[float] (vector) cho `embed`, List[List[float]] cho `embed_batch`.
-- Properties: `dimension` (số chiều embedding).
-- Error modes: network/HTTP errors when connecting to Ollama; invalid profile errors raised by `BaseEmbedder`.
+### Inputs/Outputs
+- **Input**: Single text string or list of strings for batch processing
+- **Output**: List of floats (vector) for single text, list of lists for batch
+- **Properties**: `dimension` returns vector size
+- **Error Handling**: Network/HTTP errors for remote providers, validation errors for invalid configurations
 
-## Thiết kế & hành vi từng thành phần
+## 🔧 Component Design & Behavior
 
-### `IEmbedder` (`i_embedder.py`)
+### IEmbedder Interface (i_embedder.py)
 
-- Đây là interface tối thiểu mọi embedder phải implement:
-  - `dimension` (property): trả về kích thước vector.
-  - `embed(text: str) -> List[float]`.
-  - `embed_batch(texts: List[str]) -> List[List[float]]`.
-  - `test_connection() -> bool`: kiểm tra server/provider reachable.
+The minimal interface that all embedders must implement:
+- `dimension` property returns vector size
+- `embed(text: str) -> List[float]` converts single text to vector
+- `embed_batch(texts: List[str]) -> List[List[float]]` processes multiple texts
+- `test_connection() -> bool` validates provider connectivity
 
-Việc implement theo interface giúp pipeline có thể thay provider mà không đổi code khác.
+Interface implementation allows the pipeline to switch providers without changing other code.
 
-### `EmbeddingProfile` (`model/embedding_profile.py`)
+### EmbeddingProfile (model/embedding_profile.py)
 
-- Dataclass đơn giản giữ các tham số thực sự dùng bởi provider: `model_id`, `provider`, `max_tokens`, `dimension`, `normalize`.
-- Lưu ý: nhiều embedder cụ thể (Gemma/BGE) giữ cấu hình mặc định ở class-level constants — factory hoặc `create_default()` dùng các giá trị này.
+Simple dataclass holding provider parameters: model_id, provider type, max_tokens, dimension, and normalization settings.
+Note: Specific embedders (Gemma/BGE) store default configurations as class constants that factory methods use.
 
-### `BaseEmbedder` (`providers/base_embedder.py`)
+### BaseEmbedder (providers/base_embedder.py)
 
-- Cung cấp validation cho `EmbeddingProfile` và implement `embed_batch` mặc định bằng cách gọi `embed` lần lượt.
-- `dimension` mặc định lấy từ `profile.dimension` hoặc fallback 768.
+Provides common validation for EmbeddingProfile and default embed_batch implementation that calls embed sequentially.
+Dimension defaults to profile.dimension or falls back to 768.
 
-### `OllamaEmbedder` (`providers/ollama_embedder.py`)
+### OllamaEmbedder (providers/ollama_embedder.py)
 
-- Generic wrapper cho Ollama server (`/api/embeddings` endpoint). Thực hiện:
-  - `create_default()` để build `EmbeddingProfile` mặc định (nomic embed)
-  - `_generate_embedding(text)` gửi POST tới `/api/embeddings`
-  - `test_connection()`, `is_available()`, `get_available_models()` helper
-  - `switch_model(model_name)` để đổi profile.model_id nếu model có sẵn
+Generic wrapper for Ollama server using the /api/embeddings endpoint. Provides:
+- Default profile creation for standard models
+- HTTP POST requests to generate embeddings
+- Connection testing and model availability checks
+- Model switching capabilities
 
-Lưu ý: Ollama server URL mặc định `http://localhost:11434` — có thể cấu hình qua factory.
+Default Ollama server URL is http://localhost:11434, configurable through factory.
 
-### Model-specific embedders (Gemma, BGE-M3)
+### Model-Specific Embedders (Gemma, BGE-M3)
 
-- `GemmaEmbedder` và `BGE3Embedder` là thin wrappers trên `BaseOllamaEmbedder` (ở `providers/ollama/`).
-- Mỗi lớp định nghĩa `MODEL_ID`, `DIMENSION`, `MAX_TOKENS` và `create_default()` để khởi tạo profile tương ứng.
-- Họ cung cấp phương thức `embed(text)` và `embed_single(req)` (hữu ích nếu dự án dùng `EmbedRequest` model).
+GemmaEmbedder and BGE3Embedder are lightweight wrappers around BaseOllamaEmbedder.
+Each defines MODEL_ID, DIMENSION, MAX_TOKENS constants and provides create_default() for profile initialization.
+They offer embed() methods and embed_single() for projects using EmbedRequest models.
 
-## Ví dụ sử dụng (Python)
+## 💡 Usage Examples
+
+### Basic Usage
 
 ```python
 from embedders.embedder_factory import EmbedderFactory
 
 factory = EmbedderFactory()
 
-# === Ollama Embedders ===
-
-# Tạo Gemma embedder (Ollama)
+# Create Ollama-based embedders
 gemma = factory.create_gemma(base_url="http://localhost:11434")
-vec = gemma.embed("Hello world")
-print(len(vec), gemma.dimension)  # 768
+vector = gemma.embed("Hello world")
 
-# Tạo BGE-M3 embedder
 bge = factory.create_bge_m3(base_url="http://localhost:11434")
-batch = bge.embed_batch(["Hello", "Another text"])
-print(len(batch), len(batch[0]))  # 1024
+batch_vectors = bge.embed_batch(["Hello", "Another text"])
 
-# === HuggingFace Embedders ===
-
-# Tạo HF API embedder (requires HF_TOKEN)
+# Create HuggingFace embedders
 hf_api = factory.create_huggingface_api()
-vec = hf_api.embed("Hello world")
-print(len(vec), hf_api.dimension)  # 384
+vector = hf_api.embed("Hello world")
 
-# Tạo HF Local embedder (requires transformers)
 hf_local = factory.create_huggingface_local(device="cpu")
-vec = hf_local.embed("Hello world")
-print(len(vec), hf_local.dimension)  # 384
+vector = hf_local.embed("Hello world")
 
-# Test connection
-print('gemma ok', gemma.test_connection())
-print('hf_api ok', hf_api.test_connection())
+# Test connections
+print('Connection OK:', gemma.test_connection())
 ```
 
-PowerShell quick-run (pipeline):
+### Integration with Pipeline
 
-```powershell
-python run_pipeline.py
-```
+The embedders integrate seamlessly with the RAG pipeline for automatic text vectorization.
 
-## Mermaid: kiến trúc cao cấp (parser-friendly) + ASCII fallback
+## 🏗️ Architecture Overview
 
 ```mermaid
 flowchart TD
@@ -123,40 +140,37 @@ flowchart TD
 
 ASCII fallback:
 
-- `EmbedderFactory` tạo instances (Gemma/BGE3) hoặc generic `OllamaEmbedder`.
-- Các embedder gọi Ollama API `/api/embeddings` để lấy vectors.
-- `BaseEmbedder` cung cấp `embed_batch` mặc định để fallback khi provider không tối ưu batch API.
+- `EmbedderFactory` creates instances (Gemma/BGE3) or generic `OllamaEmbedder`
+- Embedders call Ollama API `/api/embeddings` to get vectors
+- `BaseEmbedder` provides default `embed_batch` as fallback when provider doesn't optimize batch API
 
 ## Testing & Validation
 
-- Unit-test suggestions:
-  - mock `requests.post`/`requests.get` để kiểm tra `_generate_embedding()` behavior và error handling.
-  - test `EmbedderFactory.create_gemma()` và `create_bge_m3()` return đúng class và `dimension`.
-  - test `BaseEmbedder.embed_batch` calls `embed` for each item.
+## 🧪 Testing & Validation
 
-- Quick manual test: start Ollama server and run the example above.
+### Unit Tests
+Test individual embedder components, factory methods, and connection validation.
 
-## Operational notes
+### Integration Tests
+Test complete workflows with different providers to verify embedding quality and performance.
+
+### Manual Testing
+Start provider services and run basic embedding operations to validate functionality.
+
+## ⚠️ Operational Notes
 
 ### Ollama Embedders
-- Ollama server must be reachable at the configured `base_url` (default: `http://localhost:11434`). Use `ollama list` locally to verify pulled models.
-- Required models used by defaults: `embeddinggemma:latest`, `bge-m3:latest` — pull them to local Ollama if needed.
+- Ollama server must be running at configured base_url (default: http://localhost:11434)
+- Required models: embeddinggemma:latest, bge-m3:latest
+- Use local Ollama commands to verify and pull models
 
 ### HuggingFace Embedders
-- **API Mode** (`HuggingFaceApiEmbedder`): 
-  - Requires HF API token: set `HF_TOKEN` or `HUGGINGFACE_TOKEN` environment variable, or store in `.streamlit/secrets.toml`
-  - Subject to rate limits (free tier: ~30k tokens/month)
-  - Default model: `BAAI/bge-small-en-v1.5` (384-dim)
-  
-- **Local Mode** (`HuggingFaceLocalEmbedder`):
-  - Requires `transformers` and `torch` installed: `pip install transformers torch`
-  - Downloads model on first use (~100MB for BGE-small)
-  - No rate limits, runs entirely offline
-  - Supports GPU acceleration with `device="cuda"`
+- **API Mode**: Requires HF token, subject to rate limits, default model BAAI/bge-small-en-v1.5 (384-dim)
+- **Local Mode**: Requires transformers/torch, downloads models on first use, supports GPU acceleration
 
-## Architecture Pattern
+## 🏗️ Architecture Pattern
 
-Embedders follow a consistent pattern inspired by Ollama structure:
+Embedders follow a consistent pattern with provider families:
 
 ```
 providers/
@@ -171,17 +185,18 @@ providers/
 │   └── token_manager.py             # Utility
 ```
 
-Each provider family:
-1. **Base class** (`BaseXxxEmbedder`): defines common behavior, class-level constants, abstract methods
-2. **Specific implementations**: override constants, implement `_generate_embedding()`, provide `create_default()`
-3. **Factory methods**: `EmbedderFactory.create_xxx()` for easy instantiation
+Each provider family includes:
+1. **Base class**: Common behavior, constants, abstract methods
+2. **Specific implementations**: Override constants, implement embedding generation
+3. **Factory methods**: Easy instantiation through EmbedderFactory
 
-## Contribution
+## 🤝 Contributing
 
-- Khi thêm provider mới (OpenAI, Anthropic): follow the pattern above:
-  1. Create `providers/newprovider/` directory
-  2. Implement `base_newprovider_embedder.py` extending `BaseEmbedder`
-  3. Create specific implementations (e.g., `gpt4_embedder.py`)
-  4. Add factory methods to `EmbedderFactory`
-  5. Update `embedder_type.py` enum if needed
-  6. Document in README with examples
+### Adding New Providers
+When adding new providers (OpenAI, Anthropic), follow this pattern:
+1. Create `providers/newprovider/` directory
+2. Implement `base_newprovider_embedder.py` extending `BaseEmbedder`
+3. Create specific implementations with model configurations
+4. Add factory methods to `EmbedderFactory`
+5. Update `embedder_type.py` enum if needed
+6. Document in README with usage examples

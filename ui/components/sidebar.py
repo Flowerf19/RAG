@@ -190,7 +190,7 @@ class Sidebar:
         if "embedder_type" not in st.session_state:
             st.session_state["embedder_type"] = "huggingface_local"
         
-        st.radio(
+        st.selectbox(
             "Embedding Model",
             embedding_options,
             key="embedder_type",
@@ -212,7 +212,7 @@ class Sidebar:
         if "reranker_type" not in st.session_state:
             st.session_state["reranker_type"] = "bge_m3_hf_local"
         
-        st.radio(
+        st.selectbox(
             "Reranker Model",
             reranker_options,
             key="reranker_type",

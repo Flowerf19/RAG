@@ -1,308 +1,255 @@
-# Module `PDFLoaders` — Smart PDF Processing với OCR Integration
+# PDFLoaders Module — Smart PDF Processing with OCR Integration
 
-Mục tiêu: thư mục `PDFLoaders/` cung cấp hệ thống xử lý PDF thông minh với khả năng tự động phát hiện loại PDF (text-based vs image-based) và tích hợp OCR để trích xuất nội dung từ bảng biểu và hình ảnh. Thiết kế theo nguyên tắc Single Responsibility: mỗi extractor chuyên trách nhiệm riêng (text, tables, figures, OCR).
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](../../LICENSE)
 
-README này mô tả kiến trúc, API công khai, các extractor có sẵn, ví dụ sử dụng, kiểm thử và các lưu ý vận hành (PaddleOCR, pdfplumber).
+The PDFLoaders module provides an intelligent PDF processing system capable of automatically detecting PDF types (text-based vs image-based) and integrating OCR to extract content from tables and images. It follows the Single Responsibility principle: each extractor handles its own specific task (text, tables, figures, OCR). This is the first component in the RAG pipeline: `PDF → PDFProvider → PDFDocument → SemanticChunker → ...`
 
-## Nội dung thư mục (tóm tắt)
+## ✨ Key Features
 
-- `pdf_provider.py` — Re-export các class chính từ provider package
-- `provider/` — Core PDF processing logic:
-  - `pdf_provider.py` — `PDFProvider` class chính với auto-detection logic
-  - `simple_provider.py` — `SimpleTextProvider` cho text extraction đơn giản
-  - `models.py` — Data models (`PDFDocument`, `PageContent`)
-  - `extractors/` — Specialized extractors:
-    - `ocr_extractor.py` — `OCRExtractor` với PaddleOCR integration
-    - `table_extractor.py` — `TableExtractor` với pdfplumber + OCR enhancement
-    - `figure_extractor.py` — `FigureExtractor` với image grouping + OCR
-- `configs/` — Cấu hình cho các extractors
-- `models/` — Pre-trained models cho OCR
-- `pdf_extract_kit/` — Utility tools cho PDF processing
-- `requirements/` — Dependencies riêng cho PDF processing
+- 🔍 **Smart Auto-Detection**: Automatically detects text-based vs image-based PDFs (>50 characters per page)
+- 📄 **Multi-Modal Extraction**: Extracts text, tables, and figures with OCR enhancement
+- 🧩 **Modular Architecture**: Uses factory patterns, composition design, and dependency injection
+- 🌐 **Multi-Language OCR**: Supports 20+ languages with PaddleOCR
+- 📊 **Table Enhancement**: Combines pdfplumber with OCR fallback when >30% cells are empty
+- 🖼️ **Figure Processing**: Groups images and extracts OCR text per figure
+- 🔄 **Graceful Degradation**: Falls back gracefully when OCR/services are unavailable
+- 📈 **Performance Optimized**: Memory-efficient processing with progress tracking
 
-## Contract (inputs / outputs / error modes)
+## 🚀 Quick Start
 
-- **Input**: PDF file path (str) hoặc Path object
-- **Output**: `PDFDocument` object chứa list `PageContent` (text, tables, figures)
-- **Error modes**: File not found, corrupted PDF, OCR failures (graceful degradation)
+### Install Dependencies
 
-## Thiết kế & hành vi từng thành phần
-
-### `PDFProvider` (`provider/pdf_provider.py`)
-
-Lớp chính điều phối việc xử lý PDF với logic thông minh:
-
-**Auto-Detection Logic:**
-- **Text-based PDF** (>50 chars/page): Sử dụng PyMuPDF text extraction
-- **Image-based PDF** (<50 chars/page): Sử dụng PaddleOCR cho toàn bộ trang
-- **Mixed PDF**: Hybrid approach per page
-
-**Tính năng:**
-- `PDFProvider(use_ocr="auto", ocr_lang="multilingual", min_text_threshold=50)`
-- `load(pdf_path) → PDFDocument`
-- Tích hợp `OCRExtractor`, `TableExtractor`, `FigureExtractor`
-
-### `OCRExtractor` (`provider/extractors/ocr_extractor.py`)
-
-Xử lý OCR với PaddleOCR engine:
-
-**Language Mapping:**
-```python
-LANG_MAP = {
-    "multilingual": "en",      # Default fallback
-    "en": "en", "ch": "ch", "vi": "vi",
-    "fr": "latin", "de": "latin", "es": "latin", "it": "latin",
-    "pt": "latin", "nl": "latin", "pl": "latin",
-    "ru": "cyrillic", "uk": "cyrillic",
-    "ar": "arabic", "hi": "devanagari",
-    "ja": "japan", "ko": "korean"
-}
-```
-
-**Tính năng:**
-- `OCRExtractor(lang="multilingual")`
-- `extract_text(image) → str`
-- `extract_page_ocr(page_fitz) → str`
-- Hỗ trợ 20+ ngôn ngữ với auto-mapping
-
-### `TableExtractor` (`provider/extractors/table_extractor.py`)
-
-Trích xuất bảng biểu với OCR enhancement:
-
-**Logic Enhancement:**
-- Sử dụng pdfplumber để extract tables
-- Khi >30% cells trống → trigger OCR enhancement
-- Thêm row `[OCR Supplement]` với page OCR text
-
-**Tính năng:**
-- `TableExtractor(ocr_extractor=None)`
-- `extract_tables(page_fitz, page_num) → List[Dict]`
-- `_enhance_with_ocr(table_data, page_ocr_text)` — internal method
-
-### `FigureExtractor` (`provider/extractors/figure_extractor.py`)
-
-Trích xuất hình ảnh/sơ đồ với OCR text:
-
-**Grouping Logic:**
-- Group images theo vị trí và kích thước
-- Extract OCR text cho từng figure group
-- Store trong `figure['text']` field
-
-**Tính năng:**
-- `FigureExtractor(ocr_extractor=None)`
-- `extract_figures(page_fitz, page_num) → List[Dict]`
-- Logging với filename context cho debugging
-
-## Data Models
-
-### `PDFDocument`
-```python
-@dataclass
-class PDFDocument:
-    filename: str
-    pages: List[PageContent]
-    metadata: Dict[str, Any]
-```
-
-### `PageContent`
-```python
-@dataclass
-class PageContent:
-    page_number: int
-    text: str           # Main text content
-    tables: List[Dict]  # Extracted tables
-    figures: List[Dict] # Extracted figures with OCR text
-```
-
-## Ví dụ sử dụng
-
-### Basic Usage
-```python
-from PDFLoaders import PDFProvider
-
-# Initialize với auto OCR detection
-provider = PDFProvider(
-    use_ocr="auto",           # "auto", "always", "never"
-    ocr_lang="multilingual",  # Language cho OCR
-    min_text_threshold=50     # Ngưỡng phát hiện text-based
-)
-
-# Load PDF
-doc = provider.load("path/to/document.pdf")
-
-# Access content
-for page in doc.pages:
-    print(f"Page {page.page_number}:")
-    print(f"Text: {page.text[:200]}...")
-    print(f"Tables: {len(page.tables)}")
-    print(f"Figures: {len(page.figures)}")
-```
-
-### Advanced Configuration
-```python
-# Force OCR cho tất cả pages
-provider = PDFProvider(use_ocr="always", ocr_lang="vi")
-
-# Disable OCR hoàn toàn
-provider = PDFProvider(use_ocr="never")
-
-# Custom threshold
-provider = PDFProvider(min_text_threshold=100)
-```
-
-### Direct Extractor Usage
-```python
-from PDFLoaders.provider.extractors import OCRExtractor, TableExtractor
-
-# OCR cho image
-ocr = OCRExtractor(lang="en")
-text = ocr.extract_text(pil_image)
-
-# Table extraction với OCR enhancement
-tables = TableExtractor(ocr_extractor=ocr)
-table_data = tables.extract_tables(page_fitz, page_num=1)
-```
-
-## Kiểm thử
-
-### Unit Tests
 ```bash
-# Test PDF loading
-python -m pytest tests/test_pdf_provider.py -v
-
-# Test OCR extraction
-python -m pytest tests/test_ocr_extractor.py -v
-
-# Test table extraction
-python -m pytest tests/test_table_extractor.py -v
-```
-
-### Integration Tests
-```python
-# Test với sample PDFs
-from PDFLoaders import PDFProvider
-
-provider = PDFProvider()
-doc = provider.load("data/pdf/sample.pdf")
-
-# Verify content extraction
-assert len(doc.pages) > 0
-assert any(page.text for page in doc.pages)
-```
-
-## Dependencies & Installation
-
-### Core Dependencies
-```txt
-PyMuPDF>=1.23.0          # PDF text extraction
-pdfplumber>=0.10.0       # Table extraction
-PaddleOCR>=2.7.0         # OCR engine
-PaddlePaddle>=2.5.0      # PaddleOCR dependency
-opencv-python>=4.8.0     # Image processing
-Pillow>=10.0.0          # PIL for image handling
-```
-
-### Installation
-```bash
+# Install core dependencies
 pip install -r PDFLoaders/requirements/requirements.txt
 
 # Download PaddleOCR models (auto-downloaded on first use)
 # Models stored in ~/.paddleocr/
 ```
 
-## Lưu ý vận hành
+### Basic Usage
+
+The module provides a simple interface to load PDFs with automatic OCR detection and content extraction.
+
+## 📁 Directory Structure
+
+```text
+PDFLoaders/
+├── pdf_provider.py          # Re-export main classes
+├── README.md               # This documentation
+├── provider/               # Core processing logic
+│   ├── pdf_provider.py     # Main PDFProvider class
+│   ├── simple_provider.py  # SimpleTextProvider
+│   ├── models.py           # Data models (PDFDocument, PageContent)
+│   └── extractors/         # Specialized extractors
+│       ├── ocr_extractor.py    # OCRExtractor with PaddleOCR
+│       ├── table_extractor.py  # TableExtractor with pdfplumber
+│       └── figure_extractor.py # FigureExtractor with image grouping
+├── configs/                # Configuration files
+├── models/                 # Pre-trained models for OCR
+├── pdf_extract_kit/        # Utility tools
+└── requirements/           # Separate dependencies
+```
+
+### Data Flow Architecture
+
+```mermaid
+graph TD
+    A[PDF File] --> B[PDFProvider]
+    B --> C{Auto-Detection}
+    C -->|Text-based| D[PyMuPDF Text]
+    C -->|Image-based| E[PaddleOCR Full Page]
+    C -->|Mixed| F[Hybrid per Page]
+
+    D --> G[PageContent.text]
+    E --> G
+    F --> G
+
+    B --> H[TableExtractor]
+    H --> I{pdfplumber}
+    I -->|Success| J[PageContent.tables]
+    I -->|>30% Empty| K[OCR Enhancement]
+    K --> J
+
+    B --> L[FigureExtractor]
+    L --> M[Image Grouping]
+    M --> N[PaddleOCR per Figure]
+    N --> O[PageContent.figures]
+
+    G --> P[PDFDocument]
+    J --> P
+    O --> P
+
+    style A fill:#e1f5fe
+    style P fill:#c8e6c9
+    style B fill:#fff3e0
+```
+
+**PDF Processing Flow:**
+
+1. **Auto-Detection**: Analyzes each page (>50 characters = text-based, <50 = image-based)
+2. **Text Extraction**: Uses PyMuPDF for text-based, PaddleOCR for image-based
+3. **Table Processing**: pdfplumber as primary, OCR enhancement when needed
+4. **Figure Processing**: Groups images and extracts OCR text
+5. **Aggregation**: Combines everything into PDFDocument with PageContent list
+
+## 📋 Contract (Inputs / Outputs / Error Modes)
+
+### Inputs
+- **PDF Path**: File path to the PDF document
+- **Configuration**: PDFProvider configuration with OCR settings
+
+### Outputs
+- **PDFDocument**: Dataclass containing metadata and PageContent list
+- **PageContent**: Per-page content including text, tables, and figures
+
+### Error Modes
+- **FileNotFoundError**: PDF file does not exist
+- **PDFLoadError**: PDF is corrupted or cannot be read
+- **OCRError**: OCR service failure with graceful fallback to empty content
+- **MemoryError**: Large PDFs with many images
+
+## 🔧 Component Design & Behavior
+
+### PDFProvider (provider/pdf_provider.py)
+
+The main class orchestrates PDF processing with intelligent logic. It automatically detects whether each page is text-based or image-based using a character threshold. It integrates all extractors and provides both simple and progress-tracked loading methods.
+
+### OCRExtractor (provider/extractors/ocr_extractor.py)
+
+Handles OCR processing using the PaddleOCR engine. It supports multiple languages through automatic mapping and provides graceful degradation when OCR fails. The extractor can process both individual images and full PDF pages.
+
+### TableExtractor (provider/extractors/table_extractor.py)
+
+Extracts tables from PDF pages using pdfplumber as the primary method. When tables have more than 30% empty cells, it automatically enhances them with OCR text. This ensures comprehensive table content extraction.
+
+### FigureExtractor (provider/extractors/figure_extractor.py)
+
+Processes images and diagrams by grouping related images based on position and size. It then extracts OCR text from each figure group and stores the results. The extractor is designed to be memory-efficient for large documents.
+
+## 📊 Data Models
+
+### PDFDocument
+A dataclass that represents a complete PDF document with its filename, pages, and metadata such as file size and page count.
+
+### PageContent
+A dataclass for each page's content including the main text (from PyMuPDF or OCR), extracted tables with OCR enhancement, and figures with OCR text.
+
+**Table Structure:**
+Contains page number, bounding box, table data array, OCR enhancement flag, and empty cell ratio.
+
+**Figure Structure:**
+Contains page number, bounding box, optional image data, OCR extracted text, and grouping identifier.
+
+## 💡 Usage Examples
+
+### Basic Usage
+Load a PDF with automatic OCR detection and access the extracted content including text, tables, and figures.
+
+### Advanced Configuration
+Force OCR for all pages (useful for scanned PDFs), disable OCR completely (for pure text PDFs), or adjust the auto-detection threshold.
+
+### Direct Extractor Usage
+Use individual extractors directly for specific processing needs, such as OCR on images or table extraction with OCR enhancement.
+
+### Progress Tracking for Large PDFs
+Monitor processing progress for large documents with custom callback functions.
+
+## 🧪 Testing
+
+### Unit Tests
+Test individual components like PDF loading, OCR extraction, and table processing.
+
+### Integration Tests
+Test complete workflows with sample PDFs to verify content extraction quality.
+
+## 📦 Dependencies & Installation
+
+### Core Dependencies
+Essential libraries for PDF processing, OCR, and image handling.
+
+### Installation
+Install from the requirements file and download OCR models automatically.
+
+### Optional Dependencies
+Additional tools for testing, code formatting, and type checking.
+
+## ⚠️ Operational Notes
 
 ### Performance Considerations
-- **Memory Usage**: Large PDFs với nhiều images → high memory consumption
-- **OCR Speed**: PaddleOCR ~2-5 seconds per page depending on language
-- **Caching**: Consider caching OCR results cho repeated processing
+Memory usage increases with large PDFs containing many images. OCR processing takes 2-5 seconds per page depending on language. Consider caching for repeated processing and process page-by-page for large documents.
 
 ### Error Handling
-- **OCR Failures**: Graceful fallback to empty string, logged as warnings
-- **Corrupted PDFs**: Raises `PDFLoadError` with descriptive message
-- **Missing Dependencies**: Clear error messages với installation instructions
+OCR failures result in empty content with warning logs. Corrupted PDFs raise descriptive errors. Missing dependencies provide clear installation instructions. Memory limits are managed with automatic image cleanup.
 
 ### Language Support
-- **Primary**: English, Vietnamese, Chinese (CJK)
-- **European**: French, German, Spanish, Italian, Portuguese, Dutch, Polish
-- **Cyrillic**: Russian, Ukrainian
-- **Other**: Arabic, Devanagari (Hindi), Japanese, Korean
+Primary support for English, Vietnamese, and Chinese. Additional European languages, Cyrillic scripts, and other writing systems are available.
 
 ### Best Practices
-1. **Use Auto-Detection**: `use_ocr="auto"` cho most cases
-2. **Language Selection**: Match PDF language với `ocr_lang` parameter
-3. **Threshold Tuning**: Adjust `min_text_threshold` cho specific document types
-4. **Error Monitoring**: Check logs cho OCR failures và enhancement triggers
+Use auto-detection for most cases. Match OCR language to PDF content. Adjust thresholds for specific document types. Monitor logs for OCR issues and enhancement triggers. Use progress tracking for large PDFs.
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
 ### Common Issues
 
 **OCR Not Working:**
-```python
-# Check PaddleOCR installation
-python -c "import paddleocr; print('PaddleOCR OK')"
-
-# Test với simple image
-from PDFLoaders.provider.extractors import OCRExtractor
-ocr = OCRExtractor(lang="en")
-result = ocr.extract_text("path/to/image.png")
-```
+Verify PaddleOCR installation and test with a simple image to ensure the OCR engine is functioning.
 
 **Table OCR Enhancement Not Triggering:**
-- Check table structure: >30% empty cells required
-- Verify OCR extractor properly initialized
-- Check logs cho "Enhancing table with OCR"
+Check that tables have more than 30% empty cells, verify OCR extractor initialization, and examine logs for enhancement messages.
 
-**Memory Issues với Large PDFs:**
-```python
-# Process page-by-page thay vì load toàn bộ
-provider = PDFProvider()
-doc = provider.load("large.pdf")
-for page in doc.pages:
-    # Process từng page
-    process_page_content(page)
-```
+**Memory Issues with Large PDFs:**
+Process documents page-by-page instead of loading everything at once, and force garbage collection between pages.
+
+**Auto-Detection Incorrect:**
+Debug the detection logic by checking character counts per page and comparing against the threshold to understand why pages are classified incorrectly.
 
 ### Debug Logging
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
+Enable detailed logging for the PDF provider and OCR extractor to troubleshoot issues and monitor processing behavior.
 
-# Enable PDF provider logging
-logger = logging.getLogger('PDFLoaders.provider')
-logger.setLevel(logging.DEBUG)
-```
-
-## API Reference
+## 📚 API Reference
 
 ### PDFProvider
-- `load(pdf_path: Union[str, Path]) → PDFDocument`
-- `load_with_progress(pdf_path: Union[str, Path], progress_callback: Callable)`
+- `load(pdf_path)` → PDFDocument
+- `load_with_progress(pdf_path, progress_callback)` → PDFDocument
+- `__init__(use_ocr, ocr_lang, min_text_threshold)`
 
 ### OCRExtractor
-- `extract_text(image: PIL.Image) → str`
-- `extract_page_ocr(page_fitz) → str`
-- `test_connection() → bool`
+- `extract_text(image)` → string
+- `extract_page_ocr(page_fitz)` → string
+- `test_connection()` → boolean
+- `__init__(lang)`
 
 ### TableExtractor
-- `extract_tables(page_fitz, page_num: int) → List[Dict]`
+- `extract_tables(page_fitz, page_num)` → list of dictionaries
+- `__init__(ocr_extractor)`
 
 ### FigureExtractor
-- `extract_figures(page_fitz, page_num: int) → List[Dict]`
+- `extract_figures(page_fitz, page_num)` → list of dictionaries
+- `__init__(ocr_extractor)`
 
-## Contributing
+## 🤝 Contributing
 
 ### Adding New Extractors
-1. Extend base extractor interface
-2. Add to `provider/extractors/__init__.py`
-3. Update `PDFProvider` để integrate
-4. Add comprehensive tests
-5. Update documentation
+Extend the base extractor interface, add to the extractors module, integrate with PDFProvider, create comprehensive tests, and update documentation.
 
 ### Language Support Extension
-1. Add language code to `LANG_MAP` in `ocr_extractor.py`
-2. Map to appropriate PaddleOCR language
-3. Test với sample documents
-4. Update documentation</content>
+Add new language codes to the mapping, test with sample documents, and update documentation.
+
+### Performance Improvements
+Implement result caching, add parallel processing, optimize memory usage, and enhance progress callbacks.
+
+## 📄 License
+
+This module is part of the RAG Pipeline project and is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+
+## 👥 Authors
+
+- **@Flowerf19** - Nguyen Hoa (Hoaf.n.v@gmail.com) - Lead Developer
+- **@lybachpha** - LeeWar (Bachien0987@gmail.com) - Core Contributor
+
+---
+
+*The PDFLoaders module is the first component in the RAG pipeline, ensuring accurate and efficient PDF content extraction for subsequent processing steps.*</content>
 <parameter name="filePath">d:\Project\RAG-2\PDFLoaders\README.md

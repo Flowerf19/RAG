@@ -1,33 +1,54 @@
-# Reranking Module - README
+# Reranking Module — Result Reordering for Enhanced Relevance
 
 [![Python Version](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](../LICENSE)
 
-Reranking module cung cấp các implementation để sắp xếp (rerank) kết quả trả về từ các bộ truy vấn (retrieval) theo mức độ liên quan chính xác hơn. Hỗ trợ cả chạy local (HuggingFace, Ollama) và gọi API (HuggingFace Inference, Cohere, Jina).
+The reranking module provides implementations to reorder (rerank) results from retrieval systems for improved relevance accuracy. Supports both local execution (HuggingFace, Ollama) and API calls (HuggingFace Inference, Cohere, Jina).
 
-## Mục tiêu và phạm vi
+## ✨ Key Features
 
-- Tách biệt logic reranking khỏi retrieval/generation.
-- Cung cấp interface chung (IReranker) dễ thay thế/khai thác.
-- Hỗ trợ fallback an toàn khi model/API gặp lỗi.
-- Tập trung vào việc rerank danh sách documents dựa trên query, trả về kết quả với score liên quan.
+- 🔄 **Provider Abstraction**: Unified interface for different reranking providers
+- 🏭 **Factory Pattern**: Easy instantiation of rerankers by type
+- 🔄 **Fallback Support**: Graceful degradation when models/APIs fail
+- 📊 **Score-Based Ranking**: Document reordering based on relevance scores
+- ⚡ **Performance Optimized**: Efficient batch processing and caching
 
-## Kiến trúc tổng quan
+## 🚀 Quick Start
 
-Thư mục `reranking/` gồm các phần chính:
+### Install Dependencies
 
-- `i_reranker.py` — Interface IReranker định nghĩa hợp đồng cho tất cả reranker.
-- `reranker_factory.py` — Factory để tạo nhanh các reranker phổ biến.
-- `reranker_type.py` — Enum định nghĩa các loại reranker.
-- `providers/` — Các implementation cụ thể:
-  - `base_api_reranker.py` — Base class cho API-based reranker.
-  - `base_local_reranker.py` — Base class cho local reranker.
-  - `bge_m3_hf_api_reranker.py` — BGE-M3 via HuggingFace API.
-  - `bge_m3_hf_local_reranker.py` — BGE-M3 local via HuggingFace.
+```bash
+# Install core dependencies
+pip install -r requirements.txt
 
-Luồng dữ liệu điển hình:
+# For local HuggingFace rerankers
+pip install transformers torch
+```
 
-```text
+### Basic Usage
+
+The module provides unified document reranking with support for multiple providers and automatic configuration management.
+
+## 📁 Directory Contents
+
+- `i_reranker.py` — Interface IReranker defining contract for all rerankers
+- `reranker_factory.py` — Factory for creating common rerankers
+- `reranker_type.py` — Enum defining reranker types
+- `providers/` — Specific implementations:
+  - `base_api_reranker.py` — Base class for API-based rerankers
+  - `base_local_reranker.py` — Base class for local rerankers
+  - `bge_m3_hf_api_reranker.py` — BGE-M3 via HuggingFace API
+  - `bge_m3_hf_local_reranker.py` — BGE-M3 local via HuggingFace
+
+## 🔌 API Contract
+
+### Inputs/Outputs
+- **Input**: Query string + list of documents to rerank
+- **Output**: Reranked documents with relevance scores
+- **Error Handling**: Graceful fallback when providers are unavailable
+
+Typical data flow:
+```
 Query + Documents (List[str])
   -> Reranker (IReranker.rerank)
   -> RerankResult[] (sorted by score)
@@ -63,69 +84,34 @@ IReranker (Interface)
 - **Factory Pattern**: `RerankerFactory` for easy instantiation
 - **Fallback Handling**: Graceful degradation on errors
 
-## 🔧 Cài đặt và thiết lập model
+## ⚙️ Configuration & Setup
 
-Sử dụng virtualenv / venv và cài dependencies trong requirements.txt của project chính. Để chạy reranking, đảm bảo cài:
+### Dependencies
+Use virtualenv/venv and install dependencies from project's main requirements.txt. For reranking functionality, ensure installation of:
 
 - transformers
 - torch
 - requests
-- (thêm các SDK nếu dùng Cohere/Jina)
+- (additional SDKs for Cohere/Jina if used)
 
-### Cài đặt model cụ thể
+### Model-Specific Setup
 
 #### BGE-M3 Local (HuggingFace)
-
-1. Cài đặt dependencies:
-   ```bash
-   pip install transformers torch
-   ```
-
-2. Download model:
-   ```python
-   from transformers import AutoModelForSequenceClassification, AutoTokenizer
-
-   model_name = "BAAI/bge-reranker-v2-m3"
-   model = AutoModelForSequenceClassification.from_pretrained(model_name)
-   tokenizer = AutoTokenizer.from_pretrained(model_name)
-   ```
-
-   Model sẽ được download tự động khi khởi tạo reranker.
+1. Install dependencies and model downloads automatically on first use
+2. Requires transformers and torch libraries
 
 #### BGE-M3 API (HuggingFace Inference)
-
-1. Cài đặt dependencies:
-   ```bash
-   pip install requests
-   ```
-
-2. Thiết lập token: Đăng ký tại HuggingFace, tạo token với quyền Read.
-
-3. Environment variable:
-   ```bash
-   export HF_TOKEN="your_hf_token_here"
-   ```
+1. Requires requests library
+2. Set up HuggingFace token with read permissions
+3. Configure HF_TOKEN environment variable
 
 #### Cohere API
-
-1. Cài đặt SDK:
-   ```bash
-   pip install cohere
-   ```
-
-2. Thiết lập API key:
-   ```bash
-   export COHERE_API_KEY="your_cohere_key"
-   ```
+1. Install Cohere SDK
+2. Configure COHERE_API_KEY environment variable
 
 #### Jina API
-
-1. Cài đặt nếu cần (thường dùng requests).
-
-2. Thiết lập API key:
-   ```bash
-   export JINA_API_KEY="your_jina_key"
-   ```
+1. Uses requests library
+2. Configure JINA_API_KEY environment variable
 
 ## 🚀 Khởi động nhanh — ví dụ sử dụng
 
@@ -161,116 +147,86 @@ documents = [
     "Trong tối ưu học, learning rate quyết định..."
 ]
 
-results = reranker_local.rerank(query=query, documents=documents, top_k=3)
-for r in results:
-    print(r.index, r.score, r.document[:120])
-```
+## 💡 Usage Examples
 
-## Hành vi tích hợp với pipeline
-
-Module reranking được thiết kế để tích hợp vào pipeline RAG, sau retrieval để rerank kết quả.
-
-- Pipeline thường gọi `rerank` trên danh sách documents từ retriever.
-- Cơ chế fallback: Nếu lỗi, trả về thứ tự gốc với score 0.0.
-
-Ví dụ trong pipeline:
+### Basic Usage
 
 ```python
 from reranking.reranker_factory import RerankerFactory
 
+# Create local reranker
 reranker = RerankerFactory.create(RerankerType.BGE_M3_HF_LOCAL)
-# Sau retrieval
-retrieved_docs = ["doc1", "doc2", "doc3"]
-reranked = reranker.rerank(query, retrieved_docs)
+
+query = "What is machine learning?"
+documents = ["ML is...", "AI includes...", "Deep learning..."]
+
+results = reranker.rerank(query=query, documents=documents, top_k=3)
+for r in results:
+    print(r.index, r.score, r.document[:120])
 ```
 
-## Contract (tóm tắt API / dữ liệu)
+### Integration with Pipeline
 
-- Input: query (str), documents (List[str]), top_k (int)
-- Output: List[RerankResult]
-  - RerankResult: index (int), score (float), document (str), metadata (dict)
+The reranking module integrates into RAG pipeline after retrieval to reorder results by relevance.
 
-## Edge cases và cách xử lý
+- Pipeline typically calls `rerank` on document lists from retrievers
+- Fallback mechanism returns original order with score 0.0 on errors
 
-- Model không load được: Fallback trả score 0.0.
-- API lỗi: Log lỗi, trả fallback.
-- Documents rỗng: Trả list rỗng.
-- top_k > len(documents): Trả tất cả.
+## 🔌 API Contract
 
-## Logging & Debugging
+### Inputs/Outputs
+- **Input**: query (str), documents (List[str]), top_k (int)
+- **Output**: List[RerankResult] with index, score, document, and metadata
 
-- Module ghi log ở mức info/error.
-- Để debug: Gọi test_connection(), kiểm tra log.
+## ⚠️ Operational Notes
 
-## Kiểm thử
+### Edge Cases
+- Model loading failures: Returns fallback with score 0.0
+- API errors: Logs error and returns fallback
+- Empty documents: Returns empty list
+- top_k > document count: Returns all documents
 
-- Repository có pytest. Chạy:
-  ```bash
-  python -m pytest tests/reranking -v
-  ```
+### Logging & Debugging
+- Module logs at info/error levels
+- For debugging: Call test_connection() and check logs
 
-- Ví dụ unit test:
+## 🧪 Testing & Validation
 
-```python
-def test_reranker_interface_basic():
-    from reranking.reranker_factory import RerankerFactory
-    from reranking.reranker_type import RerankerType
+### Unit Tests
+Test individual reranker components and integration scenarios.
 
-    reranker = RerankerFactory.create(RerankerType.BGE_M3_HF_LOCAL, model_name="BAAI/bge-reranker-v2-m3", device="cpu")
-    assert reranker.test_connection()
-    docs = ["a", "b", "c"]
-    res = reranker.rerank("test query", docs, top_k=2)
-    assert isinstance(res, list)
-    assert all(hasattr(r, "score") for r in res)
-```
+### Manual Testing
+Verify reranker functionality with sample queries and documents.
 
-## 🚨 Troubleshooting
+## 🔧 Troubleshooting
 
-- Model không load được (local):
-  - Kiểm tra version transformers/torch.
-  - Nếu OOM, dùng device="cpu".
+### Common Issues
 
-- HF API lỗi 403/401:
-  - Kiểm tra token.
+**Model Loading Failures (Local):**
+Check transformers/torch versions and use CPU if encountering memory issues.
 
-- Response format unexpected: Fallback scores 0.0.
+**API Authentication Errors:**
+Verify API tokens and permissions for HuggingFace, Cohere, or Jina services.
 
-## 🧩 Mở rộng / Contribution
+**Unexpected Response Formats:**
+System falls back to score 0.0 for problematic responses.
 
-- Thêm provider mới: Kế thừa BaseLocalReranker hoặc BaseAPIReranker.
-- Viết tests và cập nhật docs.
+## � Contributing
 
-## Tài liệu tham chiếu
+### Adding New Providers
+When adding new reranking providers, extend BaseLocalReranker or BaseAPIReranker classes.
+Include comprehensive tests and update documentation.
 
+## 📚 Technical Reference
+
+### Key Implementation Files
+- `providers/base_local_reranker.py` — Base class for local rerankers
+- `providers/base_api_reranker.py` — Base class for API rerankers
+- `providers/bge_m3_hf_local_reranker.py` — BGE-M3 local implementation
+- `providers/bge_m3_hf_api_reranker.py` — BGE-M3 API implementation
+
+### Integration Points
 - Pipeline: `pipeline/rag_pipeline.py`
-- Config: `config/app.yaml`
-
-## Ghi chú triển khai
-
-- README mô tả theo conventions. Kiểm tra code nếu khác.
-
-## Chi tiết kỹ thuật theo file
-
-### providers/base_local_reranker.py
-
-- Base class cho local reranker.
-- Methods: _load_model, _compute_scores.
-
-### providers/base_api_reranker.py
-
-- Base class cho API reranker.
-- Methods: _call_api, _initialize_profile.
-
-### providers/bge_m3_hf_local_reranker.py
-
-- Implementation BGE-M3 local.
-- Sử dụng transformers để load model và compute scores.
-
-### providers/bge_m3_hf_api_reranker.py
-
-- Implementation BGE-M3 API.
-- Gọi HF Inference API.
-
----
+- Configuration: `config/app.yaml`
 
 

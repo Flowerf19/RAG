@@ -280,80 +280,82 @@ llm_overrides:
 - **Pipeline Integration**: `pipeline/retrieval/` - How QEM is used in retrieval
 - **Configuration**: `config/app.yaml` - Global settings
 - **Embedding Fusion**: `query_processor.py` - Multi-query embedding logic
-  - `_call_gemini()` / `_call_lmstudio()` — gọi LLM tương ứng.
-  - Fallback mechanism khi backend chính fail.
+  - `_call_gemini()` / `_call_lmstudio()` — Call respective LLM services
+  - Fallback mechanism when primary backend fails
 
 ### qem_strategy.py
 
-- Mục đích: xây dựng prompt chuẩn hóa cho LLM.
-- Tính năng:
-  - `build_prompt()` — tạo prompt với ngôn ngữ, format, instructions.
+- **Purpose**: Build standardized prompts for LLM
+- **Features**:
+  - `build_prompt()` — Create prompts with language, format, and instructions
 
 ### qem_utils.py
 
-- Mục đích: utility functions cho QEM.
-- Tính năng:
-  - `parse_llm_list()` — parse output LLM thành list.
-  - `deduplicate_queries()` — loại bỏ trùng lặp.
-  - `log_activity()` — ghi log JSONL.
-  - `clip_queries()` — giới hạn số lượng queries.
+- **Purpose**: Utility functions for QEM
+- **Features**:
+  - `parse_llm_list()` — Parse LLM output into list
+  - `deduplicate_queries()` — Remove duplicates
+  - `log_activity()` — Write JSONL logs
+  - `clip_queries()` — Limit query count
 
 ### qem_config.yaml
 
-- Mục đích: cấu hình mặc định cho QEM.
-- Cấu hình chính: enabled, languages, max_total_queries, backend, llm_overrides.
+- **Purpose**: Default configuration for QEM
+- **Main settings**: enabled, languages, max_total_queries, backend, llm_overrides
 
-## Hành vi "Auto-quét" (Auto-scan) và tích hợp với pipeline
+## Auto-Scan Behavior and Pipeline Integration
 
-Module `query_enhancement/` tích hợp với pipeline RAG chính:
+The `query_enhancement/` module integrates with the main RAG pipeline:
 
-- **Automatic Enhancement**: Pipeline tự động gọi QueryEnhancementModule khi search queries
-- **Multi-query Retrieval**: Mở rộng một query thành nhiều variants để cải thiện recall
-- **Fallback Option**: Trả về query gốc nếu LLM enhancement fail
-- **Logging**: Ghi lại tất cả hoạt động enhancement vào JSONL log
+- **Automatic Enhancement**: Pipeline automatically calls QueryEnhancementModule for search queries
+- **Multi-query Retrieval**: Expand single query into multiple variants to improve recall
+- **Fallback Option**: Return original query if LLM enhancement fails
+- **Logging**: Record all enhancement activities in JSONL logs
 
-Ví dụ sử dụng trong backend_connector:
+Example usage in backend_connector:
 
 ```python
 from query_enhancement import QueryEnhancementModule
 
-# Khởi tạo QEM
+# Initialize QEM
 qem = QueryEnhancementModule(app_config)
 
-# Mở rộng query
-enhanced_queries = qem.enhance("tìm kiếm thông tin về AI")
-# Kết quả: ["tìm kiếm thông tin về AI", "search for AI information", "tìm AI", "artificial intelligence search"]
+# Expand query
+enhanced_queries = qem.enhance("search for AI information")
+# Result: ["search for AI information", "tìm kiếm thông tin về AI", "find AI info", "artificial intelligence search"]
 ```
 
-## Contract (tóm tắt API / dữ liệu)
+## 🔌 API Contract
 
-- Input cho `QueryEnhancementModule.enhance()`: user_query (str)
-- Output: List[str] chứa query gốc + variants (luôn ít nhất 1 query)
-- Input cho `load_qem_settings()`: base_dir (Optional[Path])
-- Output: Dict cấu hình QEM đã merge với defaults
+### Inputs/Outputs
+- **Input** for `QueryEnhancementModule.enhance()`: user_query (str)
+- **Output**: List[str] containing original query + variants (always at least 1 query)
+- **Input** for `load_qem_settings()`: base_dir (Optional[Path])
+- **Output**: Dict of merged QEM configuration with defaults
 
-## Edge cases và cách xử lý
+## ⚠️ Operational Notes
 
-- LLM API fail: fallback về query gốc, ghi log warning
-- Config file missing: sử dụng DEFAULT_SETTINGS
-- Empty query: trả về query gốc
-- Duplicate variants: tự động deduplicate
-- Too many variants: clip theo max_total_queries
+### Edge Cases
+- LLM API failure: Fallback to original query with warning log
+- Missing config file: Use DEFAULT_SETTINGS
+- Empty query: Return original query
+- Duplicate variants: Automatic deduplication
+- Too many variants: Clip to max_total_queries limit
 
-## Ví dụ sử dụng (Python)
+## 💡 Usage Examples
 
 ```python
 from query_enhancement import QueryEnhancementModule
 
-# Khởi tạo với config mặc định
+# Initialize with default config
 qem = QueryEnhancementModule(app_config={})
 
-# Mở rộng query đơn giản
+# Expand simple query
 queries = qem.enhance("machine learning")
 print(queries)
 # Output: ['machine learning', 'máy học', 'ML algorithms', 'artificial intelligence']
 
-# Với cấu hình tùy chỉnh
+# With custom configuration
 custom_settings = {
     "enabled": True,
     "languages": {"vi": 1, "en": 1},
@@ -363,42 +365,38 @@ custom_settings = {
 qem_custom = QueryEnhancementModule(app_config={}, qem_settings=custom_settings)
 ```
 
-## Kiểm thử
+## 🧪 Testing & Validation
 
-- Repository có cấu hình pytest. Để chạy test liên quan tới query_enhancement:
+### Unit Tests
+Run query_enhancement related tests:
 
 ```powershell
 python -m pytest tests/query_enhancement/ -v
 ```
 
-## Hướng dẫn đóng góp (contributors)
+## 🤝 Contributing
 
-- Viết comment và docstring bằng tiếng Việt theo convention của repo.
-- Tuân theo pattern: single responsibility principle.
-- Thêm unit test cho mọi thay đổi logic enhancement.
-- Nếu thêm LLM backend mới, update QEMLLMClient và qem_config.yaml.
+### Guidelines
+- Write comments and docstrings in Vietnamese following repo conventions
+- Follow single responsibility principle
+- Add unit tests for all logic enhancement changes
+- Update QEMLLMClient and qem_config.yaml when adding new LLM backends
 
-## Tài liệu tham chiếu và liên kết
+## 📚 Technical Reference
 
-- LLM Integration: `llm/LLM_API.py`, `llm/LLM_LOCAL.py` — cung cấp LLM backends.
-- Backend Connector: `pipeline/backend_connector.py` — sử dụng QEM trong retrieval.
-- Cấu hình toàn cục: `config/app.yaml`.
+### Integration Points
+- **LLM Integration**: `llm/LLM_API.py`, `llm/LLM_LOCAL.py` — LLM backend providers
+- **Backend Connector**: `pipeline/backend_connector.py` — QEM usage in retrieval
+- **Global Configuration**: `config/app.yaml`
 
-## Ghi chú triển khai / Assumptions
+### Implementation Notes
+- README describes API following repository conventions
+- Gemini/LM Studio APIs must be properly configured in app_config
+- QEM operates asynchronously without blocking retrieval pipeline
 
-- README này mô tả API theo conventions được sử dụng trong repository.
-- Gemini/LM Studio APIs phải được cấu hình đúng trong app_config.
-- QEM hoạt động bất đồng bộ và không block retrieval pipeline.
-
-## Chi tiết kỹ thuật theo file (tham chiếu mã nguồn)
-
-### `pipeline/query_enhancement/qem_core.py` — lớp QueryEnhancementModule
-
-- Lớp chính: `QueryEnhancementModule`.
-- Constructor (tham số chính):
-  - `app_config: Dict[str, Any]`
-  - `qem_settings: Optional[Dict[str, Any]] = None`
-  - `logger: Optional[logging.Logger] = None`
+### Key Implementation Files
+- `pipeline/query_enhancement/qem_core.py` — QueryEnhancementModule class
+- Constructor parameters: app_config, qem_settings, logger
 
 ## Reference Links
 

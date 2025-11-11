@@ -1,15 +1,33 @@
-# Module BM25 — Keyword-based Search và Indexing
+# BM25 Module — Keyword-based Search and Indexing
 
-Phiên bản: chi tiết module BM25 cho hệ thống RAG (Retrieval-Augmented Generation).
+Version: Detailed BM25 module for RAG (Retrieval-Augmented Generation) system.
 
-Mô tả ngắn: thư mục `BM25/` chứa các thành phần triển khai BM25 algorithm cho keyword-based search, bao gồm indexing với Whoosh, keyword extraction với spaCy, và search service. Module này cung cấp alternative retrieval method song song với vector similarity search.
+**Short description**: The `BM25/` directory contains components implementing the BM25 algorithm for keyword-based search, including indexing with Whoosh, keyword extraction with spaCy, and search service. This module provides an alternative retrieval method alongside vector similarity search.
 
-## Mục tiêu và phạm vi
+## ✨ Key Features
 
-- Tách trách nhiệm: triển khai BM25 search độc lập với vector search
-- Cung cấp keyword-based retrieval làm bổ sung cho semantic search
-- Hỗ trợ multi-language keyword extraction (English, Vietnamese)
-- Tích hợp với pipeline RAG chính
+- 🔍 **Keyword-based Retrieval**: BM25 algorithm for traditional information retrieval
+- 🌐 **Multi-language Support**: Keyword extraction in English and Vietnamese
+- 🏗️ **Whoosh Integration**: Efficient indexing and search backend
+- 🔄 **Hybrid Search**: Complements semantic vector search
+- 📊 **Scoring Algorithm**: BM25F scoring with multi-field support
+
+## 🚀 Quick Start
+
+### Install Dependencies
+
+```bash
+# Install core dependencies
+pip install -r requirements.txt
+
+# Install spaCy models for keyword extraction
+python -c "import spacy; spacy.cli.download('en_core_web_sm')"
+python -c "import spacy; spacy.cli.download('vi_core_news_lg')"
+```
+
+### Basic Usage
+
+The module provides keyword-based search capabilities integrated with the RAG pipeline.
 
 ## Kiến trúc tổng quan
 
@@ -28,136 +46,155 @@ PDF Chunks → BM25IngestManager → KeywordExtractor → WhooshIndexer → BM25
 User Query → KeywordExtractor → BM25SearchService → WhooshIndexer → Results
 ```
 
-## Các module chính (chi tiết)
+## 📁 Directory Contents
+
+- `ingest_manager.py` — Coordinates chunk ingestion into BM25 index
+- `whoosh_indexer.py` — Whoosh backend for indexing and search
+- `search_service.py` — High-level search service with scoring
+- `keyword_extractor.py` — Keyword extraction using spaCy
+- `bm25_manager.py` — Main coordinator for BM25 operations
+
+## 🔧 Component Design & Behavior
 
 ### ingest_manager.py
 
-- Mục đích: điều phối việc ingest chunks vào BM25 index
-- Tính năng:
-  - Convert chunks thành BM25Document format
-  - Quản lý cache để tránh duplicate indexing
-  - Batch processing cho hiệu suất
-  - Error handling và logging
+- **Purpose**: Coordinates chunk ingestion into BM25 index
+- **Features**:
+  - Convert chunks to BM25Document format
+  - Cache management to avoid duplicate indexing
+  - Batch processing for performance
+  - Error handling and logging
 
 ### whoosh_indexer.py
 
-- Mục đích: Whoosh backend cho BM25 indexing và search
-- Tính năng:
-  - Schema definition cho BM25 fields
+- **Purpose**: Whoosh backend for BM25 indexing and search
+- **Features**:
+  - Schema definition for BM25 fields
   - Upsert/delete documents
   - BM25F scoring algorithm
   - Multi-field search (content + keywords)
 
 ### search_service.py
 
-- Mục đích: high-level search service với score normalization
-- Tính năng:
-  - Query preprocessing với keyword extraction
+- **Purpose**: High-level search service with score normalization
+- **Features**:
+  - Query preprocessing with keyword extraction
   - Score normalization (z-score)
   - Result formatting
-  - Safeguards cho small result sets
+  - Safeguards for small result sets
 
 ### keyword_extractor.py
 
-- Mục đích: trích xuất keywords từ text bằng spaCy
-- Tính năng:
+- **Purpose**: Extract keywords from text using spaCy
+- **Features**:
   - Multi-language support (English, Vietnamese)
-  - Lemma extraction và noun phrases
+  - Lemma extraction and noun phrases
   - Language detection heuristics
   - Lazy loading spaCy models
 
-## Hành vi "Auto-quét" (Auto-scan) và tích hợp với pipeline
+## 🔌 API Contract
 
-Module `BM25/` tích hợp với pipeline RAG chính:
+### Inputs/Outputs
+- **Input**: Text chunks for indexing, search queries for retrieval
+- **Output**: Indexed documents, ranked search results with scores
+- **Error Handling**: Graceful fallback when indexing/search fails
 
-- **Automatic Ingest**: Pipeline tự động gọi BM25IngestManager khi process PDFs
-- **Dual Retrieval**: Cả vector search và BM25 search có thể chạy song song
-- **Fallback Option**: BM25 hoạt động ngay cả khi vector search fail
-- **Cache Management**: Sử dụng chung cache system với pipeline
+## 💡 Usage Examples
 
-Ví dụ sử dụng trong pipeline:
+### Basic Usage
 
 ```python
-# Trong RAGPipeline.process_pdf()
-bm25_indexed = self._ingest_bm25_chunk_set(chunk_set)
+from BM25.bm25_manager import BM25Manager
+
+# Initialize BM25 manager
+bm25 = BM25Manager(index_dir="data/bm25_index")
+
+# Index documents
+bm25.index_chunks(chunk_set)
+
+# Search
+results = bm25.search("machine learning", top_k=10)
+```
+
+### Integration with Pipeline
+
+The BM25 module integrates with the main RAG pipeline for hybrid retrieval.
 
 # Search với cả hai methods
 vector_results = self.search_similar(faiss_file, metadata_file, query, top_k=5)
 bm25_results = self.search_bm25(query, top_k=5)
 ```
 
-## Contract (tóm tắt API / dữ liệu)
+## 🔌 API Contract
 
-- Input cho `BM25IngestManager.ingest_chunk_set()`: ChunkSet object
-- Output: số chunks đã index thành công (int)
-- Input cho `BM25SearchService.search()`: query string, top_k, normalize_scores
-- Output: List[SearchResult] với raw_score và normalized_score
+### Inputs/Outputs
+- **Input** for `BM25IngestManager.ingest_chunk_set()`: ChunkSet object
+- **Output**: Number of chunks successfully indexed (int)
+- **Input** for `BM25SearchService.search()`: query string, top_k, normalize_scores
+- **Output**: List[SearchResult] with raw_score and normalized_score
 
-## Edge cases và cách xử lý
+## ⚠️ Operational Notes
 
-- spaCy model missing: fallback to basic tokenization
-- Whoosh index corruption: recreate index
-- Small result sets: skip z-score normalization
-- Memory constraints: batch processing cho large datasets
+### Edge Cases
+- Missing spaCy model: Fallback to basic tokenization
+- Whoosh index corruption: Recreate index
+- Small result sets: Skip z-score normalization
+- Memory constraints: Batch processing for large datasets
 
-## Logging & Debugging
+### Logging & Debugging
+- Detailed logging for ingest operations
+- Debug info for search queries and scoring
+- Performance metrics for indexing speed
 
-- Chi tiết logging cho ingest operations
-- Debug info cho search queries và scoring
-- Performance metrics cho indexing speed
-
-## Kiểm thử
+## 🧪 Testing & Validation
 
 ```powershell
 # Test BM25 components
 python -m pytest test/bm25/ -v
 ```
 
-## Hướng dẫn đóng góp (contributors)
+## 🤝 Contributing
 
-- Viết comment và docstring bằng tiếng Việt
+### Guidelines
+- Write comments and docstrings in Vietnamese
 - Handle spaCy import errors gracefully
-- Use protocol interfaces cho testability
-- Add proper error handling cho Whoosh operations
+- Use protocol interfaces for testability
+- Add proper error handling for Whoosh operations
 
-## Tài liệu tham chiếu và liên kết
+## 📚 Technical Reference
 
-- Pipeline: `pipeline/rag_pipeline.py` — main integration point
-- Loaders: `loaders/model/` — chunk data structures
-- Config: `config/app.yaml` — BM25 settings
+### Integration Points
+- **Pipeline**: `pipeline/rag_pipeline.py` — main integration point
+- **Loaders**: `loaders/model/` — chunk data structures
+- **Config**: `config/app.yaml` — BM25 settings
 
-## Ghi chú triển khai / Assumptions
-
-- Whoosh library required (thêm vào requirements.txt)
+### Implementation Notes
+- Whoosh library required (add to requirements.txt)
 - spaCy models available (en_core_web_sm, vi_core_news_lg)
-- UTF-8 encoding cho text processing
+- UTF-8 encoding for text processing
 
-## Chi tiết kỹ thuật theo file (tham chiếu mã nguồn)
+### Key Implementation Files
 
-### `BM25/ingest_manager.py` — BM25 Ingest Manager
-
-- Class chính: `BM25IngestManager`
-- Constructor: `__init__(indexer, cache_path)`
-- Methods:
+#### `BM25/ingest_manager.py` — BM25 Ingest Manager
+- **Main class**: `BM25IngestManager`
+- **Constructor**: `__init__(indexer, cache_path)`
+- **Methods**:
   - `ingest_chunk_set(chunk_set)` — main ingest method
   - `_chunk_to_document(chunk)` — convert chunk to BM25Document
   - `_load_cache()` / `_save_cache()` — cache management
-
-- Data structures:
+- **Data structures**:
   - `BM25Document` dataclass: document_id, content, keywords, metadata
 
-### `BM25/whoosh_indexer.py` — Whoosh Indexer
-
-- Class chính: `WhooshIndexer`
-- Constructor: `__init__(index_dir, recreate=False)`
-- Methods:
+#### `BM25/whoosh_indexer.py` — Whoosh Indexer
+- **Main class**: `WhooshIndexer`
+- **Constructor**: `__init__(index_dir, recreate=False)`
+- **Methods**:
   - `upsert_documents(documents)` — bulk insert/update
   - `delete_documents(document_ids)` — bulk delete
   - `search(terms, limit=10)` — raw search
+- **Schema**: ID, TEXT(content), KEYWORD(keywords), STORED(metadata)
 
-- Schema: ID, TEXT(content), KEYWORD(keywords), STORED(metadata)
-
-### `BM25/search_service.py` — BM25 Search Service
+#### `BM25/search_service.py` — BM25 Search Service
 
 - Class chính: `BM25SearchService`
 - Constructor: `__init__(indexer)`
@@ -177,12 +214,13 @@ python -m pytest test/bm25/ -v
   - `_load_nlp(language)` — lazy spaCy model loading
   - `_detect_language(text)` — language detection
 
-- Supported languages: English (en_core_web_sm), Vietnamese (vi_core_news_lg)
+- **Supported languages**: English (en_core_web_sm), Vietnamese (vi_core_news_lg)
 
-## Dữ liệu trả về (data shapes)
+## 🔌 API Contract
 
-- `ingest_chunk_set()` return: `int` (số documents indexed)
-- `search()` return: `List[SearchResult]` với fields:
+### Data Shapes
+- `ingest_chunk_set()` return: `int` (number of documents indexed)
+- `search()` return: `List[SearchResult]` with fields:
   - `document_id: str`
   - `raw_score: float`
   - `normalized_score: float`
@@ -190,9 +228,7 @@ python -m pytest test/bm25/ -v
   - `text: str`
   - `metadata: dict`
 
-## Ví dụ sử dụng chính xác theo code
-
-Python (sử dụng BM25 components):
+## 💡 Usage Examples
 
 ```python
 from BM25.ingest_manager import BM25IngestManager
@@ -204,14 +240,14 @@ from pathlib import Path
 index_dir = Path("data/bm25_index")
 indexer = WhooshIndexer(index_dir)
 
-# Setup ingest manager với cache
+# Setup ingest manager with cache
 cache_file = Path("data/cache/bm25_chunk_cache.json")
 ingest_manager = BM25IngestManager(
     indexer=indexer,
     cache_path=cache_file
 )
 
-# Ingest chunks (từ pipeline)
+# Ingest chunks (from pipeline)
 indexed = ingest_manager.ingest_chunk_set(chunk_set)
 print(f"Indexed {indexed} chunks")
 
@@ -231,7 +267,7 @@ for result in results:
     print(f"Text: {result.text[:100]}...")
 ```
 
-## Sơ đồ quyết định tích hợp — BM25 Flow
+## 🏗️ Architecture Overview
 
 ```mermaid
 flowchart TD
@@ -262,19 +298,19 @@ BM25 Flow:
 1) Chunk ingestion: ChunkSet → KeywordExtractor → BM25Document → Whoosh index
 2) Query processing: Query → KeywordExtractor → Whoosh search → Score normalization
 3) Cache management: Avoid re-indexing duplicate chunks
-4) Error handling: Graceful fallback khi spaCy/Whoosh unavailable
+4) Error handling: Graceful fallback when spaCy/Whoosh unavailable
 ```
 
-Hook points:
+## 🔗 Integration Points
 
-- Keyword extraction: `KeywordExtractor.extract_keywords()`
-- Index operations: `WhooshIndexer.upsert_documents()`
-- Score normalization: `BM25SearchService._normalize_scores()`
-- Cache management: `BM25IngestManager._load_cache()`
+- **Keyword extraction**: `KeywordExtractor.extract_keywords()`
+- **Index operations**: `WhooshIndexer.upsert_documents()`
+- **Score normalization**: `BM25SearchService._normalize_scores()`
+- **Cache management**: `BM25IngestManager._load_cache()`
 
-Testing hints:
+## 🧪 Testing Guidelines
 
-- Mock spaCy models cho unit tests
-- Test với small Whoosh indexes
+- Mock spaCy models for unit tests
+- Test with small Whoosh indexes
 - Verify keyword extraction accuracy
-- Test cache behavior với duplicate chunks
+- Test cache behavior with duplicate chunks

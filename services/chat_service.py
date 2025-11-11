@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from llm.chat_handler import build_messages
 from llm.client_factory import LLMClientFactory

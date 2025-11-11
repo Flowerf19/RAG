@@ -228,7 +228,7 @@ def _apply_reranking(
     """
     try:
         from reranking.reranker_factory import RerankerFactory
-        from reranking.reranker_type import RerankerType
+        
 
         # Map reranker_type string to enum
         reranker_enum = _parse_reranker_type(reranker_type)

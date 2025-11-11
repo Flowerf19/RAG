@@ -232,6 +232,11 @@ RAG-2/
 ├── BM25/                 # Keyword-based search
 ├── llm/                  # LLM provider integration
 ├── ui/                   # Streamlit web interface
+│   └── dashboard/        # Evaluation dashboard
+├── evaluation/           # Model evaluation system
+│   ├── metrics/          # Database and logging
+│   ├── evaluators/       # Auto-evaluation functions
+│   └── backend_dashboard/# Dashboard API
 ├── data/                 # Indexes and processed data
 ├── config/               # Configuration files
 ├── prompts/              # System prompts

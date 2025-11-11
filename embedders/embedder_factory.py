@@ -14,6 +14,13 @@ from .providers.ollama.gemma_embedder import GemmaEmbedder
 from .providers.ollama.bge3_embedder import BGE3Embedder
 from .providers.huggingface.hf_api_embedder import HuggingFaceApiEmbedder
 from .providers.huggingface.hf_local_embedder import HuggingFaceLocalEmbedder
+from .providers.huggingface.multilingual_embedders import (
+    E5LargeInstructEmbedder,
+    E5BaseEmbedder,
+    GTEMultilingualBaseEmbedder,
+    ParaphraseMPNetBaseV2Embedder,
+    ParaphraseMiniLML12V2Embedder,
+)
 
 
 class EmbedderFactory:
@@ -135,6 +142,161 @@ class EmbedderFactory:
             HuggingFaceLocalEmbedder: HuggingFace Local embedder (BGE-M3 1024-dim)
         """
         return HuggingFaceLocalEmbedder.create_default(
+            device=device,
+            **kwargs
+        )
+    
+    def create_gemma_hf_local(
+        self,
+        model_name: Optional[str] = None,
+        device: str = "cpu",
+        token: Optional[str] = None,
+        **kwargs: Any
+    ) -> GemmaEmbedder:
+        """
+        Factory method cho Gemma HuggingFace Local embedder.
+
+        Args:
+            model_name: HF Gemma model name (default: google/embeddinggemma-300m - 768 dim)
+            device: Device for local inference
+            token: HuggingFace token for accessing gated Gemma models
+            **kwargs: Additional arguments
+
+        Returns:
+            GemmaEmbedder: Gemma HF Local embedder (768-dim)
+        """
+        return GemmaEmbedder.create_default(
+            device=device,
+            token=token,
+            **kwargs
+        )
+
+    def create_e5_large_instruct(
+        self,
+        device: str = "cpu",
+        **kwargs: Any
+    ) -> E5LargeInstructEmbedder:
+        """
+        Factory method cho E5 Large Instruct embedder.
+
+        Model: intfloat/multilingual-e5-large-instruct
+        Đặc điểm: Instruct-based, retrieval/similarity, context 512-2048 tokens
+        Ngôn ngữ: >100
+        Kích thước: ~1.3GB (560M params)
+        Lý do: Score cao tương tự BGE-M3 trên MTEB multilingual, tốt cho RAG, nhanh local
+
+        Args:
+            device: Device for local inference
+            **kwargs: Additional arguments
+
+        Returns:
+            E5LargeInstructEmbedder: E5 Large Instruct embedder (1024-dim)
+        """
+        return E5LargeInstructEmbedder(
+            device=device,
+            **kwargs
+        )
+
+    def create_e5_base(
+        self,
+        device: str = "cpu",
+        **kwargs: Any
+    ) -> E5BaseEmbedder:
+        """
+        Factory method cho E5 Base embedder.
+
+        Model: intfloat/multilingual-e5-base
+        Đặc điểm: Contrastive learning cho similarity/retrieval, nhẹ hơn large
+        Ngôn ngữ: >100
+        Kích thước: ~0.3GB (278M params)
+        Lý do: Performance ổn định multilingual, dễ so sánh tốc độ với BGE-M3
+
+        Args:
+            device: Device for local inference
+            **kwargs: Additional arguments
+
+        Returns:
+            E5BaseEmbedder: E5 Base embedder (768-dim)
+        """
+        return E5BaseEmbedder(
+            device=device,
+            **kwargs
+        )
+
+    def create_gte_multilingual_base(
+        self,
+        device: str = "cpu",
+        **kwargs: Any
+    ) -> GTEMultilingualBaseEmbedder:
+        """
+        Factory method cho GTE Multilingual Base embedder.
+
+        Model: Alibaba-NLP/gte-multilingual-base
+        Đặc điểm: Dense embedding, multi-task, context 8192 tokens
+        Ngôn ngữ: >70
+        Kích thước: ~0.5GB (278M params)
+        Lý do: Hiệu suất gần BGE-M3 trên MIRACL, nhẹ và tối ưu local
+
+        Args:
+            device: Device for local inference
+            **kwargs: Additional arguments
+
+        Returns:
+            GTEMultilingualBaseEmbedder: GTE Multilingual Base embedder (768-dim)
+        """
+        return GTEMultilingualBaseEmbedder(
+            device=device,
+            **kwargs
+        )
+
+    def create_paraphrase_mpnet_base_v2(
+        self,
+        device: str = "cpu",
+        **kwargs: Any
+    ) -> ParaphraseMPNetBaseV2Embedder:
+        """
+        Factory method cho Paraphrase MPNet Base V2 embedder.
+
+        Model: sentence-transformers/paraphrase-multilingual-mpnet-base-v2
+        Đặc điểm: Semantic search/paraphrase, nhanh inference
+        Ngôn ngữ: >50
+        Kích thước: ~0.5GB (278M params)
+        Lý do: Classic, performance multilingual ổn, tốt cho so sánh speed
+
+        Args:
+            device: Device for local inference
+            **kwargs: Additional arguments
+
+        Returns:
+            ParaphraseMPNetBaseV2Embedder: Paraphrase MPNet Base V2 embedder (768-dim)
+        """
+        return ParaphraseMPNetBaseV2Embedder(
+            device=device,
+            **kwargs
+        )
+
+    def create_paraphrase_minilm_l12_v2(
+        self,
+        device: str = "cpu",
+        **kwargs: Any
+    ) -> ParaphraseMiniLML12V2Embedder:
+        """
+        Factory method cho Paraphrase MiniLM L12 V2 embedder.
+
+        Model: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+        Đặc điểm: Paraphrase detection, rất nhẹ
+        Ngôn ngữ: >50
+        Kích thước: ~0.2GB (118M params)
+        Lý do: Lightweight baseline, tương đương BGE-M3 ở tasks cơ bản multilingual
+
+        Args:
+            device: Device for local inference
+            **kwargs: Additional arguments
+
+        Returns:
+            ParaphraseMiniLML12V2Embedder: Paraphrase MiniLM L12 V2 embedder (384-dim)
+        """
+        return ParaphraseMiniLML12V2Embedder(
             device=device,
             **kwargs
         )

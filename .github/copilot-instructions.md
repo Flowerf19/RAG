@@ -1,5 +1,7 @@
 # RAG System – AI Coding Agent Instructions
 
+LÀM ƠN HÃY CHẠY TRONG VENV .venv\Scripts\Activate.ps1
+
 ## 🎯 System Architecture
 Modular RAG pipeline for PDF processing with hybrid retrieval (vector + keyword search):
 
@@ -23,9 +25,10 @@ Modular RAG pipeline for PDF processing with hybrid retrieval (vector + keyword 
   - Entity overlap + lexical overlap for coherence scoring
   - Output: `ChunkSet` with `Chunk` objects (text + provenance + metadata)
 - **`embedders/`** - Multi-provider embeddings with factory pattern
-  - Ollama: Gemma (768-dim), BGE-M3 (1024-dim)
-  - HuggingFace: Local (BGE-M3 1024-dim), API (intfloat/multilingual-e5-large 1024-dim)
-  - Factory methods: `create_gemma()`, `create_bge_m3()`, `create_huggingface_local()`, `create_huggingface_api()`
+  - **Ollama**: Gemma (768-dim), BGE-M3 (1024-dim)
+  - **HuggingFace API**: intfloat/multilingual-e5-large (1024-dim, FREE)
+  - **HuggingFace Local**: BGE-M3 (1024-dim), E5 Large Instruct (1024-dim), E5 Base (768-dim), GTE Multilingual Base (768-dim), Paraphrase MPNet Base V2 (768-dim), Paraphrase MiniLM L12 V2 (384-dim)
+  - **Factory methods**: `create_gemma()`, `create_bge_m3()`, `create_huggingface_api()`, `create_e5_large_instruct()`, `create_e5_base()`, `create_gte_multilingual_base()`, `create_paraphrase_mpnet_base_v2()`, `create_paraphrase_minilm_l12_v2()`
 - **`pipeline/`** - RAG orchestration (organized into submodules)
   - **`rag_pipeline.py`** (427 lines): Main orchestrator
   - **`backend_connector.py`** (29 lines): Backward compatibility
@@ -47,6 +50,14 @@ Modular RAG pipeline for PDF processing with hybrid retrieval (vector + keyword 
 - **`BM25/`** - Keyword-based retrieval
   - **`bm25_manager.py`** (151 lines): BM25 indexing and search operations
   - `whoosh_indexer.py`, `ingest_manager.py`, `search_service.py`: Core BM25 infrastructure
+- **`reranking/`** - Multi-provider reranking system
+  - **Stable rerankers**: BGE-M3 (Ollama/HF API/HF Local), Jina V2 Multilingual (~0.3GB), GTE Multilingual (~0.5GB), BGE Base (~0.4GB)
+  - **Factory methods**: `create_bge_m3_ollama()`, `create_bge_m3_hf_api()`, `create_bge_m3_hf_local()`, `create_jina_v2_multilingual()`, `create_gte_multilingual()`, `create_bge_base()`
+- **`evaluation/`** - Automated evaluation and metrics system
+  - **Metrics**: Latency, throughput, faithfulness, relevance scoring
+  - **Storage**: SQLite database (`metrics.db`) for performance tracking
+  - **Dashboard**: Streamlit backend dashboard for visualization
+  - **Multi-model comparison**: Automated testing across different LLM/embedder combinations
 - **`ui/`** - Streamlit UI with OOP components
   - `app.py` (464 lines): Main Streamlit app with RAGChatApp class
   - `components/`: ChatDisplay, SourceDisplay, Sidebar classes
@@ -72,7 +83,8 @@ Short, actionable notes to make an AI coding agent productive in this repo.
      - `query_processor.py` (110 lines) - QEM + embedding fusion
      - `qem_core.py`, `qem_strategy.py`, `qem_lm_client.py` - QEM logic
    - `BM25/` — `bm25_manager.py` (151 lines), `whoosh_indexer.py`, `ingest_manager.py` (BM25 indexing & cache: `data/cache/bm25_chunk_cache.json`)
-   - `reranking/` — `reranker_factory.py` (plug-in rerankers)
+   - `reranking/` — `reranker_factory.py` (stable rerankers: BGE-M3, Jina V2, GTE, BGE Base)
+   - `evaluation/` — `example_usage.py`, `metrics/`, `backend_dashboard/` (automated evaluation with SQLite metrics.db)
    - `ui/` — `app.py`, `components/` (Streamlit UI with OOP components)
    - `llm/` — `client_factory.py`, `base_client.py`, `gemini_client.py` (LLM abstraction with factory pattern)
 
@@ -82,6 +94,9 @@ Short, actionable notes to make an AI coding agent productive in this repo.
    - run UI: `streamlit run ui/app.py` (open http://localhost:8501)
    - ⚠️ deprecated: `streamlit run llm/LLM_FE.py` (use `ui/app.py` instead)
    - test single PDF: `python -c "from pipeline.rag_pipeline import RAGPipeline; p = RAGPipeline(); p.process_pdf('path/to/file.pdf')"`
+   - test embedders: `python test_new_embedders.py` (validates 5 new multilingual embedders)
+   - run evaluation: `python evaluation/example_usage.py` (automated RAG evaluation)
+   - evaluation dashboard: `streamlit run ui/dashboard/app.py` (metrics visualization)
 
 4) Project-specific conventions to follow exactly:
    - Single responsibility: loaders = extraction only; chunkers = text → chunks only; embedders = chunk → vector only; retriever = search only; UI = rendering only; LLM = model calling only.
@@ -99,6 +114,7 @@ Short, actionable notes to make an AI coding agent productive in this repo.
    - **Logging configuration**: `logging.basicConfig()` must be called BEFORE importing modules that create loggers (see `pipeline/rag_pipeline.py`).
    - **Table filtering**: Enhanced false positive detection removes header tables, watermarks, and non-content tables (reduces chunks by ~50% in document PDFs)
    - **Embedder fallback**: Pipeline continues with zero vectors if embedder unavailable (graceful degradation).
+   - **Evaluation metrics**: SQLite `metrics.db` stores latency, throughput, faithfulness, relevance scores for model comparison.
 
 6) Quick pointers for search & rerank flow (use these files to trace behavior):
    - query enhancement: `query_enhancement/query_processor.py` (uses QEM core)
@@ -107,8 +123,10 @@ Short, actionable notes to make an AI coding agent productive in this repo.
    - score merging: `pipeline/score_fusion.py` → `merge_vector_and_bm25()` (z-score normalization)
    - orchestration: `pipeline/retrieval_orchestrator.py` → `fetch_retrieval()` (QEM → embed → search → rerank)
    - reranking: `reranking/reranker_factory.py` returns rerankers used in `retrieval_orchestrator.py`
+   - evaluation: `evaluation/example_usage.py` for automated testing, `evaluation/backend_dashboard/` for metrics visualization
 
-If any section looks incomplete or you want deeper examples (tests or small harnesses for embedders/FAISS), tell me which area to expand.
+---
+Updated: Added 5 new multilingual embedders, stable reranker lineup, and evaluation framework. Reply with which sections to expand or any unclear/missing integrations to include.
 
 ---
 Updated: concise guide with file pointers and commands. Reply with which sections to expand or any missing integrations to include.

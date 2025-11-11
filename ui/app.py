@@ -250,7 +250,8 @@ class RAGChatApp:
                 embedder_type=embedder_type,
                 reranker_type=reranker_type,
                 use_query_enhancement=use_qem,
-                api_tokens=api_tokens
+                api_tokens=api_tokens,
+                llm_model=settings.get("backend_mode")
             )
             
             # Update session state with results

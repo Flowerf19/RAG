@@ -8,12 +8,23 @@ Single Responsibility: High-level retrieval workflow coordination.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from embedders.embedder_type import EmbedderType
 from pipeline.rag_pipeline import RAGPipeline
 from pipeline.retrieval.retrieval_service import RAGRetrievalService
 from query_enhancement.query_processor import create_query_processor
+
+# Import evaluation components
+try:
+    from evaluation.metrics.logger import EvaluationLogger
+    from evaluation.evaluators.auto_evaluator import AutoEvaluator
+    _EVALUATION_AVAILABLE = True
+except ImportError:
+    _EVALUATION_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("Evaluation system not available, running without metrics logging")
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +41,7 @@ def fetch_retrieval(
     reranker_type: str = "none",
     use_query_enhancement: bool = True,
     api_tokens: Optional[Dict[str, str]] = None,
+    llm_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Enhanced retrieval function combining query enhancement and reranking.
@@ -44,10 +56,13 @@ def fetch_retrieval(
         reranker_type: Type of reranker ("none", "bge_local", "bge_m3_ollama", etc.)
         use_query_enhancement: Whether to use query enhancement module
         api_tokens: Dict of API tokens for rerankers (keys: "hf", "cohere", "jina")
+        llm_model: LLM model name for evaluation logging (e.g., "gemini", "lmstudio")
 
     Returns:
         Dict with keys: "context" (str), "sources" (list), "queries" (list), "retrieval_info" (dict)
     """
+    start_time = time.time() if _EVALUATION_AVAILABLE else None
+
     try:
         logger.info(f"📥 Received query: {query_text[:100]}...")
 
@@ -55,7 +70,7 @@ def fetch_retrieval(
         embedder_enum, use_api = _parse_embedder_type(embedder_type)
 
         # Initialize pipeline with caching
-        cache_key = f"{embedder_enum.value}_{use_api}"
+        cache_key = f"{embedder_enum.value}_{use_api}_{embedder_type}"
         if cache_key not in _PIPELINE_CACHE:
             logger.info(
                 f"🔄 Creating new pipeline instance for {cache_key} (first time may take 30-60s)"
@@ -68,6 +83,26 @@ def fetch_retrieval(
             logger.info(f"♻️ Using cached pipeline for {cache_key}")
 
         pipeline = _PIPELINE_CACHE[cache_key]
+        
+        # Override embedder for specific multilingual models
+        if embedder_type.lower() in ["e5_large_instruct", "e5_base", "gte_multilingual_base", 
+                                   "paraphrase_mpnet_base_v2", "paraphrase_minilm_l12_v2"]:
+            from embedders.embedder_factory import EmbedderFactory
+            factory = EmbedderFactory()
+            
+            if embedder_type.lower() == "e5_large_instruct":
+                pipeline.embedder = factory.create_e5_large_instruct(device="cpu")
+            elif embedder_type.lower() == "e5_base":
+                pipeline.embedder = factory.create_e5_base(device="cpu")
+            elif embedder_type.lower() == "gte_multilingual_base":
+                pipeline.embedder = factory.create_gte_multilingual_base(device="cpu")
+            elif embedder_type.lower() == "paraphrase_mpnet_base_v2":
+                pipeline.embedder = factory.create_paraphrase_mpnet_base_v2(device="cpu")
+            elif embedder_type.lower() == "paraphrase_minilm_l12_v2":
+                pipeline.embedder = factory.create_paraphrase_minilm_l12_v2(device="cpu")
+            
+            logger.info(f"✅ Switched to {embedder_type} embedder")
+
         retriever = RAGRetrievalService(pipeline)
 
         # Query Enhancement
@@ -85,7 +120,7 @@ def fetch_retrieval(
         logger.info(
             f"📚 Searching documents (retrieving top {retrieval_top_k} candidates)..."
         )
-        
+
         results = retriever.retrieve_hybrid(
             query_text=query_text,
             top_k=retrieval_top_k,
@@ -95,9 +130,27 @@ def fetch_retrieval(
 
         if not results:
             logger.warning("No hybrid retrieval results found.")
-            return _build_empty_response(
+            empty_response = _build_empty_response(
                 expanded_queries, embedder_type, reranker_type, use_query_enhancement
             )
+
+            # Log failed evaluation if available
+            if _EVALUATION_AVAILABLE:
+                latency = time.time() - start_time if start_time else 0
+                eval_logger = EvaluationLogger()
+                eval_logger.log_evaluation(
+                    query=query_text,
+                    model=llm_model or f"{embedder_type}_{reranker_type}",
+                    latency=latency,
+                    error=True,
+                    error_message="No retrieval results found",
+                    embedder_model=embedder_type,
+                    llm_model=llm_model,
+                    reranker_model=reranker_type,
+                    query_enhanced=use_query_enhancement
+                )
+
+            return empty_response
 
         initial_count = len(results)
         logger.info(f"Retrieved {initial_count} results from hybrid search")
@@ -115,6 +168,29 @@ def fetch_retrieval(
         context = retriever.build_context(results, max_chars=max_chars)
         sources = retriever.to_ui_items(results)
 
+        # Calculate evaluation metrics if available
+        if _EVALUATION_AVAILABLE:
+            latency = time.time() - start_time if start_time else 0
+
+            # Evaluate response quality
+            evaluator = AutoEvaluator(embedder=pipeline.embedder)
+            faithfulness, relevance = evaluator.evaluate_response(query_text, context, context)
+
+            # Log evaluation
+            eval_logger = EvaluationLogger()
+            eval_logger.log_evaluation(
+                query=query_text,
+                model=llm_model or f"{embedder_type}_{reranker_type}",
+                latency=latency,
+                faithfulness=faithfulness,
+                relevance=relevance,
+                error=False,
+                embedder_model=embedder_type,
+                llm_model=llm_model,
+                reranker_model=reranker_type,
+                query_enhanced=use_query_enhancement
+            )
+
         return {
             "context": context,
             "sources": sources,
@@ -131,6 +207,23 @@ def fetch_retrieval(
 
     except Exception as exc:
         logger.error("Error in fetch_retrieval: %s", exc)
+
+        # Log failed evaluation if available
+        if _EVALUATION_AVAILABLE:
+            latency = time.time() - start_time if start_time else 0
+            eval_logger = EvaluationLogger()
+            eval_logger.log_evaluation(
+                query=query_text,
+                model=llm_model or f"{embedder_type}_{reranker_type}",
+                latency=latency,
+                error=True,
+                error_message=str(exc),
+                embedder_model=embedder_type,
+                llm_model=llm_model,
+                reranker_model=reranker_type,
+                query_enhanced=use_query_enhancement
+            )
+
         return {
             "context": "",
             "sources": [],
@@ -166,6 +259,11 @@ def _parse_embedder_type(embedder_type: str) -> tuple[EmbedderType, Optional[boo
     elif embedder_type.lower() == "huggingface":
         embedder_enum = EmbedderType.HUGGINGFACE
         use_api = None
+    elif embedder_type.lower() in ["e5_large_instruct", "e5_base", "gte_multilingual_base", 
+                                   "paraphrase_mpnet_base_v2", "paraphrase_minilm_l12_v2"]:
+        # New multilingual models - use HUGGINGFACE with specific model selection
+        embedder_enum = EmbedderType.HUGGINGFACE
+        use_api = False  # All new models are local
     elif embedder_type.lower() == "ollama":
         embedder_enum = EmbedderType.OLLAMA
 
@@ -286,10 +384,12 @@ def _parse_reranker_type(reranker_type: str):
         return RerankerType.BGE_M3_HF_API
     elif reranker_type == "bge_m3_hf_local":
         return RerankerType.BGE_M3_HF_LOCAL
-    elif reranker_type == "cohere":
-        return RerankerType.COHERE
-    elif reranker_type == "jina":
-        return RerankerType.JINA
+    elif reranker_type == "jina_v2_multilingual":
+        return RerankerType.JINA_V2_MULTILINGUAL
+    elif reranker_type == "gte_multilingual":
+        return RerankerType.GTE_MULTILINGUAL
+    elif reranker_type == "bge_base":
+        return RerankerType.BGE_BASE
     return None
 
 

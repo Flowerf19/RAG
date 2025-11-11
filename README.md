@@ -84,9 +84,9 @@ User Query → Query Enhancement → Hybrid Search → Reranking → LLM Generat
 - **LLM**: Multiple provider support for response generation
 - **UI**: Streamlit interface for document processing and chat
 
-### System Workflow
+### System Workflows
 
-#### 1. Document Processing Pipeline
+#### 📥 Ingest Workflow
 
 ```mermaid
 graph TD
@@ -131,42 +131,10 @@ graph TD
     style Y fill:#c8e6c9
     style Z fill:#c8e6c9
 ```
-    H --> I{>30% Empty?}
-    I -->|Yes| J[OCR Enhancement]
-    I -->|No| K[Clean Tables]
 
-    B --> L[FigureExtractor]
-    L --> M[Image Grouping]
-    M --> N[PaddleOCR per Figure]
+#### 🔍 Search Workflow
 
-    D --> O[PageContent]
-    E --> O
-    F --> O
-    J --> O
-    K --> O
-    N --> O
-
-    O --> P[SemanticChunker]
-    P --> Q[spaCy Segmentation]
-    Q --> R[Coherence Analysis]
-    R --> S[ChunkSet]
-
-    S --> T[Embedder]
-    T --> U{Provider}
-    U -->|Ollama| V[Local Models]
-    U -->|HuggingFace| W[API/Local]
-    U -->|OpenAI| X[Cloud API]
-
-    T --> Y[FAISS Index]
-    S --> Z[BM25 Index]
-
-    style A fill:#e1f5fe
-    style Y fill:#c8e6c9
-    style Z fill:#c8e6c9
-```
-
-#### 2. Query Processing Pipeline
-
+##### Query Processing
 ```mermaid
 graph TD
     A[User Query] --> B[QueryProcessor]
@@ -195,8 +163,7 @@ graph TD
     style P fill:#fff3e0
 ```
 
-#### 3. Retrieval & Refinement Pipeline
-
+##### Retrieval & Reranking
 ```mermaid
 graph TD
     A[Query Embeddings] --> B[Vector Search]
@@ -228,8 +195,7 @@ graph TD
     style N fill:#c8e6c9
 ```
 
-#### 4. Response Generation Pipeline
-
+##### Response Generation
 ```mermaid
 graph TD
     A[Final Results] --> B[Context Builder]
@@ -301,7 +267,7 @@ RAG/
 
 ### Environment Setup
 
-`ash
+```bash
 # HuggingFace API (optional)
 export HF_TOKEN="your_token_here"
 
@@ -310,7 +276,7 @@ export GOOGLE_API_KEY="your_key_here"
 
 # OpenAI (optional)
 export OPENAI_API_KEY="your_key_here"
-`
+```
 
 ##  Use Cases
 
@@ -344,13 +310,13 @@ export OPENAI_API_KEY="your_key_here"
 
 ### Development Setup
 
-`ash
+```bash
 git clone https://github.com/Flowerf19/RAG.git
 cd RAG
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-`
+```
 
 ### Guidelines
 

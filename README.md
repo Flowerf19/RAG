@@ -26,7 +26,7 @@ A comprehensive RAG system that transforms PDF documents into searchable knowled
 
 ### Installation
 
-`ash
+```bash
 # Clone repository
 git clone https://github.com/Flowerf19/RAG.git
 cd RAG
@@ -41,36 +41,36 @@ pip install -r requirements.txt
 # Install language models
 python -c "import spacy; spacy.cli.download('en_core_web_sm')"
 python -c "import spacy; spacy.cli.download('vi_core_news_lg')"
-`
+```
 
 ### Basic Usage
 
 1. **Start Ollama** (for local embeddings/LLMs):
-`ash
+```bash
 ollama pull embeddinggemma:latest
 ollama pull bge-m3:latest
-`
+```
 
 2. **Process Documents**:
-`ash
+```bash
 # Process all PDFs in data/pdf/
 python -c "from pipeline.rag_pipeline import RAGPipeline; RAGPipeline().process_directory('data/pdf')"
-`
+```
 
 3. **Launch Web Interface**:
-`ash
+```bash
 streamlit run ui/app.py
-`
+```
 
 ##  Architecture Overview
 
 ### Data Flow
 
-`
-PDF Documents  Text Extraction  Semantic Chunking  Embeddings  Vector Index
-                                                                 BM25 Index
-User Query  Query Enhancement  Hybrid Search  Reranking  LLM Generation
-`
+```
+PDF Documents → Text Extraction → Semantic Chunking → Embeddings → Vector Index
+                                                                → BM25 Index
+User Query → Query Enhancement → Hybrid Search → Reranking → LLM Generation
+```
 
 ### Core Components
 
@@ -88,7 +88,7 @@ User Query  Query Enhancement  Hybrid Search  Reranking  LLM Generation
 
 #### 1. Document Processing Pipeline
 
-`mermaid
+```mermaid
 graph TD
     A[PDF Documents] --> B[PDFProvider]
     B --> C{Auto-Detection}
@@ -130,11 +130,44 @@ graph TD
     style A fill:#e1f5fe
     style Y fill:#c8e6c9
     style Z fill:#c8e6c9
-`
+```
+    H --> I{>30% Empty?}
+    I -->|Yes| J[OCR Enhancement]
+    I -->|No| K[Clean Tables]
+
+    B --> L[FigureExtractor]
+    L --> M[Image Grouping]
+    M --> N[PaddleOCR per Figure]
+
+    D --> O[PageContent]
+    E --> O
+    F --> O
+    J --> O
+    K --> O
+    N --> O
+
+    O --> P[SemanticChunker]
+    P --> Q[spaCy Segmentation]
+    Q --> R[Coherence Analysis]
+    R --> S[ChunkSet]
+
+    S --> T[Embedder]
+    T --> U{Provider}
+    U -->|Ollama| V[Local Models]
+    U -->|HuggingFace| W[API/Local]
+    U -->|OpenAI| X[Cloud API]
+
+    T --> Y[FAISS Index]
+    S --> Z[BM25 Index]
+
+    style A fill:#e1f5fe
+    style Y fill:#c8e6c9
+    style Z fill:#c8e6c9
+```
 
 #### 2. Query Processing Pipeline
 
-`mermaid
+```mermaid
 graph TD
     A[User Query] --> B[QueryProcessor]
     B --> C{Enhancement?}
@@ -160,11 +193,11 @@ graph TD
     style A fill:#e1f5fe
     style N fill:#fff3e0
     style P fill:#fff3e0
-`
+```
 
 #### 3. Retrieval & Refinement Pipeline
 
-`mermaid
+```mermaid
 graph TD
     A[Query Embeddings] --> B[Vector Search]
     B --> C[FAISS Index]
@@ -193,11 +226,11 @@ graph TD
 
     style A fill:#e1f5fe
     style N fill:#c8e6c9
-`
+```
 
 #### 4. Response Generation Pipeline
 
-`mermaid
+```mermaid
 graph TD
     A[Final Results] --> B[Context Builder]
     B --> C[Chunk Aggregation]
@@ -225,6 +258,7 @@ graph TD
 
     style A fill:#e1f5fe
     style T fill:#c8e6c9
+```
 `
 
 ##  Key Differentiators
@@ -355,6 +389,6 @@ Built with FAISS, Ollama, spaCy, Whoosh, Streamlit, PaddleOCR, and HuggingFace T
 
 ##  Support
 
-- **Lead Developer**: Nguyễn Hoà (Hoaf.n.v@gmail.com)
-- **Core Contributor**: LeeWar (Bachien0987@gmail.com)
+- **Developer**: Nguyễn Hoà (Hoaf.n.v@gmail.com)
+- **Developer**: Lê Chiến (Bachien0987@gmail.com)
 - **Documentation**: See individual module READMEs

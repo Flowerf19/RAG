@@ -82,20 +82,52 @@ class Sidebar:
     def _render_menu_buttons(self) -> None:
         """Render New Chat and Clear Cache buttons"""
         st.markdown("### Menu")
-        
+
         if st.button("New Chat"):
             st.session_state["messages"] = []
             st.session_state["is_generating"] = False
             st.session_state["pending_prompt"] = None
             st.session_state["last_sources"] = []
             st.rerun()
-        
+
         if st.button("Clear Cache"):
             st.session_state.clear()
             st.rerun()
-        
+
+        if st.button("📊 Evaluation Dashboard", type="secondary", help="View RAG model performance metrics and comparisons"):
+            self._launch_evaluation_dashboard()
+
         if st.button("🗑️ Clear Data", type="secondary", help="Xóa tất cả dữ liệu đã xử lý (chunks, embeddings, vectors, BM25, logs)"):
             self._clear_data_directories()
+    
+    def _launch_evaluation_dashboard(self) -> None:
+        """Launch the evaluation dashboard in a new tab"""
+        import webbrowser
+        import subprocess
+        import sys
+        import os
+
+        try:
+            # Try to launch dashboard in background
+            dashboard_script = os.path.join(os.path.dirname(__file__), "..", "dashboard", "app.py")
+            if os.path.exists(dashboard_script):
+                # Launch in background process
+                subprocess.Popen([
+                    sys.executable, "-m", "streamlit", "run", dashboard_script,
+                    "--server.port", "8502",
+                    "--server.headless", "true"
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+                # Open browser
+                webbrowser.open("http://localhost:8502")
+
+                st.success("📊 Evaluation Dashboard launched at http://localhost:8502")
+            else:
+                st.error("❌ Evaluation dashboard not found. Please ensure evaluation system is properly installed.")
+
+        except Exception as e:
+            st.error(f"❌ Failed to launch dashboard: {str(e)}")
+            st.info("💡 Try running manually: `streamlit run ui/dashboard/app.py`")
     
     def _clear_data_directories(self) -> None:
         """Clear all processed data directories and files"""
@@ -185,7 +217,16 @@ class Sidebar:
     def _render_embedder_selection(self) -> str:
         """Render embedding model selection"""
         st.markdown("---")
-        embedding_options = ["ollama", "huggingface_local", "huggingface_api"]
+        embedding_options = [
+            "ollama", 
+            "huggingface_local", 
+            "huggingface_api",
+            "e5_large_instruct",
+            "e5_base", 
+            "gte_multilingual_base",
+            "paraphrase_mpnet_base_v2",
+            "paraphrase_minilm_l12_v2"
+        ]
         
         if "embedder_type" not in st.session_state:
             st.session_state["embedder_type"] = "huggingface_local"
@@ -196,9 +237,14 @@ class Sidebar:
             key="embedder_type",
             help="Chọn loại embedder cho retrieval",
             format_func=lambda x: {
-                "ollama": "Ollama (Gemma/BGE-M3)",
+                "ollama": "Ollama (Gemma 768-dim)",
                 "huggingface_local": "HF Local (BGE-M3 1024-dim)",
-                "huggingface_api": "HF API (E5-Large 1024-dim)"
+                "huggingface_api": "HF API (E5-Large 1024-dim)",
+                "e5_large_instruct": "E5 Large Instruct (1024-dim)",
+                "e5_base": "E5 Base (768-dim)",
+                "gte_multilingual_base": "GTE Multilingual Base (768-dim)",
+                "paraphrase_mpnet_base_v2": "Paraphrase MPNet Base V2 (768-dim)",
+                "paraphrase_minilm_l12_v2": "Paraphrase MiniLM L12 V2 (384-dim)"
             }.get(x, x)
         )
         
@@ -207,10 +253,18 @@ class Sidebar:
     def _render_reranker_selection(self) -> str:
         """Render reranker model selection"""
         st.markdown("---")
-        reranker_options = ["none", "bge_m3_hf_local", "bge_m3_ollama", "bge_m3_hf_api"]
+        reranker_options = [
+            "none",
+            "bge_m3_hf_local",
+            "bge_m3_ollama",
+            "bge_m3_hf_api",
+            "jina_v2_multilingual",
+            "gte_multilingual",
+            "bge_base"
+        ]
         
         if "reranker_type" not in st.session_state:
-            st.session_state["reranker_type"] = "bge_m3_hf_local"
+            st.session_state["reranker_type"] = "none"
         
         st.selectbox(
             "Reranker Model",
@@ -219,11 +273,12 @@ class Sidebar:
             help="Chọn loại reranker để sắp xếp lại kết quả",
             format_func=lambda x: {
                 "none": "No Reranking",
-                "bge_m3_hf_local": "BGE v2-m3 Local (HF)",
+                "bge_m3_hf_local": "BGE v2-m3 Local (~0.4GB)",
                 "bge_m3_ollama": "BGE-M3 Ollama",
                 "bge_m3_hf_api": "Sentence-Transformers HF API",
-                "cohere": "Cohere API",
-                "jina": "Jina API"
+                "jina_v2_multilingual": "Jina V2 Multilingual (~0.3GB)",
+                "gte_multilingual": "GTE Multilingual (~0.5GB)",
+                "bge_base": "BGE Base (~0.4GB)"
             }.get(x, x)
         )
         

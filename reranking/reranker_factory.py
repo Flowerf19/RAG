@@ -61,40 +61,46 @@ class RerankerFactory:
         return BGE3HuggingFaceLocalReranker(model_name=model_name, device=device)
     
     @staticmethod
-    def create_cohere(
-        api_token: str,
-        model_name: str = "rerank-english-v3.0"
-    ) -> IReranker:
+    def create_jina_v2_multilingual(device: str = "cpu") -> IReranker:
         """
-        Create Cohere API reranker.
-        
+        Create Jina V2 Multilingual reranker.
+
         Args:
-            api_token: Cohere API token
-            model_name: Model name
-            
+            device: Device to run on
+
         Returns:
-            Cohere reranker instance
+            Jina V2 Multilingual reranker instance
         """
-        from reranking.providers.cohere_reranker import CohereReranker
-        return CohereReranker(api_token=api_token, model_name=model_name)
-    
+        from reranking.providers.multilingual_rerankers import JinaRerankerV2BaseMultilingual
+        return JinaRerankerV2BaseMultilingual(device=device)
+
     @staticmethod
-    def create_jina(
-        api_token: str,
-        model_name: str = "jina-reranker-v2-base-multilingual"
-    ) -> IReranker:
+    def create_gte_multilingual(device: str = "cpu") -> IReranker:
         """
-        Create Jina API reranker.
-        
+        Create GTE Multilingual reranker.
+
         Args:
-            api_token: Jina API token
-            model_name: Model name
-            
+            device: Device to run on
+
         Returns:
-            Jina reranker instance
+            GTE Multilingual reranker instance
         """
-        from reranking.providers.jina_reranker import JinaReranker
-        return JinaReranker(api_token=api_token, model_name=model_name)
+        from reranking.providers.multilingual_rerankers import GTEMultilingualRerankerBase
+        return GTEMultilingualRerankerBase(device=device)
+
+    @staticmethod
+    def create_bge_base(device: str = "cpu") -> IReranker:
+        """
+        Create BGE Base reranker.
+
+        Args:
+            device: Device to run on
+
+        Returns:
+            BGE Base reranker instance
+        """
+        from reranking.providers.multilingual_rerankers import BGERerankerBase
+        return BGERerankerBase(device=device)
     
     @classmethod
     def create(
@@ -127,15 +133,14 @@ class RerankerFactory:
         elif reranker_type == RerankerType.BGE_M3_HF_LOCAL:
             return cls.create_bge_m3_hf_local(model_name=model_name, device=device)
         
-        elif reranker_type == RerankerType.COHERE:
-            if not api_token:
-                raise ValueError("API token required for Cohere reranker")
-            return cls.create_cohere(api_token=api_token, model_name=model_name)
+        elif reranker_type == RerankerType.JINA_V2_MULTILINGUAL:
+            return cls.create_jina_v2_multilingual(device=device)
         
-        elif reranker_type == RerankerType.JINA:
-            if not api_token:
-                raise ValueError("API token required for Jina reranker")
-            return cls.create_jina(api_token=api_token, model_name=model_name)
+        elif reranker_type == RerankerType.GTE_MULTILINGUAL:
+            return cls.create_gte_multilingual(device=device)
+        
+        elif reranker_type == RerankerType.BGE_BASE:
+            return cls.create_bge_base(device=device)
         
         else:
             raise ValueError(f"Unknown reranker type: {reranker_type}")

@@ -36,7 +36,8 @@ class HuggingFaceLocalEmbedder(BaseHuggingFaceEmbedder):
     def __init__(self,
                  profile: Optional[EmbeddingProfile] = None,
                  model_name: Optional[str] = None,
-                 device: str = "cpu"):
+                 device: str = "cpu",
+                 trust_remote_code: bool = False):
         """
         Initialize HF Local embedder.
 
@@ -44,10 +45,12 @@ class HuggingFaceLocalEmbedder(BaseHuggingFaceEmbedder):
             profile: Embedding profile, nếu None sẽ tạo từ class constants
             model_name: Override model name
             device: Device for inference ("cpu", "cuda")
+            trust_remote_code: Whether to trust remote code when loading models
         """
         super().__init__(profile, model_name)
         
         self.device = device
+        self.trust_remote_code = trust_remote_code
         self._tokenizer: Any = None  # Type will be PreTrainedTokenizer at runtime
         self._model: Any = None  # Type will be PreTrainedModel at runtime
         
@@ -58,8 +61,8 @@ class HuggingFaceLocalEmbedder(BaseHuggingFaceEmbedder):
         try:
             print(f"🔄 Loading local HF model: {self.model_name}")
             
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self._model = AutoModel.from_pretrained(self.model_name)
+            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=self.trust_remote_code)
+            self._model = AutoModel.from_pretrained(self.model_name, trust_remote_code=self.trust_remote_code)
 
             # Move to device
             if self.device != "cpu" and torch.cuda.is_available():
@@ -132,9 +135,9 @@ class HuggingFaceLocalEmbedder(BaseHuggingFaceEmbedder):
 
         Args:
             device: Device for inference
-            **kwargs: Additional arguments
+            **kwargs: Additional arguments (including trust_remote_code)
 
         Returns:
             HuggingFaceLocalEmbedder: Configured local embedder
         """
-        return cls(device=device)
+        return cls(device=device, **kwargs)

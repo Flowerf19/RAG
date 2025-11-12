@@ -20,6 +20,7 @@ from query_enhancement.query_processor import create_query_processor
 try:
     from evaluation.metrics.logger import EvaluationLogger
     from evaluation.evaluators.auto_evaluator import AutoEvaluator
+    from evaluation.metrics.token_counter import token_counter
     _EVALUATION_AVAILABLE = True
 except ImportError:
     _EVALUATION_AVAILABLE = False
@@ -108,6 +109,7 @@ def fetch_retrieval(
         # Query Enhancement
         query_processor = create_query_processor(use_query_enhancement, pipeline.embedder)
         expanded_queries = query_processor.enhance_query(query_text, use_query_enhancement)
+        logger.info(f"Expanded queries: {expanded_queries}")
 
         # Create fused embedding
         logger.info(f"🔍 Embedding {len(expanded_queries)} queries...")
@@ -147,7 +149,12 @@ def fetch_retrieval(
                     embedder_model=embedder_type,
                     llm_model=llm_model,
                     reranker_model=reranker_type,
-                    query_enhanced=use_query_enhancement
+                    query_enhanced=use_query_enhancement,
+                    embedding_tokens=0,
+                    reranking_tokens=0,
+                    llm_tokens=0,
+                    total_tokens=0,
+                    retrieval_chunks=0
                 )
 
             return empty_response
@@ -172,11 +179,55 @@ def fetch_retrieval(
         if _EVALUATION_AVAILABLE:
             latency = time.time() - start_time if start_time else 0
 
-            # Evaluate response quality
-            evaluator = AutoEvaluator(embedder=pipeline.embedder)
-            faithfulness, relevance = evaluator.evaluate_response(query_text, context, context)
+            # Track tokens used in different operations
+            embedding_tokens = 0
+            reranking_tokens = 0
+            llm_tokens = 0
 
-            # Log evaluation
+            try:
+                # Count embedding tokens (query + expanded queries)
+                embedding_texts = [query_text] + expanded_queries
+                embedding_tokens = sum(token_counter.count_tokens(text, embedder_type) for text in embedding_texts)
+                logger.info(f"Embedding tokens counted: {embedding_tokens}")
+
+                # Count reranking tokens if reranking was used
+                if reranked:
+                    # Approximate reranking tokens (query + top candidates)
+                    reranking_texts = [query_text] + [result.get('text', '')[:500] for result in results[:top_k]]
+                    reranking_tokens = sum(token_counter.count_tokens(text, 'default') for text in reranking_texts)
+                    logger.info(f"Reranking tokens counted: {reranking_tokens}")
+
+                # Count LLM tokens for evaluation (if LLM evaluation is used)
+                if llm_model:
+                    eval_texts = [query_text, context, context]  # query, answer, context for evaluation
+                    llm_tokens = sum(token_counter.count_tokens(text, llm_model) for text in eval_texts)
+                    logger.info(f"LLM tokens counted: {llm_tokens}")
+
+            except Exception as e:
+                logger.error(f"Error counting tokens: {e}")
+                # Continue with zero token counts
+
+            # Build joined_sources from sources for a correct faithfulness evaluation
+            try:
+                source_texts = []
+                if isinstance(sources, list):
+                    for s in sources:
+                        if isinstance(s, dict):
+                            txt = s.get('text') or s.get('content') or s.get('snippet') or s.get('title') or str(s)
+                            source_texts.append(str(txt))
+                        else:
+                            source_texts.append(str(s))
+                else:
+                    source_texts.append(str(sources))
+                joined_sources = "\n".join(source_texts)
+            except Exception:
+                joined_sources = context
+
+            # Evaluate response quality: compare predicted/context against the actual joined sources
+            evaluator = AutoEvaluator(embedder=pipeline.embedder)
+            faithfulness, relevance = evaluator.evaluate_response(query_text, context, joined_sources)
+
+            # Log evaluation with token counts
             eval_logger = EvaluationLogger()
             eval_logger.log_evaluation(
                 query=query_text,
@@ -188,7 +239,12 @@ def fetch_retrieval(
                 embedder_model=embedder_type,
                 llm_model=llm_model,
                 reranker_model=reranker_type,
-                query_enhanced=use_query_enhancement
+                query_enhanced=use_query_enhancement,
+                embedding_tokens=embedding_tokens,
+                reranking_tokens=reranking_tokens,
+                llm_tokens=llm_tokens,
+                total_tokens=embedding_tokens + reranking_tokens + llm_tokens,
+                retrieval_chunks=initial_count
             )
 
         return {

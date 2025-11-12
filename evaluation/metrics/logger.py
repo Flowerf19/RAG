@@ -33,6 +33,11 @@ class EvaluationLogger:
                       llm_model: Optional[str] = None,
                       reranker_model: Optional[str] = None,
                       query_enhanced: bool = False,
+                      embedding_tokens: int = 0,
+                      reranking_tokens: int = 0,
+                      llm_tokens: int = 0,
+                      total_tokens: int = 0,
+                      retrieval_chunks: int = 0,
                       metadata: Optional[Dict[str, Any]] = None) -> int:
         """
         Log a single evaluation metric.
@@ -49,6 +54,11 @@ class EvaluationLogger:
             llm_model: LLM model used (e.g., 'gemini', 'lmstudio')
             reranker_model: Reranker model used (e.g., 'bge_m3_hf_local', 'none')
             query_enhanced: Whether query enhancement was used
+            embedding_tokens: Number of tokens used for embedding operations
+            reranking_tokens: Number of tokens used for reranking operations
+            llm_tokens: Number of tokens used for LLM operations
+            total_tokens: Total tokens used across all operations
+            retrieval_chunks: Number of chunks retrieved from vector search
             metadata: Additional context data
 
         Returns:
@@ -67,6 +77,11 @@ class EvaluationLogger:
             'relevance': relevance,
             'error': error,
             'error_message': error_message,
+            'embedding_tokens': embedding_tokens,
+            'reranking_tokens': reranking_tokens,
+            'llm_tokens': llm_tokens,
+            'total_tokens': total_tokens,
+            'retrieval_chunks': retrieval_chunks,
             'metadata': metadata or {}
         }
 
@@ -104,6 +119,12 @@ class _PipelineTimer:
         self.model = model
         self.start_time = None
         self.scores = {}
+        self.tokens = {
+            'embedding': 0,
+            'reranking': 0,
+            'llm': 0,
+            'total': 0
+        }
 
     def __enter__(self):
         self.start_time = time.time()
@@ -128,10 +149,33 @@ class _PipelineTimer:
                 model=self.model,
                 latency=latency,
                 faithfulness=self.scores.get('faithfulness'),
-                relevance=self.scores.get('relevance')
+                relevance=self.scores.get('relevance'),
+                embedding_tokens=self.tokens['embedding'],
+                reranking_tokens=self.tokens['reranking'],
+                llm_tokens=self.tokens['llm'],
+                total_tokens=self.tokens['total']
             )
 
     def set_scores(self, faithfulness: float = None, relevance: float = None):
         """Set evaluation scores for this pipeline run."""
         self.scores['faithfulness'] = faithfulness
         self.scores['relevance'] = relevance
+
+    def add_embedding_tokens(self, tokens: int):
+        """Add tokens used for embedding operations."""
+        self.tokens['embedding'] += tokens
+        self._update_total_tokens()
+
+    def add_reranking_tokens(self, tokens: int):
+        """Add tokens used for reranking operations."""
+        self.tokens['reranking'] += tokens
+        self._update_total_tokens()
+
+    def add_llm_tokens(self, tokens: int):
+        """Add tokens used for LLM operations."""
+        self.tokens['llm'] += tokens
+        self._update_total_tokens()
+
+    def _update_total_tokens(self):
+        """Update total token count."""
+        self.tokens['total'] = self.tokens['embedding'] + self.tokens['reranking'] + self.tokens['llm']

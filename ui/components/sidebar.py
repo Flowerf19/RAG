@@ -54,6 +54,9 @@ class Sidebar:
             
             # Get user selections
             backend_mode = self._render_backend_selection()
+            # read provider/model from session_state (set by _render_backend_selection)
+            llm_provider = st.session_state.get("llm_provider", None)
+            llm_model = st.session_state.get("llm_model", None)
             embedder_type = self._render_embedder_selection()
             reranker_type = self._render_reranker_selection()
             
@@ -72,6 +75,8 @@ class Sidebar:
         
         return {
             "backend_mode": backend_mode,
+            "llm_provider": llm_provider,
+            "llm_model": llm_model,
             "embedder_type": embedder_type,
             "reranker_type": reranker_type,
             "top_k_embed": top_k_embed,
@@ -192,27 +197,112 @@ class Sidebar:
     
     def _render_backend_selection(self) -> str:
         """Render LLM backend selection"""
-        backend_options = ["gemini", "lmstudio"]
-        
+        providers = ["gemini", "lmstudio", "ollama"]
+
+        # Determine default provider from config
         if "backend_mode" not in st.session_state:
             try:
                 from llm.config_loader import ui_default_backend
                 default = ui_default_backend()
-                st.session_state["backend_mode"] = (
-                    default if default in backend_options else backend_options[0]
-                )
+                st.session_state["backend_mode"] = default if default in providers else providers[0]
             except Exception:
-                st.session_state["backend_mode"] = backend_options[0]
-        
-        st.radio(
+                st.session_state["backend_mode"] = providers[0]
+
+        st.selectbox(
             "Response source",
-            backend_options,
+            providers,
             key="backend_mode",
             help="Chọn nguồn trả lời cho chatbot",
-            format_func=lambda x: "Gemini API" if x == "gemini" else "LM Studio Local"
+            format_func=lambda x: {"gemini": "Gemini API", "lmstudio": "LM Studio Local", "ollama": "OLLAMA (local)"}.get(x, x)
         )
-        
+
+        # Sync llm_provider with backend_mode
+        st.session_state["llm_provider"] = st.session_state["backend_mode"]
+        # Provide model selection inline under Response source
+        provider = st.session_state["llm_provider"]
+
+        # If provider changed since last render, reset model selection so we
+        # can populate a sensible default from config.
+        prev = st.session_state.get("_prev_backend")
+        provider_changed = prev != provider
+        if provider_changed:
+            st.session_state["_prev_backend"] = provider
+            st.session_state.pop("llm_model", None)
+
+        model_options = ["default"]
+        default_model = ""
+        try:
+            if provider == "gemini":
+                from llm.config_loader import resolve_gemini_settings
+                cfg = resolve_gemini_settings()
+                default_model = cfg.get("model", "gemini-2.0-flash")
+                model_options = [default_model, "custom..."]
+            elif provider == "lmstudio":
+                from llm.config_loader import resolve_lmstudio_settings
+                cfg = resolve_lmstudio_settings()
+                default_model = cfg.get("model", "lmstudio-default")
+                model_options = [default_model, "custom..."]
+            elif provider == "ollama":
+                from llm.config_loader import resolve_ollama_settings
+                cfg = resolve_ollama_settings()
+                default_model = cfg.get("model", "gemma3n:latest")
+                # keep a short set of known choices and allow custom
+                model_options = [default_model, "gemma:latest", "bge-m3:latest", "custom..."]
+        except Exception:
+            # Fallbacks if config resolution failed
+            if provider == "gemini":
+                model_options = ["gemini-2.0-flash", "custom..."]
+            elif provider == "lmstudio":
+                model_options = ["lmstudio-local", "custom..."]
+            elif provider == "ollama":
+                model_options = ["gemma3n:latest", "custom..."]
+
+        # Initialize llm_model if missing or provider changed
+        if "llm_model" not in st.session_state or provider_changed:
+            st.session_state["llm_model"] = default_model or model_options[0]
+
+        st.selectbox(
+            "LLM Model",
+            model_options,
+            key="llm_model",
+            help="Chọn tên mô hình LLM (nếu là Ollama, sử dụng định dạng 'model:tag')",
+            format_func=lambda x: x
+        )
+
+        # If custom selected, show text input
+        if st.session_state.get("llm_model") == "custom...":
+            if "llm_model_custom" not in st.session_state:
+                st.session_state["llm_model_custom"] = ""
+            custom = st.text_input("Custom model name (e.g. gemma3n:latest or my-llm)", key="llm_model_custom")
+            st.session_state["llm_model"] = custom.strip() or ""
+
+        # Check model availability button
+        if st.button("Check model availability"):
+            provider = st.session_state.get("llm_provider")
+            model_name = st.session_state.get("llm_model")
+            try:
+                # Import lazily to avoid heavy imports at module load
+                from llm.client_factory import LLMClientFactory, LLMProvider
+
+                # Create client based on provider (do not pass manual timeout)
+                try:
+                    prov_enum = LLMProvider(provider)
+                    client = LLMClientFactory.create(prov_enum, {"model": model_name})
+                except Exception:
+                    # fallback: create from string (allows aliases)
+                    client = LLMClientFactory.create_from_string(provider)
+
+                ok = client.is_available()
+                if ok:
+                    st.success(f"Model appears available: {model_name}")
+                else:
+                    st.warning(f"Model not found or server unreachable: {model_name}")
+            except Exception as e:
+                st.error(f"Failed to check model: {e}")
+
         return st.session_state["backend_mode"]
+
+    # NOTE: LLM provider+model selection moved inline into _render_backend_selection()
     
     def _render_embedder_selection(self) -> str:
         """Render embedding model selection"""

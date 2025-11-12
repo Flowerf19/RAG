@@ -181,3 +181,37 @@ def resolve_lmstudio_settings(
         "top_p": float(top_p) if top_p is not None else None,
         "max_tokens": int(max_tokens) if max_tokens is not None else None,
     }
+
+
+def resolve_ollama_settings(
+    override_base_url: Optional[str] = None,
+    override_model: Optional[str] = None,
+    override_timeout: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Resolve Ollama local server settings from config and env.
+
+    This function is permissive: if there is no `llm.ollama` section in
+    `config/app.yaml`, defaults will be used.
+    """
+    try:
+        cfg = _require(get_config(), "llm.ollama")
+    except Exception:
+        cfg = {}
+
+    # Base URL
+    if override_base_url:
+        base_url = override_base_url
+    else:
+        base_url = cfg.get("base_url", os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
+
+    # Model
+    model = override_model if override_model is not None else os.getenv("OLLAMA_MODEL", cfg.get("model", "gemma3n:latest"))
+
+    # Timeout
+    timeout = override_timeout if override_timeout is not None else int(cfg.get("timeout", os.getenv("OLLAMA_TIMEOUT", 180)))
+
+    return {
+        "base_url": base_url,
+        "model": model,
+        "timeout": int(timeout) if timeout is not None else 180,
+    }

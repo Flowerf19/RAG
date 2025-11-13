@@ -39,15 +39,12 @@ class IEmbedder(ABC):
         pass
 
     @abstractmethod
-    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    def get_model_name(self) -> str:
         """
-        Tạo embeddings cho một batch của texts.
-
-        Args:
-            texts: List của input texts
+        Lấy tên cụ thể của model đang được sử dụng.
 
         Returns:
-            List[List[float]]: List của embedding vectors
+            str: Model name (e.g., "gemma-7b", "bge-m3", "e5-large-instruct")
         """
         pass
 

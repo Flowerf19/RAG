@@ -47,6 +47,15 @@ class BaseEmbedder(IEmbedder, ABC):
         """
         return self.profile.dimension or 768  # Default fallback
 
+    def get_model_name(self) -> str:
+        """
+        Lấy tên cụ thể của model đang được sử dụng.
+
+        Returns:
+            str: Model name từ profile
+        """
+        return self.profile.model_id
+
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """
         Default implementation: embed từng text một.

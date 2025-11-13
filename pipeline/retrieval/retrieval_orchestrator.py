@@ -36,7 +36,7 @@ _PIPELINE_CACHE: Dict[str, RAGPipeline] = {}
 
 def fetch_retrieval(
     query_text: str,
-    top_k: int = 5,
+    top_k: int = 10,
     max_chars: int = 8000,
     embedder_type: str = "ollama",
     reranker_type: str = "none",
@@ -140,6 +140,10 @@ def fetch_retrieval(
             if _EVALUATION_AVAILABLE:
                 latency = time.time() - start_time if start_time else 0
                 eval_logger = EvaluationLogger()
+                
+                # Get specific model names
+                embedder_specific = getattr(pipeline.embedder, 'get_model_name', lambda: None)() if pipeline.embedder else None
+                
                 eval_logger.log_evaluation(
                     query=query_text,
                     model=llm_model or f"{embedder_type}_{reranker_type}",
@@ -149,6 +153,9 @@ def fetch_retrieval(
                     embedder_model=embedder_type,
                     llm_model=llm_model,
                     reranker_model=reranker_type,
+                    embedder_specific_model=embedder_specific,
+                    llm_specific_model=llm_model,  # LLM model name is already specific
+                    reranker_specific_model=None,  # No reranker used
                     query_enhanced=use_query_enhancement,
                     embedding_tokens=0,
                     reranking_tokens=0,
@@ -164,8 +171,9 @@ def fetch_retrieval(
 
         # Apply reranking if specified
         reranked = False
+        reranker_obj = None
         if reranker_type and reranker_type != "none":
-            results, reranked = _apply_reranking(
+            results, reranked, reranker_obj = _apply_reranking(
                 results, query_text, reranker_type, top_k, initial_count, api_tokens
             )
         else:
@@ -225,20 +233,29 @@ def fetch_retrieval(
 
             # Evaluate response quality: compare predicted/context against the actual joined sources
             evaluator = AutoEvaluator(embedder=pipeline.embedder)
-            faithfulness, relevance = evaluator.evaluate_response(query_text, context, joined_sources)
+            faithfulness, relevance, recall = evaluator.evaluate_response(query_text, context, joined_sources)
 
             # Log evaluation with token counts
             eval_logger = EvaluationLogger()
+            
+            # Get specific model names
+            embedder_specific = getattr(pipeline.embedder, 'get_model_name', lambda: None)() if pipeline.embedder else None
+            reranker_specific = getattr(reranker_obj, 'get_model_name', lambda: None)() if reranker_obj else None
+            
             eval_logger.log_evaluation(
                 query=query_text,
                 model=llm_model or f"{embedder_type}_{reranker_type}",
                 latency=latency,
                 faithfulness=faithfulness,
                 relevance=relevance,
+                recall=recall,
                 error=False,
                 embedder_model=embedder_type,
                 llm_model=llm_model,
                 reranker_model=reranker_type,
+                embedder_specific_model=embedder_specific,
+                llm_specific_model=llm_model,  # LLM model name is already specific
+                reranker_specific_model=reranker_specific,
                 query_enhanced=use_query_enhancement,
                 embedding_tokens=embedding_tokens,
                 reranking_tokens=reranking_tokens,
@@ -365,7 +382,7 @@ def _apply_reranking(
     top_k: int,
     initial_count: int,
     api_tokens: Optional[Dict[str, str]],
-) -> tuple[List[Dict[str, Any]], bool]:
+) -> tuple[List[Dict[str, Any]], bool, Optional[Any]]:
     """
     Apply reranking to results if reranker is specified.
     
@@ -378,7 +395,7 @@ def _apply_reranking(
         api_tokens: API tokens for rerankers
         
     Returns:
-        Tuple of (reranked results, reranked flag)
+        Tuple of (reranked results, reranked flag, reranker object)
     """
     try:
         from reranking.reranker_factory import RerankerFactory
@@ -411,15 +428,15 @@ def _apply_reranking(
             logger.info(
                 f"Applied {reranker_type} reranking: {initial_count} -> {len(results)} results"
             )
-            return results, True
+            return results, True, reranker
 
     except Exception as e:
         logger.warning(
             f"Reranking failed ({reranker_type}): {e}. Using top {top_k} from original results."
         )
-        return results[:top_k], False
+        return results[:top_k], False, None
 
-    return results[:top_k], False
+    return results[:top_k], False, None
 
 
 def _parse_reranker_type(reranker_type: str):

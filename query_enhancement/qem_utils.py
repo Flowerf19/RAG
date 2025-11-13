@@ -44,6 +44,11 @@ def parse_llm_list(raw_output: str) -> List[str]:
         return []
 
     text = raw_output.strip()
+
+    # Strip Markdown fences such as ```json ... ``` to allow clean JSON parsing.
+    fence_match = re.match(r"^```(?:\w+)?\s*(.*?)\s*```$", text, re.DOTALL)
+    if fence_match:
+        text = fence_match.group(1).strip()
     # Try JSON first
     try:
         data = json.loads(text)
@@ -56,7 +61,12 @@ def parse_llm_list(raw_output: str) -> List[str]:
     queries: List[str] = []
     pattern = re.compile(r"^[-*\u2022\d\.\)\s]+")
     for line in text.splitlines():
-        stripped = pattern.sub("", line).strip()
+        raw_line = line.strip()
+        if not raw_line or raw_line.startswith("```"):
+            continue
+        stripped = pattern.sub("", raw_line).strip().rstrip(",")
+        if stripped in {"[", "]"}:
+            continue
         if stripped:
             queries.append(stripped)
     return queries

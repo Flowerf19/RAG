@@ -218,7 +218,7 @@ class RAGRetrievalService:
     def retrieve_hybrid(
         self,
         query_text: str,
-        top_k: int = 5,
+        top_k: int = 10,
         *,
         vector_weight: Optional[float] = None,
         bm25_weight: Optional[float] = None,

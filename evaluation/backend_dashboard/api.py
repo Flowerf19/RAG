@@ -5,6 +5,7 @@ Provides data access for the evaluation dashboard from different system stages.
 
 from typing import Dict, List, Any
 from datetime import datetime, timedelta
+import json
 
 from evaluation.metrics.database import MetricsDB
 
@@ -16,14 +17,687 @@ class BackendDashboard:
         """Initialize with database connection."""
         self.db = MetricsDB(db_path)
 
-    def evaluate_ground_truth(self,
-                              embedder_type: str = "ollama",
-                              reranker_type: str = "none",
-                              use_query_enhancement: bool = True,
-                              top_k: int = 5,
-                              api_tokens: dict | None = None,
-                              llm_model: str | None = None,
-                              limit: int | None = None) -> Dict[str, Any]:
+    def _get_model_display_info(self, model_key: str, model_type: str) -> str:
+        """Get display name for model, checking metadata and configs."""
+        if not model_key or model_key == 'none':
+            return 'None'
+
+        # Try to get specific model info from recent metrics metadata
+        try:
+            recent_metrics = self.db.get_metrics(limit=10)
+            for metric in recent_metrics:
+                metadata = metric.get('metadata', '{}')
+                if metadata and isinstance(metadata, str):
+                    try:
+                        meta_dict = json.loads(metadata)
+                        if model_type == 'llm' and meta_dict.get('llm_model') == model_key:
+                            specific_model = meta_dict.get('llm_specific_model')
+                            if specific_model:
+                                return f"{model_key.title()} ({specific_model})"
+                        elif model_type == 'embedder' and meta_dict.get('embedder_model') == model_key:
+                            specific_model = meta_dict.get('embedder_specific_model')
+                            if specific_model:
+                                return f"{model_key.title()} ({specific_model})"
+                        elif model_type == 'reranker' and meta_dict.get('reranker_model') == model_key:
+                            specific_model = meta_dict.get('reranker_specific_model')
+                            if specific_model:
+                                return f"{model_key.replace('_', ' ').title()} ({specific_model})"
+                    except json.JSONDecodeError:
+                        pass
+        except Exception:
+            pass
+
+        # Fallback to formatted provider names
+        return self._format_provider_name(model_key, model_type)
+
+    def _format_provider_name(self, model_key: str, model_type: str) -> str:
+        """Format provider name for better display."""
+        if not model_key or model_key == 'none':
+            return 'None'
+
+        # Clean up the model key
+        clean_key = model_key.strip().lower()
+
+        # LLM models - use provider names with better formatting
+        if model_type == 'llm':
+            if clean_key == 'ollama':
+                return 'Ollama'
+            elif clean_key == 'gemini':
+                return 'Google Gemini'
+            elif clean_key == 'lmstudio':
+                return 'LM Studio'
+            elif clean_key == 'openai':
+                return 'OpenAI GPT'
+            else:
+                return model_key.replace('_', ' ').title()
+
+        # Embedding models - use provider names with better formatting
+        elif model_type == 'embedder':
+            if clean_key == 'ollama':
+                return 'Ollama Embeddings'
+            elif clean_key == 'huggingface_local':
+                return 'HuggingFace Local'
+            elif clean_key == 'huggingface_api':
+                return 'HuggingFace API'
+            else:
+                return model_key.replace('_', ' ').title()
+
+        # Reranking models - use descriptive names
+        elif model_type == 'reranker':
+            if clean_key == 'bge_m3_hf_local':
+                return 'BGE-M3 (Local)'
+            elif clean_key == 'bge_m3_ollama':
+                return 'BGE-M3 (Ollama)'
+            elif clean_key == 'bge_m3_hf_api':
+                return 'BGE-M3 (API)'
+            elif clean_key == 'jina_v2_multilingual':
+                return 'Jina V2 Multilingual'
+            elif clean_key == 'gte_multilingual':
+                return 'GTE Multilingual'
+            elif clean_key == 'bge_base':
+                return 'BGE Base'
+            elif clean_key == 'none':
+                return 'No Reranking'
+            else:
+                return model_key.replace('_', ' ').title()
+
+        # Query enhancement - use provider names
+        elif model_type == 'qe':
+            if clean_key in ['true', 'ollama', 'gemini', 'lmstudio']:
+                return f'{model_key.title()} QE'
+            else:
+                return f'{model_key.replace("_", " ").title()} QE'
+
+        return model_key
+
+    def evaluate_ground_truth_with_semantic_similarity(self,
+                                                      embedder_type: str = "ollama",
+                                                      reranker_type: str = "none",
+                                                      use_query_enhancement: bool = True,
+                                                      top_k: int = 10,
+                                                      api_tokens: dict | None = None,
+                                                      llm_model: str | None = None,
+                                                      limit: int | None = None,
+                                                      save_to_db: bool = True) -> Dict[str, Any]:
+        """
+        Enhanced ground truth evaluation with semantic similarity to true source.
+        
+        Returns evaluation results including semantic similarity scores.
+        """
+        # Lazy import to avoid heavy startup costs
+        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+
+        rows = self.db.get_ground_truth_list(limit=limit or 10000)
+        processed = 0
+        errors = 0
+        errors_list = []
+        semantic_results = []
+
+        for r in rows:
+            gt_id = r.get('id')
+            question = r.get('question')
+            true_source = r.get('source', '').strip()
+            
+            try:
+                result = fetch_retrieval(
+                    query_text=question,
+                    top_k=top_k,
+                    embedder_type=embedder_type,
+                    reranker_type=reranker_type,
+                    use_query_enhancement=use_query_enhancement,
+                    api_tokens=api_tokens,
+                    llm_model=llm_model,
+                )
+
+                context = result.get('context', '')
+                sources = result.get('sources', [])
+                retrieval_info = result.get('retrieval_info', {})
+
+                # Evaluate semantic similarity with true source
+                semantic_eval = self.evaluate_semantic_similarity_with_source(
+                    retrieved_sources=sources,
+                    ground_truth_id=gt_id,
+                    embedder_type=embedder_type
+                )
+
+                # Store results
+                semantic_results.append({
+                    'ground_truth_id': gt_id,
+                    'question': question,
+                    'true_source': true_source[:500] + '...' if len(true_source) > 500 else true_source,
+                    'retrieved_chunks': len(sources),
+                    'semantic_similarity': semantic_eval.get('semantic_similarity', 0.0),
+                    'best_match_score': semantic_eval.get('best_match_score', 0.0),
+                    'chunks_above_threshold': semantic_eval.get('chunks_above_threshold', 0),
+                    'matched_chunks': semantic_eval.get('matched_chunks', []),
+                    'embedder_used': embedder_type,
+                    'error': semantic_eval.get('error')
+                })
+
+                processed += 1
+
+            except Exception as e:
+                errors += 1
+                errors_list.append(f"ID {gt_id}: {str(e)}")
+                semantic_results.append({
+                    'ground_truth_id': gt_id,
+                    'question': question,
+                    'error': str(e),
+                    'semantic_similarity': 0.0,
+                    'best_match_score': 0.0
+                })
+
+        # Calculate summary statistics
+        valid_results = [r for r in semantic_results if not r.get('error')]
+        if valid_results:
+            avg_semantic_similarity = sum(r['semantic_similarity'] for r in valid_results) / len(valid_results)
+            avg_best_match = sum(r['best_match_score'] for r in valid_results) / len(valid_results)
+            total_chunks_above_threshold = sum(r['chunks_above_threshold'] for r in valid_results)
+        else:
+            avg_semantic_similarity = 0.0
+            avg_best_match = 0.0
+            total_chunks_above_threshold = 0
+
+        result = {
+            'summary': {
+                'total_questions': len(rows),
+                'processed': processed,
+                'errors': errors,
+                'avg_semantic_similarity': round(avg_semantic_similarity, 4),
+                'avg_best_match_score': round(avg_best_match, 4),
+                'total_chunks_above_threshold': total_chunks_above_threshold,
+                'embedder_used': embedder_type,
+                'reranker_used': reranker_type,
+                'query_enhancement_used': use_query_enhancement
+            },
+            'results': semantic_results,
+            'errors_list': errors_list
+        }
+
+        # Save results to database if requested
+        if save_to_db:
+            self.save_evaluation_results_to_db(
+                evaluation_type='semantic_similarity',
+                results=result,
+                embedder_type=embedder_type,
+                reranker_type=reranker_type,
+                use_query_enhancement=use_query_enhancement
+            )
+
+        return result
+
+    def save_evaluation_results_to_db(self,
+                                     evaluation_type: str,
+                                     results: Dict[str, Any],
+                                     embedder_type: str = "ollama",
+                                     reranker_type: str = "none",
+                                     use_query_enhancement: bool = True) -> None:
+        """
+        Save evaluation results to database for historical tracking.
+
+        Args:
+            evaluation_type: Type of evaluation ('semantic_similarity', 'recall', 'relevance', 'full_suite')
+            results: Results dictionary from evaluation method
+            embedder_type: Embedder model used
+            reranker_type: Reranker model used
+            use_query_enhancement: Whether QEM was used
+        """
+        try:
+            summary = results.get('summary', {})
+            detailed_results = results.get('results', [])
+
+            # Create metadata for the evaluation run
+            metadata = {
+                'evaluation_type': evaluation_type,
+                'embedder_used': embedder_type,
+                'reranker_used': reranker_type,
+                'query_enhancement_used': use_query_enhancement,
+                'timestamp': datetime.utcnow().isoformat(),
+                'total_questions': summary.get('total_questions', 0),
+                'processed': summary.get('processed', 0),
+                'errors': summary.get('errors', 0)
+            }
+
+            # Add evaluation-specific metrics to metadata
+            if evaluation_type == 'semantic_similarity':
+                metadata.update({
+                    'avg_semantic_similarity': summary.get('avg_semantic_similarity', 0),
+                    'avg_best_match_score': summary.get('avg_best_match_score', 0),
+                    'total_chunks_above_threshold': summary.get('total_chunks_above_threshold', 0)
+                })
+            elif evaluation_type == 'recall':
+                metadata.update({
+                    'overall_recall': summary.get('overall_recall', 0),
+                    'overall_precision': summary.get('overall_precision', 0),
+                    'overall_f1_score': summary.get('overall_f1_score', 0),
+                    'total_true_positives': summary.get('total_true_positives', 0),
+                    'total_false_positives': summary.get('total_false_positives', 0),
+                    'total_false_negatives': summary.get('total_false_negatives', 0)
+                })
+            elif evaluation_type == 'relevance':
+                metadata.update({
+                    'avg_overall_relevance': summary.get('avg_overall_relevance', 0),
+                    'avg_chunk_relevance': summary.get('avg_chunk_relevance', 0),
+                    'global_avg_relevance': summary.get('global_avg_relevance', 0),
+                    'global_high_relevance_ratio': summary.get('global_high_relevance_ratio', 0),
+                    'global_relevant_ratio': summary.get('global_relevant_ratio', 0),
+                    'relevance_distribution': summary.get('relevance_distribution', {})
+                })
+
+            # Save summary metrics to metrics table
+            self.db.insert_metric(
+                query=f"Evaluation: {evaluation_type}",
+                model=f"{embedder_type}_{reranker_type}",
+                embedder_model=embedder_type,
+                reranker_model=reranker_type,
+                query_enhanced=use_query_enhancement,
+                recall=summary.get('overall_recall') if evaluation_type == 'recall' else None,
+                relevance=summary.get('avg_overall_relevance') if evaluation_type == 'relevance' else summary.get('avg_semantic_similarity') if evaluation_type == 'semantic_similarity' else None,
+                metadata=json.dumps(metadata)
+            )
+
+            # Save detailed results to ground truth table
+            for result in detailed_results:
+                if evaluation_type == 'semantic_similarity':
+                    self.db.update_ground_truth_result(
+                        gt_id=result.get('ground_truth_id'),
+                        retrieval_chunks=result.get('retrieved_chunks', 0),
+                        retrieval_recall_at_k=result.get('chunks_above_threshold', 0),
+                        answer_token_recall=result.get('semantic_similarity', 0.0),
+                        answer_f1=result.get('best_match_score', 0.0)
+                    )
+                elif evaluation_type == 'recall':
+                    self.db.update_ground_truth_result(
+                        gt_id=result.get('ground_truth_id'),
+                        retrieval_chunks=result.get('retrieved_chunks', 0),
+                        retrieval_recall_at_k=result.get('true_positives', 0),
+                        answer_token_recall=result.get('recall', 0.0),
+                        answer_token_precision=result.get('precision', 0.0),
+                        answer_f1=result.get('f1_score', 0.0)
+                    )
+                elif evaluation_type == 'relevance':
+                    self.db.update_ground_truth_result(
+                        gt_id=result.get('ground_truth_id'),
+                        retrieval_chunks=result.get('retrieved_chunks', 0),
+                        answer_token_recall=result.get('overall_relevance', 0.0),
+                        answer_token_precision=result.get('avg_chunk_relevance', 0.0)
+                    )
+
+        except Exception as e:
+            print(f"Warning: Failed to save evaluation results to database: {e}")
+            # Don't raise exception to avoid breaking the evaluation flow
+
+    def evaluate_recall(self,
+                        embedder_type: str = "ollama",
+                        reranker_type: str = "none",
+                        use_query_enhancement: bool = True,
+                        top_k: int = 10,
+                        similarity_threshold: float = 0.5,
+                        limit: int | None = None,
+                        save_to_db: bool = True) -> Dict[str, Any]:
+        """
+        Evaluate recall metric for RAG system.
+
+        Recall = True Positives / (True Positives + False Negatives)
+        Where:
+        - True Positives: Retrieved chunks that are semantically similar to ground truth source
+        - False Negatives: Relevant chunks in database that were not retrieved
+
+        Returns recall evaluation results.
+        """
+        # Lazy import to avoid heavy startup costs
+        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+
+        rows = self.db.get_ground_truth_list(limit=limit or 10000)
+        processed = 0
+        errors = 0
+        errors_list = []
+        recall_results = []
+
+        total_true_positives = 0
+        total_false_positives = 0
+        total_false_negatives = 0
+
+        for r in rows:
+            gt_id = r.get('id')
+            question = r.get('question')
+            true_source = r.get('source', '').strip()
+
+            try:
+                # Get retrieved chunks
+                result = fetch_retrieval(
+                    query_text=question,
+                    top_k=top_k,
+                    embedder_type=embedder_type,
+                    reranker_type=reranker_type,
+                    use_query_enhancement=use_query_enhancement,
+                )
+
+                sources = result.get('sources', [])
+
+                # Evaluate semantic similarity with true source
+                semantic_eval = self.evaluate_semantic_similarity_with_source(
+                    retrieved_sources=sources,
+                    ground_truth_id=gt_id,
+                    embedder_type=embedder_type
+                )
+
+                # Calculate recall components for this question
+                retrieved_chunks = len(sources)
+                chunks_above_threshold = semantic_eval.get('chunks_above_threshold', 0)
+
+                # True Positives: chunks that match ground truth above threshold
+                true_positives = chunks_above_threshold
+
+                # False Positives: retrieved chunks that don't match ground truth
+                false_positives = retrieved_chunks - true_positives
+
+                # False Negatives: We can't easily calculate this without knowing
+                # all relevant chunks in the database. For now, we'll use a simplified approach
+                # where FN = max(0, expected_relevant - TP) with expected_relevant = 1 (at least one relevant chunk)
+                expected_relevant = 1  # Assume at least one relevant chunk per question
+                false_negatives = max(0, expected_relevant - true_positives)
+
+                # Calculate recall for this question
+                if (true_positives + false_negatives) > 0:
+                    recall = true_positives / (true_positives + false_negatives)
+                else:
+                    recall = 0.0
+
+                # Calculate precision for this question
+                if retrieved_chunks > 0:
+                    precision = true_positives / retrieved_chunks
+                else:
+                    precision = 0.0
+
+                # Calculate F1 score
+                if (precision + recall) > 0:
+                    f1_score = 2 * (precision * recall) / (precision + recall)
+                else:
+                    f1_score = 0.0
+
+                # Accumulate totals
+                total_true_positives += true_positives
+                total_false_positives += false_positives
+                total_false_negatives += false_negatives
+
+                recall_results.append({
+                    'ground_truth_id': gt_id,
+                    'question': question[:100] + '...' if len(question) > 100 else question,
+                    'true_source': true_source[:200] + '...' if len(true_source) > 200 else true_source,
+                    'retrieved_chunks': retrieved_chunks,
+                    'true_positives': true_positives,
+                    'false_positives': false_positives,
+                    'false_negatives': false_negatives,
+                    'recall': round(recall, 4),
+                    'precision': round(precision, 4),
+                    'f1_score': round(f1_score, 4),
+                    'semantic_similarity': semantic_eval.get('semantic_similarity', 0.0),
+                    'best_match_score': semantic_eval.get('best_match_score', 0.0),
+                    'error': semantic_eval.get('error')
+                })
+
+                processed += 1
+
+            except Exception as e:
+                errors += 1
+                errors_list.append(f"ID {gt_id}: {str(e)}")
+                recall_results.append({
+                    'ground_truth_id': gt_id,
+                    'question': question[:100] + '...' if len(question) > 100 else question,
+                    'error': str(e),
+                    'recall': 0.0,
+                    'precision': 0.0,
+                    'f1_score': 0.0
+                })
+
+        # Calculate overall metrics
+        total_retrieved = total_true_positives + total_false_positives
+
+        if (total_true_positives + total_false_negatives) > 0:
+            overall_recall = total_true_positives / (total_true_positives + total_false_negatives)
+        else:
+            overall_recall = 0.0
+
+        if total_retrieved > 0:
+            overall_precision = total_true_positives / total_retrieved
+        else:
+            overall_precision = 0.0
+
+        if (overall_precision + overall_recall) > 0:
+            overall_f1 = 2 * (overall_precision * overall_recall) / (overall_precision + overall_recall)
+        else:
+            overall_f1 = 0.0
+
+        # Calculate averages for valid results
+        valid_results = [r for r in recall_results if not r.get('error')]
+        if valid_results:
+            avg_recall = sum(r['recall'] for r in valid_results) / len(valid_results)
+            avg_precision = sum(r['precision'] for r in valid_results) / len(valid_results)
+            avg_f1 = sum(r['f1_score'] for r in valid_results) / len(valid_results)
+        else:
+            avg_recall = 0.0
+            avg_precision = 0.0
+            avg_f1 = 0.0
+
+        result = {
+            'summary': {
+                'total_questions': len(rows),
+                'processed': processed,
+                'errors': errors,
+                'overall_recall': round(overall_recall, 4),
+                'overall_precision': round(overall_precision, 4),
+                'overall_f1_score': round(overall_f1, 4),
+                'avg_recall': round(avg_recall, 4),
+                'avg_precision': round(avg_precision, 4),
+                'avg_f1_score': round(avg_f1, 4),
+                'total_true_positives': total_true_positives,
+                'total_false_positives': total_false_positives,
+                'total_false_negatives': total_false_negatives,
+                'total_retrieved_chunks': total_retrieved,
+                'embedder_used': embedder_type,
+                'reranker_used': reranker_type,
+                'query_enhancement_used': use_query_enhancement,
+                'similarity_threshold': similarity_threshold
+            },
+            'results': recall_results,
+            'errors_list': errors_list
+        }
+
+        # Save results to database if requested
+        if save_to_db:
+            self.save_evaluation_results_to_db(
+                evaluation_type='recall',
+                results=result,
+                embedder_type=embedder_type,
+                reranker_type=reranker_type,
+                use_query_enhancement=use_query_enhancement
+            )
+
+        return result
+
+    def evaluate_relevance(self,
+                           embedder_type: str = "ollama",
+                           reranker_type: str = "none",
+                           use_query_enhancement: bool = True,
+                           top_k: int = 10,
+                           limit: int | None = None,
+                           save_to_db: bool = True) -> Dict[str, Any]:
+        """
+        Evaluate relevance metric for RAG system.
+
+        Relevance measures how well retrieved content matches the user's query.
+        This includes both semantic similarity to ground truth source and
+        query-chunk relevance scoring.
+
+        Returns relevance evaluation results with detailed scoring.
+        """
+        # Lazy import to avoid heavy startup costs
+        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+
+        rows = self.db.get_ground_truth_list(limit=limit or 10000)
+        processed = 0
+        errors = 0
+        errors_list = []
+        relevance_results = []
+
+        all_relevance_scores = []
+        relevance_distribution = {
+            '0-0.2': 0, '0.2-0.4': 0, '0.4-0.6': 0,
+            '0.6-0.8': 0, '0.8-1.0': 0
+        }
+
+        for r in rows:
+            gt_id = r.get('id')
+            question = r.get('question')
+            true_source = r.get('source', '').strip()
+
+            try:
+                # Get retrieved chunks
+                result = fetch_retrieval(
+                    query_text=question,
+                    top_k=top_k,
+                    embedder_type=embedder_type,
+                    reranker_type=reranker_type,
+                    use_query_enhancement=use_query_enhancement,
+                )
+
+                sources = result.get('sources', [])
+
+                # Evaluate semantic similarity with true source
+                semantic_eval = self.evaluate_semantic_similarity_with_source(
+                    retrieved_sources=sources,
+                    ground_truth_id=gt_id,
+                    embedder_type=embedder_type
+                )
+
+                # Calculate relevance scores for each retrieved chunk
+                chunk_relevance_scores = []
+                high_relevance_count = 0
+
+                for chunk in semantic_eval.get('matched_chunks', []):
+                    score = chunk.get('similarity_score', 0.0)
+                    chunk_relevance_scores.append(score)
+
+                    # Count high relevance chunks (> 0.8)
+                    if score > 0.8:
+                        high_relevance_count += 1
+
+                    # Update distribution
+                    if score <= 0.2:
+                        relevance_distribution['0-0.2'] += 1
+                    elif score <= 0.4:
+                        relevance_distribution['0.2-0.4'] += 1
+                    elif score <= 0.6:
+                        relevance_distribution['0.4-0.6'] += 1
+                    elif score <= 0.8:
+                        relevance_distribution['0.6-0.8'] += 1
+                    else:
+                        relevance_distribution['0.8-1.0'] += 1
+
+                # Calculate aggregate relevance metrics
+                if chunk_relevance_scores:
+                    avg_chunk_relevance = sum(chunk_relevance_scores) / len(chunk_relevance_scores)
+                    max_chunk_relevance = max(chunk_relevance_scores)
+                    min_chunk_relevance = min(chunk_relevance_scores)
+
+                    # Relevance ratio (chunks with score > 0.5)
+                    relevant_chunks_ratio = sum(1 for s in chunk_relevance_scores if s > 0.5) / len(chunk_relevance_scores)
+                else:
+                    avg_chunk_relevance = 0.0
+                    max_chunk_relevance = 0.0
+                    min_chunk_relevance = 0.0
+                    relevant_chunks_ratio = 0.0
+
+                # Overall question relevance (weighted average of semantic similarity and chunk relevance)
+                semantic_similarity = semantic_eval.get('semantic_similarity', 0.0)
+                overall_relevance = (semantic_similarity + avg_chunk_relevance) / 2
+
+                # Store all relevance scores for global statistics
+                all_relevance_scores.extend(chunk_relevance_scores)
+
+                relevance_results.append({
+                    'ground_truth_id': gt_id,
+                    'question': question[:100] + '...' if len(question) > 100 else question,
+                    'true_source': true_source[:200] + '...' if len(true_source) > 200 else true_source,
+                    'retrieved_chunks': len(sources),
+                    'semantic_similarity': semantic_similarity,
+                    'avg_chunk_relevance': round(avg_chunk_relevance, 4),
+                    'max_chunk_relevance': round(max_chunk_relevance, 4),
+                    'min_chunk_relevance': round(min_chunk_relevance, 4),
+                    'overall_relevance': round(overall_relevance, 4),
+                    'relevant_chunks_ratio': round(relevant_chunks_ratio, 4),
+                    'high_relevance_chunks': high_relevance_count,
+                    'chunk_relevance_scores': [round(s, 4) for s in chunk_relevance_scores],
+                    'error': semantic_eval.get('error')
+                })
+
+                processed += 1
+
+            except Exception as e:
+                errors += 1
+                errors_list.append(f"ID {gt_id}: {str(e)}")
+                relevance_results.append({
+                    'ground_truth_id': gt_id,
+                    'question': question[:100] + '...' if len(question) > 100 else question,
+                    'error': str(e),
+                    'overall_relevance': 0.0,
+                    'avg_chunk_relevance': 0.0
+                })
+
+        # Calculate global relevance statistics
+        if all_relevance_scores:
+            global_avg_relevance = sum(all_relevance_scores) / len(all_relevance_scores)
+            global_high_relevance_ratio = sum(1 for s in all_relevance_scores if s > 0.8) / len(all_relevance_scores)
+            global_relevant_ratio = sum(1 for s in all_relevance_scores if s > 0.5) / len(all_relevance_scores)
+        else:
+            global_avg_relevance = 0.0
+            global_high_relevance_ratio = 0.0
+            global_relevant_ratio = 0.0
+
+        # Calculate averages for valid results
+        valid_results = [r for r in relevance_results if not r.get('error')]
+        if valid_results:
+            avg_overall_relevance = sum(r['overall_relevance'] for r in valid_results) / len(valid_results)
+            avg_chunk_relevance = sum(r['avg_chunk_relevance'] for r in valid_results) / len(valid_results)
+            avg_semantic_similarity = sum(r['semantic_similarity'] for r in valid_results) / len(valid_results)
+        else:
+            avg_overall_relevance = 0.0
+            avg_chunk_relevance = 0.0
+            avg_semantic_similarity = 0.0
+
+        result = {
+            'summary': {
+                'total_questions': len(rows),
+                'processed': processed,
+                'errors': errors,
+                'avg_overall_relevance': round(avg_overall_relevance, 4),
+                'avg_chunk_relevance': round(avg_chunk_relevance, 4),
+                'avg_semantic_similarity': round(avg_semantic_similarity, 4),
+                'global_avg_relevance': round(global_avg_relevance, 4),
+                'global_high_relevance_ratio': round(global_high_relevance_ratio, 4),
+                'global_relevant_ratio': round(global_relevant_ratio, 4),
+                'total_chunks_evaluated': len(all_relevance_scores),
+                'relevance_distribution': relevance_distribution,
+                'embedder_used': embedder_type,
+                'reranker_used': reranker_type,
+                'query_enhancement_used': use_query_enhancement
+            },
+            'results': relevance_results,
+            'errors_list': errors_list
+        }
+
+        # Save results to database if requested
+        if save_to_db:
+            self.save_evaluation_results_to_db(
+                evaluation_type='relevance',
+                results=result,
+                embedder_type=embedder_type,
+                reranker_type=reranker_type,
+                use_query_enhancement=use_query_enhancement
+            )
+
+        return result
         """Run RAG retrieval for all ground-truth rows and persist results.
 
         Returns a summary dict with counts of processed and errors.
@@ -241,6 +915,9 @@ class BackendDashboard:
             return {
                 'total_queries': 0,
                 'avg_accuracy': 0.0,
+                'avg_faithfulness': 0.0,
+                'avg_relevance': 0.0,
+                'avg_recall': 0.0,
                 'avg_latency': 0.0,
                 'error_rate': 0.0,
                 'model_count': 0
@@ -249,12 +926,18 @@ class BackendDashboard:
         # Calculate system-wide averages based on LLM models
         total_queries = sum(model['total_queries'] for model in llm_stats.values())
         weighted_accuracy = sum(model['avg_accuracy'] * model['total_queries'] for model in llm_stats.values())
+        weighted_faithfulness = sum(model['avg_faithfulness'] * model['total_queries'] for model in llm_stats.values())
+        weighted_relevance = sum(model['avg_relevance'] * model['total_queries'] for model in llm_stats.values())
+        weighted_recall = sum(model['avg_recall'] * model['total_queries'] for model in llm_stats.values())
         weighted_latency = sum(model['avg_latency'] * model['total_queries'] for model in llm_stats.values())
         total_errors = sum(model['error_rate'] * model['total_queries'] / 100 for model in llm_stats.values())
 
         return {
             'total_queries': total_queries,
             'avg_accuracy': round(weighted_accuracy / total_queries, 3) if total_queries > 0 else 0.0,
+            'avg_faithfulness': round(weighted_faithfulness / total_queries, 3) if total_queries > 0 else 0.0,
+            'avg_relevance': round(weighted_relevance / total_queries, 3) if total_queries > 0 else 0.0,
+            'avg_recall': round(weighted_recall / total_queries, 3) if total_queries > 0 else 0.0,
             'avg_latency': round(weighted_latency / total_queries, 3) if total_queries > 0 else 0.0,
             'error_rate': round(total_errors / total_queries * 100, 2) if total_queries > 0 else 0.0,
             'model_count': len(llm_stats)
@@ -275,34 +958,43 @@ class BackendDashboard:
 
         for model_name, model_stats in embedder_stats.items():
             embedding_models.append({
-                'model': model_name,
+                'model': self._get_model_display_info(model_name, 'embedder'),
                 'queries': model_stats['total_queries'],
                 'accuracy': model_stats['avg_accuracy'],
+                'faithfulness': model_stats['avg_faithfulness'],
+                'relevance': model_stats['avg_relevance'],
+                'recall': model_stats['avg_recall'],
                 'latency': model_stats['avg_latency'],
                 'error_rate': model_stats['error_rate']
             })
 
         for model_name, model_stats in llm_stats.items():
             llm_models.append({
-                'model': model_name,
+                'model': self._get_model_display_info(model_name, 'llm'),
                 'queries': model_stats['total_queries'],
                 'accuracy': model_stats['avg_accuracy'],
+                'faithfulness': model_stats['avg_faithfulness'],
+                'relevance': model_stats['avg_relevance'],
+                'recall': model_stats['avg_recall'],
                 'latency': model_stats['avg_latency'],
                 'error_rate': model_stats['error_rate']
             })
 
         for model_name, model_stats in reranker_stats.items():
             reranking_models.append({
-                'model': model_name,
+                'model': self._get_model_display_info(model_name, 'reranker'),
                 'queries': model_stats['total_queries'],
                 'accuracy': model_stats['avg_accuracy'],
+                'faithfulness': model_stats['avg_faithfulness'],
+                'relevance': model_stats['avg_relevance'],
+                'recall': model_stats['avg_recall'],
                 'latency': model_stats['avg_latency'],
                 'error_rate': model_stats['error_rate']
             })
 
         for qe_status, qe_stats in qe_comparison.items():
             query_enhancement.append({
-                'model': qe_status,
+                'model': self._get_model_display_info(qe_status, 'qe'),
                 'queries': qe_stats['total_queries'],
                 'accuracy': qe_stats['avg_accuracy'],
                 'latency': qe_stats['avg_latency'],
@@ -357,7 +1049,7 @@ class BackendDashboard:
         stats = self.db.get_llm_stats()
         return [
             {
-                'model': model_name,
+                'model': self._get_model_display_info(model_name, 'llm'),
                 'accuracy': model_stats['avg_accuracy'],
                 'faithfulness': model_stats['avg_faithfulness'],
                 'relevance': model_stats['avg_relevance']
@@ -370,7 +1062,7 @@ class BackendDashboard:
         stats = self.db.get_embedder_stats()
         return [
             {
-                'model': model_name,
+                'model': self._get_model_display_info(model_name, 'embedder'),
                 'accuracy': model_stats['avg_accuracy'],
                 'faithfulness': model_stats['avg_faithfulness'],
                 'relevance': model_stats['avg_relevance']
@@ -383,7 +1075,7 @@ class BackendDashboard:
         stats = self.db.get_reranker_stats()
         return [
             {
-                'model': model_name,
+                'model': self._get_model_display_info(model_name, 'reranker'),
                 'accuracy': model_stats['avg_accuracy'],
                 'faithfulness': model_stats['avg_faithfulness'],
                 'relevance': model_stats['avg_relevance']
@@ -396,7 +1088,7 @@ class BackendDashboard:
         stats = self.db.get_query_enhancement_comparison()
         return [
             {
-                'model': qe_status,
+                'model': self._get_model_display_info(qe_status, 'qe'),
                 'accuracy': qe_stats['avg_accuracy'],
                 'faithfulness': qe_stats['avg_faithfulness'],
                 'relevance': qe_stats['avg_relevance']
@@ -516,4 +1208,147 @@ class BackendDashboard:
 
     def get_ground_truth_list(self, limit: int = 1000) -> List[Dict[str, Any]]:
         """Return list of ground-truth QA pairs."""
-        return self.db.get_ground_truth(limit)
+        return self.db.get_ground_truth_list(limit)
+
+    def evaluate_semantic_similarity_with_source(self, 
+                                                retrieved_sources: List[Dict[str, Any]], 
+                                                ground_truth_id: int,
+                                                embedder_type: str = "ollama") -> Dict[str, Any]:
+        """
+        Evaluate semantic similarity between retrieved content and true source from database.
+        
+        Args:
+            retrieved_sources: List of retrieved source dictionaries from RAG
+            ground_truth_id: ID of ground truth entry to get true source
+            embedder_type: Embedder type to use for semantic similarity
+            
+        Returns:
+            Dict with semantic similarity scores and analysis
+        """
+        try:
+            # Get ground truth entry with true source
+            gt_rows = self.db.get_ground_truth_list(limit=10000)
+            true_source = None
+            
+            for row in gt_rows:
+                if row.get('id') == ground_truth_id:
+                    true_source = row.get('source', '').strip()
+                    break
+            
+            if not true_source:
+                return {
+                    'error': f'No source found for ground truth ID {ground_truth_id}',
+                    'semantic_similarity': 0.0,
+                    'best_match_score': 0.0,
+                    'matched_chunks': []
+                }
+            
+            # Initialize embedder for semantic similarity
+            from embedders.embedder_factory import EmbedderFactory
+            from embedders.embedder_type import EmbedderType
+            
+            factory = EmbedderFactory()
+            
+            # Parse embedder type
+            if embedder_type.lower() in ["e5_large_instruct", "e5_base", "gte_multilingual_base", 
+                                       "paraphrase_mpnet_base_v2", "paraphrase_minilm_l12_v2"]:
+                embedder_enum = EmbedderType.HUGGINGFACE
+                use_api = False
+            elif embedder_type == "huggingface_api":
+                embedder_enum = EmbedderType.HUGGINGFACE
+                use_api = True
+            elif embedder_type == "huggingface_local":
+                embedder_enum = EmbedderType.HUGGINGFACE
+                use_api = False
+            else:  # ollama and others
+                embedder_enum = EmbedderType.OLLAMA
+                use_api = False
+            
+            # Create embedder
+            if embedder_enum == EmbedderType.HUGGINGFACE and not use_api:
+                if embedder_type.lower() == "e5_large_instruct":
+                    embedder = factory.create_e5_large_instruct(device="cpu")
+                elif embedder_type.lower() == "e5_base":
+                    embedder = factory.create_e5_base(device="cpu")
+                elif embedder_type.lower() == "gte_multilingual_base":
+                    embedder = factory.create_gte_multilingual_base(device="cpu")
+                elif embedder_type.lower() == "paraphrase_mpnet_base_v2":
+                    embedder = factory.create_paraphrase_mpnet_base_v2(device="cpu")
+                elif embedder_type.lower() == "paraphrase_minilm_l12_v2":
+                    embedder = factory.create_paraphrase_minilm_l12_v2(device="cpu")
+                else:
+                    embedder = factory.create_bge_m3(device="cpu")  # fallback
+            else:
+                from pipeline.rag_pipeline import RAGPipeline
+                pipeline = RAGPipeline(embedder_type=embedder_enum, hf_use_api=use_api)
+                embedder = pipeline.embedder
+            
+            # Get embeddings for true source
+            true_source_embedding = embedder.embed(true_source)
+            
+            # Calculate semantic similarity for each retrieved chunk
+            similarities = []
+            matched_chunks = []
+            
+            for i, source in enumerate(retrieved_sources):
+                chunk_text = source.get('text', source.get('content', source.get('snippet', '')))
+                if chunk_text.strip():
+                    try:
+                        chunk_embedding = embedder.embed(chunk_text)
+                        
+                        # Calculate cosine similarity
+                        import numpy as np
+                        similarity = np.dot(true_source_embedding, chunk_embedding) / (
+                            np.linalg.norm(true_source_embedding) * np.linalg.norm(chunk_embedding)
+                        )
+                        
+                        similarities.append(float(similarity))
+                        
+                        # Store match info if similarity > 0.5
+                        if similarity > 0.5:
+                            matched_chunks.append({
+                                'chunk_index': i,
+                                'similarity_score': round(float(similarity), 4),
+                                'chunk_text': chunk_text[:200] + '...' if len(chunk_text) > 200 else chunk_text,
+                                'file_name': source.get('file_name', ''),
+                                'page_number': source.get('page_number', 0)
+                            })
+                            
+                    except Exception:
+                        similarities.append(0.0)
+            
+            # Calculate overall metrics
+            if similarities:
+                best_match_score = max(similarities)
+                avg_similarity = sum(similarities) / len(similarities)
+                
+                # Sort matched chunks by similarity
+                matched_chunks.sort(key=lambda x: x['similarity_score'], reverse=True)
+                
+                return {
+                    'semantic_similarity': round(avg_similarity, 4),
+                    'best_match_score': round(best_match_score, 4),
+                    'matched_chunks': matched_chunks[:5],  # Top 5 matches
+                    'total_chunks_evaluated': len(similarities),
+                    'chunks_above_threshold': len([s for s in similarities if s > 0.5]),
+                    'true_source_length': len(true_source),
+                    'embedder_used': embedder_type
+                }
+            else:
+                return {
+                    'semantic_similarity': 0.0,
+                    'best_match_score': 0.0,
+                    'matched_chunks': [],
+                    'total_chunks_evaluated': 0,
+                    'chunks_above_threshold': 0,
+                    'true_source_length': len(true_source),
+                    'embedder_used': embedder_type
+                }
+                
+        except Exception as e:
+            return {
+                'error': str(e),
+                'semantic_similarity': 0.0,
+                'best_match_score': 0.0,
+                'matched_chunks': []
+            }

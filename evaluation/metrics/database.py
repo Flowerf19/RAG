@@ -35,6 +35,7 @@ class MetricsDB:
                     latency REAL,
                     faithfulness REAL,
                     relevance REAL,
+                    recall REAL,
                     error BOOLEAN DEFAULT FALSE,
                     error_message TEXT,
                     metadata TEXT
@@ -156,6 +157,10 @@ class MetricsDB:
                 conn.execute("ALTER TABLE metrics ADD COLUMN retrieval_chunks INTEGER DEFAULT 0")
             except sqlite3.OperationalError:
                 pass  # Column already exists
+            try:
+                conn.execute("ALTER TABLE metrics ADD COLUMN recall REAL")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
             conn.commit()
 
     # --- Ground truth methods ---
@@ -195,36 +200,6 @@ class MetricsDB:
             cursor = conn.execute(query, (limit,))
             rows = cursor.fetchall()
         return [dict(row) for row in rows]
-
-    def insert_metric(self, metric: Dict) -> int:
-        """Insert a single metric record."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("""
-                INSERT INTO metrics
-                (timestamp, query, model, embedder_model, llm_model, reranker_model, query_enhanced, latency, faithfulness, relevance, error, error_message, metadata, embedding_tokens, reranking_tokens, llm_tokens, total_tokens, retrieval_chunks)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                metric.get('timestamp', datetime.utcnow().isoformat()),
-                metric['query'],
-                metric.get('model', ''),
-                metric.get('embedder_model'),
-                metric.get('llm_model'),
-                metric.get('reranker_model'),
-                metric.get('query_enhanced', False),
-                metric.get('latency'),
-                metric.get('faithfulness'),
-                metric.get('relevance'),
-                metric.get('error', False),
-                metric.get('error_message'),
-                json.dumps(metric.get('metadata', {})),
-                metric.get('embedding_tokens', 0),
-                metric.get('reranking_tokens', 0),
-                metric.get('llm_tokens', 0),
-                metric.get('total_tokens', 0),
-                metric.get('retrieval_chunks', 0)
-            ))
-            conn.commit()
-            return cursor.lastrowid
 
     # Ground truth helpers (bulk operations)
     def insert_ground_truth_rows(self, rows: List[Dict]) -> int:
@@ -268,6 +243,91 @@ class MetricsDB:
 
         return [dict(row) for row in rows]
 
+    def insert_metric(self,
+                      query: str = None,
+                      model: str = None,
+                      embedder_model: Optional[str] = None,
+                      llm_model: Optional[str] = None,
+                      reranker_model: Optional[str] = None,
+                      query_enhanced: bool = False,
+                      latency: Optional[float] = None,
+                      faithfulness: Optional[float] = None,
+                      relevance: Optional[float] = None,
+                      recall: Optional[float] = None,
+                      error: bool = False,
+                      error_message: Optional[str] = None,
+                      metadata: Optional[str] = None,
+                      total_tokens: int = 0,
+                      retrieval_chunks: int = 0,
+                      timestamp: str = None,
+                      embedding_tokens: int = 0,
+                      reranking_tokens: int = 0,
+                      llm_tokens: int = 0,
+                      metric_dict: Optional[Dict[str, Any]] = None) -> int:
+        """Insert a new metric record. Can accept individual parameters or a metric dictionary."""
+
+        # If metric_dict is provided, use it (for backward compatibility with EvaluationLogger)
+        if metric_dict is not None:
+            data = metric_dict.copy()
+            # Convert metadata dict to JSON string if needed
+            if isinstance(data.get('metadata'), dict):
+                data['metadata'] = json.dumps(data['metadata'])
+        else:
+            # Use individual parameters
+            data = {
+                'timestamp': timestamp or datetime.utcnow().isoformat(),
+                'query': query,
+                'model': model,
+                'embedder_model': embedder_model,
+                'llm_model': llm_model,
+                'reranker_model': reranker_model,
+                'query_enhanced': query_enhanced,
+                'latency': latency,
+                'faithfulness': faithfulness,
+                'relevance': relevance,
+                'recall': recall,
+                'error': error,
+                'error_message': error_message,
+                'metadata': metadata,
+                'total_tokens': total_tokens,
+                'retrieval_chunks': retrieval_chunks,
+                'embedding_tokens': embedding_tokens,
+                'reranking_tokens': reranking_tokens,
+                'llm_tokens': llm_tokens
+            }
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                INSERT INTO metrics (
+                    timestamp, query, model, embedder_model, llm_model, reranker_model,
+                    query_enhanced, latency, faithfulness, relevance, recall, error,
+                    error_message, metadata, total_tokens, retrieval_chunks, embedding_tokens,
+                    reranking_tokens, llm_tokens
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data['timestamp'],
+                data['query'],
+                data['model'],
+                data['embedder_model'],
+                data['llm_model'],
+                data['reranker_model'],
+                data['query_enhanced'],
+                data['latency'],
+                data['faithfulness'],
+                data['relevance'],
+                data['recall'],
+                data['error'],
+                data['error_message'],
+                data['metadata'],
+                data['total_tokens'],
+                data['retrieval_chunks'],
+                data['embedding_tokens'],
+                data['reranking_tokens'],
+                data['llm_tokens']
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
     def get_model_stats(self) -> Dict[str, Dict]:
         """Get aggregated statistics for each model."""
         with sqlite3.connect(self.db_path) as conn:
@@ -310,6 +370,7 @@ class MetricsDB:
                     AVG(latency) as avg_latency,
                     AVG(faithfulness) as avg_faithfulness,
                     AVG(relevance) as avg_relevance,
+                    AVG(recall) as avg_recall,
                     SUM(CASE WHEN error = 1 THEN 1 ELSE 0 END) as error_count
                 FROM metrics
                 WHERE embedder_model IS NOT NULL
@@ -325,7 +386,8 @@ class MetricsDB:
                     'avg_latency': round(row['avg_latency'] or 0, 3),
                     'avg_faithfulness': round(row['avg_faithfulness'] or 0, 3),
                     'avg_relevance': round(row['avg_relevance'] or 0, 3),
-                    'avg_accuracy': round(((row['avg_faithfulness'] or 0) + (row['avg_relevance'] or 0)) / 2, 3),
+                    'avg_recall': round(row['avg_recall'] or 0, 3),
+                    'avg_accuracy': round(((row['avg_faithfulness'] or 0) + (row['avg_relevance'] or 0) + (row['avg_recall'] or 0)) / 3, 3),
                     'error_rate': round((row['error_count'] or 0) / total * 100, 2) if total > 0 else 0
                 }
 
@@ -342,6 +404,7 @@ class MetricsDB:
                     AVG(latency) as avg_latency,
                     AVG(faithfulness) as avg_faithfulness,
                     AVG(relevance) as avg_relevance,
+                    AVG(recall) as avg_recall,
                     SUM(CASE WHEN error = 1 THEN 1 ELSE 0 END) as error_count
                 FROM metrics
                 WHERE llm_model IS NOT NULL
@@ -357,7 +420,8 @@ class MetricsDB:
                     'avg_latency': round(row['avg_latency'] or 0, 3),
                     'avg_faithfulness': round(row['avg_faithfulness'] or 0, 3),
                     'avg_relevance': round(row['avg_relevance'] or 0, 3),
-                    'avg_accuracy': round(((row['avg_faithfulness'] or 0) + (row['avg_relevance'] or 0)) / 2, 3),
+                    'avg_recall': round(row['avg_recall'] or 0, 3),
+                    'avg_accuracy': round(((row['avg_faithfulness'] or 0) + (row['avg_relevance'] or 0) + (row['avg_recall'] or 0)) / 3, 3),
                     'error_rate': round((row['error_count'] or 0) / total * 100, 2) if total > 0 else 0
                 }
 
@@ -374,6 +438,7 @@ class MetricsDB:
                     AVG(latency) as avg_latency,
                     AVG(faithfulness) as avg_faithfulness,
                     AVG(relevance) as avg_relevance,
+                    AVG(recall) as avg_recall,
                     SUM(CASE WHEN error = 1 THEN 1 ELSE 0 END) as error_count
                 FROM metrics
                 WHERE reranker_model IS NOT NULL AND reranker_model != 'none'
@@ -389,7 +454,8 @@ class MetricsDB:
                     'avg_latency': round(row['avg_latency'] or 0, 3),
                     'avg_faithfulness': round(row['avg_faithfulness'] or 0, 3),
                     'avg_relevance': round(row['avg_relevance'] or 0, 3),
-                    'avg_accuracy': round(((row['avg_faithfulness'] or 0) + (row['avg_relevance'] or 0)) / 2, 3),
+                    'avg_recall': round(row['avg_recall'] or 0, 3),
+                    'avg_accuracy': round(((row['avg_faithfulness'] or 0) + (row['avg_relevance'] or 0) + (row['avg_recall'] or 0)) / 3, 3),
                     'error_rate': round((row['error_count'] or 0) / total * 100, 2) if total > 0 else 0
                 }
 
@@ -581,8 +647,8 @@ class MetricsDB:
     def update_ground_truth_result(
         self,
         gt_id: int,
-        predicted_answer: str,
-        retrieved_context: str,
+        predicted_answer: Optional[str] = None,
+        retrieved_context: Optional[str] = None,
         retrieved_sources: Optional[str] = None,
         retrieval_chunks: int = 0,
         evaluated_at: Optional[str] = None,
@@ -599,12 +665,17 @@ class MetricsDB:
         with sqlite3.connect(self.db_path) as conn:
             # Build dynamic update to be tolerant to missing new columns
             update_cols = [
-                ('predicted_answer', predicted_answer),
-                ('retrieved_context', retrieved_context),
-                ('retrieved_sources', retrieved_sources),
                 ('retrieval_chunks', retrieval_chunks),
                 ('evaluated_at', evaluated_at),
             ]
+
+            # Optional fields
+            if predicted_answer is not None:
+                update_cols.append(('predicted_answer', predicted_answer))
+            if retrieved_context is not None:
+                update_cols.append(('retrieved_context', retrieved_context))
+            if retrieved_sources is not None:
+                update_cols.append(('retrieved_sources', retrieved_sources))
 
             # Optional metric fields
             if retrieval_recall_at_k is not None:

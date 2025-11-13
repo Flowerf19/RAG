@@ -35,11 +35,14 @@ class ChatService:
         query: str,
         *,
         history: Optional[List[Dict[str, str]]] = None,
+        documents: Optional[List[str]] = None,
         provider: Optional[str] = None,
         top_k: int = 3,
         include_sources: bool = True,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        retrieval_config: Optional[Dict[str, Any]] = None,
+        reranker_tokens: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
         Generate an answer for the provided query.
@@ -52,13 +55,53 @@ class ChatService:
             include_sources: Whether to include chunk metadata in response.
             temperature: Optional sampling override.
             max_tokens: Optional max tokens override.
+            retrieval_config: Advanced retrieval configuration (embedder, reranker, etc.).
+            reranker_tokens: Optional API tokens for rerankers.
         """
         if not query or not query.strip():
             raise ValueError("Query text is required.")
 
+        retrieval_settings = self._prepare_retrieval_config(retrieval_config, top_k)
         provider_name = (provider or self.default_provider).lower()
-        sources = self._retrieve_sources(query, top_k)
-        context_text = self._format_context(sources)
+
+        retrieval_result: Dict[str, Any] = {
+            "mode": "legacy",
+            "success": False,
+            "context": "",
+            "sources": [],
+            "queries": [],
+            "retrieval_info": {},
+        }
+        context_text = ""
+        chunk_sources: List[Dict[str, Any]] = []
+        fallback_used = bool(documents)
+        advanced_allowed = not documents and retrieval_settings["top_k"] > 0
+
+        if advanced_allowed:
+            retrieval_result = self.rag_service.retrieve_with_features(
+                query=query,
+                top_k=retrieval_settings["top_k"],
+                max_context_chars=retrieval_settings["max_context_chars"],
+                embedder_type=retrieval_settings["embedder_type"],
+                reranker_type=retrieval_settings["reranker_type"],
+                use_query_enhancement=retrieval_settings["use_query_enhancement"],
+                api_tokens=reranker_tokens,
+            )
+            context_text = retrieval_result.get("context") or ""
+
+        if documents or not retrieval_result.get("success"):
+            fallback_used = True
+            chunk_sources = self._retrieve_sources(
+                query=query,
+                top_k=retrieval_settings["top_k"],
+                documents=documents,
+            )
+            if not context_text:
+                context_text = self._format_context(chunk_sources)
+
+        if not context_text:
+            context_text = self._format_context([])
+
         messages = build_messages(query=query, context=context_text, history=history)
 
         client = LLMClientFactory.create_from_string(provider_name)
@@ -77,18 +120,44 @@ class ChatService:
         }
 
         if include_sources:
-            response["sources"] = self._serialize_sources(sources)
+            if not fallback_used and retrieval_result.get("success"):
+                response["sources"] = retrieval_result.get("sources", [])
+            else:
+                response["sources"] = self._serialize_sources(chunk_sources)
+
+        retrieval_info = dict(retrieval_result.get("retrieval_info") or {})
+        retrieval_info.setdefault("embedder", retrieval_settings["embedder_type"])
+        retrieval_info.setdefault("reranker", retrieval_settings["reranker_type"])
+        retrieval_info.setdefault("query_enhanced", retrieval_settings["use_query_enhancement"])
+        retrieval_info["fallback"] = fallback_used
+        if documents:
+            retrieval_info["documents"] = documents
+
+        response["retrieval"] = {
+            "mode": retrieval_result.get("mode", "legacy") if not fallback_used else "legacy",
+            "queries": retrieval_result.get("queries") or [],
+            "info": retrieval_info,
+        }
 
         return response
 
     # ------------------------------------------------------------------#
     # Helpers
     # ------------------------------------------------------------------#
-    def _retrieve_sources(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _retrieve_sources(
+        self,
+        query: str,
+        top_k: int,
+        documents: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
         if top_k <= 0:
             return []
         try:
-            return self.rag_service.search_similar(query=query, top_k=top_k)
+            return self.rag_service.search_similar(
+                query=query,
+                top_k=top_k,
+                documents=documents,
+            )
         except Exception as exc:
             logger.warning("Similarity search failed, continuing without context: %s", exc)
             return []
@@ -128,3 +197,36 @@ class ChatService:
                 }
             )
         return serialized
+
+    def _prepare_retrieval_config(
+        self,
+        config: Optional[Dict[str, Any]],
+        fallback_top_k: int,
+    ) -> Dict[str, Any]:
+        base = {
+            "top_k": fallback_top_k,
+            "max_context_chars": 8000,
+            "embedder_type": "huggingface_local",
+            "reranker_type": "bge_m3_hf_local",
+            "use_query_enhancement": True,
+        }
+        if config:
+            for key, value in config.items():
+                if value is not None:
+                    base[key] = value
+
+        default_top_k = fallback_top_k if fallback_top_k is not None else 3
+        base["top_k"] = self._safe_int(base.get("top_k"), default=default_top_k, min_value=0)
+        base["max_context_chars"] = self._safe_int(base.get("max_context_chars"), default=8000, min_value=500)
+        base["embedder_type"] = str(base.get("embedder_type") or "huggingface_local").lower()
+        base["reranker_type"] = str(base.get("reranker_type") or "none").lower()
+        base["use_query_enhancement"] = bool(base.get("use_query_enhancement", True))
+        return base
+
+    @staticmethod
+    def _safe_int(value: Any, *, default: int, min_value: int) -> int:
+        try:
+            number = int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            number = default
+        return number if number >= min_value else min_value

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pipeline.rag_pipeline import RAGPipeline
+from pipeline.backend_connector import fetch_retrieval
 
 logger = logging.getLogger(__name__)
 
@@ -204,17 +205,116 @@ class RAGService:
             )
         return documents
 
-    def search_similar(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Run similarity search against the latest FAISS index."""
-        index_paths = self._get_active_index_paths()
-        if not index_paths:
-            logger.warning("No FAISS index available yet.")
+    def search_similar(
+        self,
+        query: str,
+        top_k: int = 5,
+        *,
+        documents: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Run similarity search across one or many FAISS indexes."""
+        if top_k <= 0:
             return []
 
-        results = self.pipeline.search_similar(
-            index_paths["faiss"], index_paths["metadata"], query_text=query, top_k=top_k
+        index_entries = self._collect_index_descriptors(documents)
+        if not index_entries:
+            logger.warning(
+                "No FAISS index available for requested documents: %s",
+                documents or "all",
+            )
+            return []
+
+        aggregated: List[Dict[str, Any]] = []
+        per_index_k = max(top_k, 1)
+        for entry in index_entries:
+            doc_name = entry["document"].get("file_name")
+            try:
+                results = self.pipeline.search_similar(
+                    entry["faiss"],
+                    entry["metadata"],
+                    query_text=query,
+                    top_k=per_index_k,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Similarity search failed for %s: %s",
+                    doc_name or entry["faiss"].name,
+                    exc,
+                )
+                continue
+
+            for item in results:
+                item.setdefault("source_file", doc_name)
+                aggregated.append(item)
+
+        aggregated.sort(
+            key=lambda payload: payload.get("similarity_score") or 0.0, reverse=True
         )
-        return results
+        return aggregated[:top_k]
+
+    def retrieve_with_features(
+        self,
+        query: str,
+        *,
+        top_k: int,
+        max_context_chars: int,
+        embedder_type: str,
+        reranker_type: str,
+        use_query_enhancement: bool,
+        api_tokens: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Execute the full hybrid retrieval pipeline (QEM + hybrid search + reranking).
+
+        Returns a dict containing context text, structured sources, queries used,
+        and metadata describing the retrieval session.
+        """
+        embedder = (embedder_type or "huggingface_local").lower()
+        reranker = (reranker_type or "none").lower()
+
+        if top_k <= 0:
+            return self._empty_retrieval_payload(
+                embedder_type=embedder,
+                reranker_type=reranker,
+                query_enhanced=use_query_enhancement,
+                reason="non_positive_top_k",
+            )
+
+        try:
+            payload = fetch_retrieval(
+                query_text=query,
+                top_k=top_k,
+                max_chars=max_context_chars,
+                embedder_type=embedder,
+                reranker_type=reranker,
+                use_query_enhancement=use_query_enhancement,
+                api_tokens=api_tokens,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Hybrid retrieval failed: %s", exc)
+            result = self._empty_retrieval_payload(
+                embedder_type=embedder,
+                reranker_type=reranker,
+                query_enhanced=use_query_enhancement,
+                reason="exception",
+            )
+            result["retrieval_info"]["error"] = str(exc)
+            return result
+
+        info = payload.get("retrieval_info") or {}
+        info.setdefault("embedder", embedder)
+        info.setdefault("reranker", reranker)
+        info.setdefault("query_enhanced", use_query_enhancement)
+
+        success = bool(payload.get("context") or payload.get("sources"))
+        return {
+            "mode": "hybrid",
+            "success": success,
+            "context": payload.get("context", ""),
+            "sources": payload.get("sources", []),
+            "queries": payload.get("queries", []),
+            "retrieval_info": info,
+        }
 
     def health(self) -> Dict[str, Any]:
         """Return a lightweight readiness snapshot."""
@@ -298,6 +398,54 @@ class RAGService:
             return {"faiss": faiss, "metadata": metadata}
         return None
 
+    def _collect_index_descriptors(
+        self, documents: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        summary_paths: List[Path] = []
+
+        if documents:
+            seen: set[Path] = set()
+            for doc_id in documents:
+                summary_path = self._resolve_summary_path(doc_id)
+                if not summary_path:
+                    logger.warning("No summary metadata found for document %s", doc_id)
+                    continue
+                if summary_path not in seen:
+                    summary_paths.append(summary_path)
+                    seen.add(summary_path)
+        else:
+            summary_paths = sorted(
+                self.metadata_dir.glob("*_summary_*.json"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+
+        descriptors: List[Dict[str, Any]] = []
+        for path in summary_paths:
+            data = self._read_json(path)
+            files = data.get("files") or {}
+            faiss_path = files.get("faiss_index")
+            metadata_map_path = files.get("metadata_map")
+            if not faiss_path or not metadata_map_path:
+                logger.warning("Summary %s missing index files", path.name)
+                continue
+
+            faiss = self._ensure_path(faiss_path)
+            metadata = self._ensure_path(metadata_map_path)
+            if not faiss.exists() or not metadata.exists():
+                logger.warning("Index files missing on disk for %s", path.name)
+                continue
+
+            descriptors.append(
+                {
+                    "document": data.get("document", {}),
+                    "faiss": faiss,
+                    "metadata": metadata,
+                }
+            )
+
+        return descriptors
+
     def _load_chunk_metadata(
         self,
         metadata_map_path: Optional[str],
@@ -340,6 +488,32 @@ class RAGService:
         return chunks
 
     @staticmethod
+    def _empty_retrieval_payload(
+        *,
+        embedder_type: str,
+        reranker_type: str,
+        query_enhanced: bool,
+        reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        info: Dict[str, Any] = {
+            "total_retrieved": 0,
+            "reranked": False,
+            "embedder": embedder_type,
+            "reranker": reranker_type,
+            "query_enhanced": query_enhanced,
+        }
+        if reason:
+            info["reason"] = reason
+        return {
+            "mode": "hybrid",
+            "success": False,
+            "context": "",
+            "sources": [],
+            "queries": [],
+            "retrieval_info": info,
+        }
+
+    @staticmethod
     def _read_json(path: Path) -> Dict[str, Any]:
         with path.open("r", encoding="utf-8") as fh:
             return json.load(fh)
@@ -348,4 +522,3 @@ class RAGService:
     def _ensure_path(path_like: str | Path) -> Path:
         path = Path(path_like)
         return path if path.is_absolute() else path.resolve()
-

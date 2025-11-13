@@ -108,7 +108,7 @@ class RAGChatApp:
         )
         
         # Render chat header
-        ChatDisplay.render_header("CAI ICON NAY ONG CHIEN LAM MAT 1 ngay nen khong duoc sua linh tinh")
+        ChatDisplay.render_header("Chat with RAG")
         
         # Render chat messages
         self.chat_display.render(

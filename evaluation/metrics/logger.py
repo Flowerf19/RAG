@@ -108,7 +108,7 @@ class EvaluationLogger:
             print(f"DEBUG: Metric dict keys: {list(metric.keys())}")
             for k, v in metric.items():
                 print(f"  {k}: {type(v)} = {v}")
-            record_id = self.db.insert_metric(metric)
+            record_id = self.db.insert_metric(metric_dict=metric)
             faithfulness_str = f"{faithfulness:.3f}" if isinstance(faithfulness, (int, float)) else str(faithfulness)
             relevance_str = f"{relevance:.3f}" if isinstance(relevance, (int, float)) else str(relevance)
             recall_str = f"{recall:.3f}" if isinstance(recall, (int, float)) else str(recall)

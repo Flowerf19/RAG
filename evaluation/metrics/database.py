@@ -657,6 +657,8 @@ class MetricsDB:
         answer_token_precision: float | None = None,
         answer_f1: float | None = None,
         rouge_l: float | None = None,
+        faithfulness: float | None = None,
+        relevance: float | None = None,
     ) -> None:
         """Update a ground_truth_qa row with RAG evaluation results."""
         if evaluated_at is None:
@@ -688,6 +690,10 @@ class MetricsDB:
                 update_cols.append(('answer_f1', float(answer_f1)))
             if rouge_l is not None:
                 update_cols.append(('rouge_l', float(rouge_l)))
+            if faithfulness is not None:
+                update_cols.append(('faithfulness', float(faithfulness)))
+            if relevance is not None:
+                update_cols.append(('relevance', float(relevance)))
 
             set_clause = ", ".join([f"{col} = ?" for col, _ in update_cols])
             params = [val for _, val in update_cols]

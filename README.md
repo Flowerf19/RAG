@@ -34,6 +34,7 @@ cd RAG
 # Create virtual environment
 python -m venv .venv
 .venv\Scripts\Activate.ps1  # Windows
+source .venv/bin/activate   #linux
 
 # Install dependencies
 pip install -r requirements.txt

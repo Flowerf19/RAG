@@ -14,7 +14,7 @@ import streamlit as st
 from evaluation.backend_dashboard.api import BackendDashboard
 from ui.dashboard.components import (
     OverviewStatsComponent,
-    ModelComparisonComponent,
+    ModelPerformanceComponent,
     PerformanceChartsComponent,
     RecentActivityComponent,
     TokenUsageComponent,
@@ -36,7 +36,7 @@ class RAGEvaluationDashboard:
 
         # Initialize components
         self.overview_stats = OverviewStatsComponent(self.backend)
-        self.model_comparison = ModelComparisonComponent(self.backend)
+        self.model_performance = ModelPerformanceComponent(self.backend)
         self.performance_charts = PerformanceChartsComponent(self.backend)
         self.recent_activity = RecentActivityComponent(self.backend)
         self.token_usage = TokenUsageComponent(self.backend)
@@ -60,10 +60,11 @@ class RAGEvaluationDashboard:
 
         # Display components
         self.overview_stats.display()
-        self.model_comparison.display()
+        self.model_performance.display()
         self.performance_charts.display()
         self.recent_activity.display()
         self.ground_truth.display()
+
 
         # Optional: Display detailed token usage if needed
         # self.token_usage.display_detailed()

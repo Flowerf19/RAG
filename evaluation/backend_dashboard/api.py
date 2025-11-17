@@ -6,6 +6,7 @@ Provides data access for the evaluation dashboard from different system stages.
 from typing import Dict, List, Any
 from datetime import datetime, timedelta
 import json
+import logging
 
 from evaluation.metrics.database import MetricsDB
 
@@ -124,107 +125,40 @@ class BackendDashboard:
         
         Returns evaluation results including semantic similarity scores.
         """
-        # Lazy import to avoid heavy startup costs
-        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+        # Delegate to the refactored semantic module
+        logger = logging.getLogger(__name__)
+        logger.info("Starting semantic similarity evaluation (backend wrapper)")
 
-        rows = self.db.get_ground_truth_list(limit=limit or 10000)
-        processed = 0
-        errors = 0
-        errors_list = []
-        semantic_results = []
+        try:
+            from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+        except ModuleNotFoundError:
+            fetch_retrieval = None
 
-        for r in rows:
-            gt_id = r.get('id')
-            question = r.get('question')
-            true_source = r.get('source', '').strip()
-            
-            try:
-                result = fetch_retrieval(
-                    query_text=question,
-                    top_k=top_k,
-                    embedder_type=embedder_type,
-                    reranker_type=reranker_type,
-                    use_query_enhancement=use_query_enhancement,
-                    api_tokens=api_tokens,
-                    llm_model=llm_model,
-                )
+        from evaluation.backend_dashboard.semantic import run_semantic_similarity
 
-                context = result.get('context', '')
-                sources = result.get('sources', [])
-                retrieval_info = result.get('retrieval_info', {})
+        res = run_semantic_similarity(
+            self.db,
+            fetch_retrieval,
+            embedder_type=embedder_type,
+            reranker_type=reranker_type,
+            use_query_enhancement=use_query_enhancement,
+            top_k=top_k,
+            api_tokens=api_tokens,
+            llm_model=llm_model,
+            limit=limit
+        )
 
-                # Evaluate semantic similarity with true source
-                semantic_eval = self.evaluate_semantic_similarity_with_source(
-                    retrieved_sources=sources,
-                    ground_truth_id=gt_id,
-                    embedder_type=embedder_type
-                )
-
-                # Store results
-                semantic_results.append({
-                    'ground_truth_id': gt_id,
-                    'question': question,
-                    'true_source': true_source[:500] + '...' if len(true_source) > 500 else true_source,
-                    'retrieved_chunks': len(sources),
-                    'semantic_similarity': semantic_eval.get('semantic_similarity', 0.0),
-                    'best_match_score': semantic_eval.get('best_match_score', 0.0),
-                    'chunks_above_threshold': semantic_eval.get('chunks_above_threshold', 0),
-                    'matched_chunks': semantic_eval.get('matched_chunks', []),
-                    'embedder_used': embedder_type,
-                    'error': semantic_eval.get('error')
-                })
-
-                processed += 1
-
-            except Exception as e:
-                errors += 1
-                errors_list.append(f"ID {gt_id}: {str(e)}")
-                semantic_results.append({
-                    'ground_truth_id': gt_id,
-                    'question': question,
-                    'error': str(e),
-                    'semantic_similarity': 0.0,
-                    'best_match_score': 0.0
-                })
-
-        # Calculate summary statistics
-        valid_results = [r for r in semantic_results if not r.get('error')]
-        if valid_results:
-            avg_semantic_similarity = sum(r['semantic_similarity'] for r in valid_results) / len(valid_results)
-            avg_best_match = sum(r['best_match_score'] for r in valid_results) / len(valid_results)
-            total_chunks_above_threshold = sum(r['chunks_above_threshold'] for r in valid_results)
-        else:
-            avg_semantic_similarity = 0.0
-            avg_best_match = 0.0
-            total_chunks_above_threshold = 0
-
-        result = {
-            'summary': {
-                'total_questions': len(rows),
-                'processed': processed,
-                'errors': errors,
-                'avg_semantic_similarity': round(avg_semantic_similarity, 4),
-                'avg_best_match_score': round(avg_best_match, 4),
-                'total_chunks_above_threshold': total_chunks_above_threshold,
-                'embedder_used': embedder_type,
-                'reranker_used': reranker_type,
-                'query_enhancement_used': use_query_enhancement
-            },
-            'results': semantic_results,
-            'errors_list': errors_list
-        }
-
-        # Save results to database if requested
         if save_to_db:
             self.save_evaluation_results_to_db(
                 evaluation_type='semantic_similarity',
-                results=result,
+                results=res,
                 embedder_type=embedder_type,
                 reranker_type=reranker_type,
                 use_query_enhancement=use_query_enhancement
             )
 
-        return result
+        logger.info("Completed semantic similarity evaluation")
+        return res
 
     def save_evaluation_results_to_db(self,
                                      evaluation_type: str,
@@ -345,176 +279,36 @@ class BackendDashboard:
 
         Returns recall evaluation results.
         """
-        # Lazy import to avoid heavy startup costs
+        # Delegate to the refactored recall module
+        logger = logging.getLogger(__name__)
+        logger.info("Starting recall evaluation (backend wrapper)")
         from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+        from evaluation.backend_dashboard.recall import run_recall
 
-        rows = self.db.get_ground_truth_list(limit=limit or 10000)
-        processed = 0
-        errors = 0
-        errors_list = []
-        recall_results = []
+        res = run_recall(
+            self.db,
+            fetch_retrieval,
+            self.evaluate_semantic_similarity_with_source,
+            embedder_type=embedder_type,
+            reranker_type=reranker_type,
+            use_query_enhancement=use_query_enhancement,
+            top_k=top_k,
+            similarity_threshold=similarity_threshold,
+            limit=limit
+        )
 
-        total_true_positives = 0
-        total_false_positives = 0
-        total_false_negatives = 0
-
-        for r in rows:
-            gt_id = r.get('id')
-            question = r.get('question')
-            true_source = r.get('source', '').strip()
-
-            try:
-                # Get retrieved chunks
-                result = fetch_retrieval(
-                    query_text=question,
-                    top_k=top_k,
-                    embedder_type=embedder_type,
-                    reranker_type=reranker_type,
-                    use_query_enhancement=use_query_enhancement,
-                )
-
-                sources = result.get('sources', [])
-
-                # Evaluate semantic similarity with true source
-                semantic_eval = self.evaluate_semantic_similarity_with_source(
-                    retrieved_sources=sources,
-                    ground_truth_id=gt_id,
-                    embedder_type=embedder_type
-                )
-
-                # Calculate recall components for this question
-                retrieved_chunks = len(sources)
-                chunks_above_threshold = semantic_eval.get('chunks_above_threshold', 0)
-
-                # True Positives: chunks that match ground truth above threshold
-                true_positives = chunks_above_threshold
-
-                # False Positives: retrieved chunks that don't match ground truth
-                false_positives = retrieved_chunks - true_positives
-
-                # False Negatives: We can't easily calculate this without knowing
-                # all relevant chunks in the database. For now, we'll use a simplified approach
-                # where FN = max(0, expected_relevant - TP) with expected_relevant = 1 (at least one relevant chunk)
-                expected_relevant = 1  # Assume at least one relevant chunk per question
-                false_negatives = max(0, expected_relevant - true_positives)
-
-                # Calculate recall for this question
-                if (true_positives + false_negatives) > 0:
-                    recall = true_positives / (true_positives + false_negatives)
-                else:
-                    recall = 0.0
-
-                # Calculate precision for this question
-                if retrieved_chunks > 0:
-                    precision = true_positives / retrieved_chunks
-                else:
-                    precision = 0.0
-
-                # Calculate F1 score
-                if (precision + recall) > 0:
-                    f1_score = 2 * (precision * recall) / (precision + recall)
-                else:
-                    f1_score = 0.0
-
-                # Accumulate totals
-                total_true_positives += true_positives
-                total_false_positives += false_positives
-                total_false_negatives += false_negatives
-
-                recall_results.append({
-                    'ground_truth_id': gt_id,
-                    'question': question[:100] + '...' if len(question) > 100 else question,
-                    'true_source': true_source[:200] + '...' if len(true_source) > 200 else true_source,
-                    'retrieved_chunks': retrieved_chunks,
-                    'true_positives': true_positives,
-                    'false_positives': false_positives,
-                    'false_negatives': false_negatives,
-                    'recall': round(recall, 4),
-                    'precision': round(precision, 4),
-                    'f1_score': round(f1_score, 4),
-                    'semantic_similarity': semantic_eval.get('semantic_similarity', 0.0),
-                    'best_match_score': semantic_eval.get('best_match_score', 0.0),
-                    'error': semantic_eval.get('error')
-                })
-
-                processed += 1
-
-            except Exception as e:
-                errors += 1
-                errors_list.append(f"ID {gt_id}: {str(e)}")
-                recall_results.append({
-                    'ground_truth_id': gt_id,
-                    'question': question[:100] + '...' if len(question) > 100 else question,
-                    'error': str(e),
-                    'recall': 0.0,
-                    'precision': 0.0,
-                    'f1_score': 0.0
-                })
-
-        # Calculate overall metrics
-        total_retrieved = total_true_positives + total_false_positives
-
-        if (total_true_positives + total_false_negatives) > 0:
-            overall_recall = total_true_positives / (total_true_positives + total_false_negatives)
-        else:
-            overall_recall = 0.0
-
-        if total_retrieved > 0:
-            overall_precision = total_true_positives / total_retrieved
-        else:
-            overall_precision = 0.0
-
-        if (overall_precision + overall_recall) > 0:
-            overall_f1 = 2 * (overall_precision * overall_recall) / (overall_precision + overall_recall)
-        else:
-            overall_f1 = 0.0
-
-        # Calculate averages for valid results
-        valid_results = [r for r in recall_results if not r.get('error')]
-        if valid_results:
-            avg_recall = sum(r['recall'] for r in valid_results) / len(valid_results)
-            avg_precision = sum(r['precision'] for r in valid_results) / len(valid_results)
-            avg_f1 = sum(r['f1_score'] for r in valid_results) / len(valid_results)
-        else:
-            avg_recall = 0.0
-            avg_precision = 0.0
-            avg_f1 = 0.0
-
-        result = {
-            'summary': {
-                'total_questions': len(rows),
-                'processed': processed,
-                'errors': errors,
-                'overall_recall': round(overall_recall, 4),
-                'overall_precision': round(overall_precision, 4),
-                'overall_f1_score': round(overall_f1, 4),
-                'avg_recall': round(avg_recall, 4),
-                'avg_precision': round(avg_precision, 4),
-                'avg_f1_score': round(avg_f1, 4),
-                'total_true_positives': total_true_positives,
-                'total_false_positives': total_false_positives,
-                'total_false_negatives': total_false_negatives,
-                'total_retrieved_chunks': total_retrieved,
-                'embedder_used': embedder_type,
-                'reranker_used': reranker_type,
-                'query_enhancement_used': use_query_enhancement,
-                'similarity_threshold': similarity_threshold
-            },
-            'results': recall_results,
-            'errors_list': errors_list
-        }
-
-        # Save results to database if requested
         if save_to_db:
             self.save_evaluation_results_to_db(
                 evaluation_type='recall',
-                results=result,
+                results=res,
                 embedder_type=embedder_type,
                 reranker_type=reranker_type,
                 use_query_enhancement=use_query_enhancement
             )
 
-        return result
+        logger.info("Completed recall evaluation")
+
+        return res
 
     def evaluate_relevance(self,
                            embedder_type: str = "ollama",
@@ -532,380 +326,36 @@ class BackendDashboard:
 
         Returns relevance evaluation results with detailed scoring.
         """
-        # Lazy import to avoid heavy startup costs
+        # Delegate to the refactored relevance module
+        logger = logging.getLogger(__name__)
+        logger.info("Starting relevance evaluation (backend wrapper)")
         from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+        from evaluation.backend_dashboard.relevance import run_relevance
 
-        rows = self.db.get_ground_truth_list(limit=limit or 10000)
-        processed = 0
-        errors = 0
-        errors_list = []
-        relevance_results = []
+        res = run_relevance(
+            self.db,
+            fetch_retrieval,
+            self.evaluate_semantic_similarity_with_source,
+            embedder_type=embedder_type,
+            reranker_type=reranker_type,
+            use_query_enhancement=use_query_enhancement,
+            top_k=top_k,
+            limit=limit
+        )
 
-        all_relevance_scores = []
-        relevance_distribution = {
-            '0-0.2': 0, '0.2-0.4': 0, '0.4-0.6': 0,
-            '0.6-0.8': 0, '0.8-1.0': 0
-        }
-
-        for r in rows:
-            gt_id = r.get('id')
-            question = r.get('question')
-            true_source = r.get('source', '').strip()
-
-            try:
-                # Get retrieved chunks
-                result = fetch_retrieval(
-                    query_text=question,
-                    top_k=top_k,
-                    embedder_type=embedder_type,
-                    reranker_type=reranker_type,
-                    use_query_enhancement=use_query_enhancement,
-                )
-
-                sources = result.get('sources', [])
-
-                # Evaluate semantic similarity with true source
-                semantic_eval = self.evaluate_semantic_similarity_with_source(
-                    retrieved_sources=sources,
-                    ground_truth_id=gt_id,
-                    embedder_type=embedder_type
-                )
-
-                # Calculate relevance scores for each retrieved chunk
-                chunk_relevance_scores = []
-                high_relevance_count = 0
-
-                for chunk in semantic_eval.get('matched_chunks', []):
-                    score = chunk.get('similarity_score', 0.0)
-                    chunk_relevance_scores.append(score)
-
-                    # Count high relevance chunks (> 0.8)
-                    if score > 0.8:
-                        high_relevance_count += 1
-
-                    # Update distribution
-                    if score <= 0.2:
-                        relevance_distribution['0-0.2'] += 1
-                    elif score <= 0.4:
-                        relevance_distribution['0.2-0.4'] += 1
-                    elif score <= 0.6:
-                        relevance_distribution['0.4-0.6'] += 1
-                    elif score <= 0.8:
-                        relevance_distribution['0.6-0.8'] += 1
-                    else:
-                        relevance_distribution['0.8-1.0'] += 1
-
-                # Calculate aggregate relevance metrics
-                if chunk_relevance_scores:
-                    avg_chunk_relevance = sum(chunk_relevance_scores) / len(chunk_relevance_scores)
-                    max_chunk_relevance = max(chunk_relevance_scores)
-                    min_chunk_relevance = min(chunk_relevance_scores)
-
-                    # Relevance ratio (chunks with score > 0.5)
-                    relevant_chunks_ratio = sum(1 for s in chunk_relevance_scores if s > 0.5) / len(chunk_relevance_scores)
-                else:
-                    avg_chunk_relevance = 0.0
-                    max_chunk_relevance = 0.0
-                    min_chunk_relevance = 0.0
-                    relevant_chunks_ratio = 0.0
-
-                # Overall question relevance (weighted average of semantic similarity and chunk relevance)
-                semantic_similarity = semantic_eval.get('semantic_similarity', 0.0)
-                overall_relevance = (semantic_similarity + avg_chunk_relevance) / 2
-
-                # Store all relevance scores for global statistics
-                all_relevance_scores.extend(chunk_relevance_scores)
-
-                relevance_results.append({
-                    'ground_truth_id': gt_id,
-                    'question': question[:100] + '...' if len(question) > 100 else question,
-                    'true_source': true_source[:200] + '...' if len(true_source) > 200 else true_source,
-                    'retrieved_chunks': len(sources),
-                    'semantic_similarity': semantic_similarity,
-                    'avg_chunk_relevance': round(avg_chunk_relevance, 4),
-                    'max_chunk_relevance': round(max_chunk_relevance, 4),
-                    'min_chunk_relevance': round(min_chunk_relevance, 4),
-                    'overall_relevance': round(overall_relevance, 4),
-                    'relevant_chunks_ratio': round(relevant_chunks_ratio, 4),
-                    'high_relevance_chunks': high_relevance_count,
-                    'chunk_relevance_scores': [round(s, 4) for s in chunk_relevance_scores],
-                    'error': semantic_eval.get('error')
-                })
-
-                processed += 1
-
-            except Exception as e:
-                errors += 1
-                errors_list.append(f"ID {gt_id}: {str(e)}")
-                relevance_results.append({
-                    'ground_truth_id': gt_id,
-                    'question': question[:100] + '...' if len(question) > 100 else question,
-                    'error': str(e),
-                    'overall_relevance': 0.0,
-                    'avg_chunk_relevance': 0.0
-                })
-
-        # Calculate global relevance statistics
-        if all_relevance_scores:
-            global_avg_relevance = sum(all_relevance_scores) / len(all_relevance_scores)
-            global_high_relevance_ratio = sum(1 for s in all_relevance_scores if s > 0.8) / len(all_relevance_scores)
-            global_relevant_ratio = sum(1 for s in all_relevance_scores if s > 0.5) / len(all_relevance_scores)
-        else:
-            global_avg_relevance = 0.0
-            global_high_relevance_ratio = 0.0
-            global_relevant_ratio = 0.0
-
-        # Calculate averages for valid results
-        valid_results = [r for r in relevance_results if not r.get('error')]
-        if valid_results:
-            avg_overall_relevance = sum(r['overall_relevance'] for r in valid_results) / len(valid_results)
-            avg_chunk_relevance = sum(r['avg_chunk_relevance'] for r in valid_results) / len(valid_results)
-            avg_semantic_similarity = sum(r['semantic_similarity'] for r in valid_results) / len(valid_results)
-        else:
-            avg_overall_relevance = 0.0
-            avg_chunk_relevance = 0.0
-            avg_semantic_similarity = 0.0
-
-        result = {
-            'summary': {
-                'total_questions': len(rows),
-                'processed': processed,
-                'errors': errors,
-                'avg_overall_relevance': round(avg_overall_relevance, 4),
-                'avg_chunk_relevance': round(avg_chunk_relevance, 4),
-                'avg_semantic_similarity': round(avg_semantic_similarity, 4),
-                'global_avg_relevance': round(global_avg_relevance, 4),
-                'global_high_relevance_ratio': round(global_high_relevance_ratio, 4),
-                'global_relevant_ratio': round(global_relevant_ratio, 4),
-                'total_chunks_evaluated': len(all_relevance_scores),
-                'relevance_distribution': relevance_distribution,
-                'embedder_used': embedder_type,
-                'reranker_used': reranker_type,
-                'query_enhancement_used': use_query_enhancement
-            },
-            'results': relevance_results,
-            'errors_list': errors_list
-        }
-
-        # Save results to database if requested
         if save_to_db:
             self.save_evaluation_results_to_db(
                 evaluation_type='relevance',
-                results=result,
+                results=res,
                 embedder_type=embedder_type,
                 reranker_type=reranker_type,
                 use_query_enhancement=use_query_enhancement
             )
 
-        return result
-        """Run RAG retrieval for all ground-truth rows and persist results.
+        logger.info("Completed relevance evaluation")
 
-        Returns a summary dict with counts of processed and errors.
-        """
-        # Lazy import to avoid heavy startup costs
-        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
-
-        rows = self.db.get_ground_truth_list(limit=limit or 10000)
-        processed = 0
-        errors = 0
-        errors_list = []
-
-        for r in rows:
-            gt_id = r.get('id')
-            question = r.get('question')
-            try:
-                result = fetch_retrieval(
-                    query_text=question,
-                    top_k=top_k,
-                    embedder_type=embedder_type,
-                    reranker_type=reranker_type,
-                    use_query_enhancement=use_query_enhancement,
-                    api_tokens=api_tokens,
-                    llm_model=llm_model,
-                )
-
-                context = result.get('context', '')
-                sources = result.get('sources', [])
-                retrieval_info = result.get('retrieval_info', {})
-
-                # Flatten sources to a string for storage
-                if isinstance(sources, list):
-                    try:
-                        import json as _json
-                        sources_text = _json.dumps(sources, ensure_ascii=False)
-                    except Exception:
-                        sources_text = str(sources)
-                else:
-                    sources_text = str(sources)
-
-                chunks = retrieval_info.get('total_retrieved', retrieval_info.get('final_count', 0))
-
-                # Compute simple evaluation metrics
-                try:
-                    import re
-
-                    gt_answer = (r.get('answer') or '').strip()
-
-                    def _norm_tokens(text: str) -> list:
-                        if not text:
-                            return []
-                        # extract word-like tokens (unicode-aware)
-                        toks = re.findall(r"\w+", str(text).lower(), flags=re.UNICODE)
-                        return toks
-
-                    # Build texts from sources list (if available)
-                    source_texts = []
-                    if isinstance(sources, list):
-                        for s in sources:
-                            if isinstance(s, dict):
-                                # common keys
-                                txt = s.get('text') or s.get('content') or s.get('snippet') or s.get('title') or str(s)
-                                source_texts.append(str(txt))
-                            else:
-                                source_texts.append(str(s))
-                    else:
-                        source_texts.append(str(sources))
-
-                    joined_sources = "\n".join(source_texts)
-
-                    # Normalized presence check for retrieval recall@k
-                    gt_norm = " ".join(_norm_tokens(gt_answer))
-                    found_in_sources = False
-                    if gt_norm:
-                        if gt_norm in " ".join(_norm_tokens(joined_sources)):
-                            found_in_sources = True
-                        elif gt_norm in " ".join(_norm_tokens(context)):
-                            found_in_sources = True
-
-                    retrieval_recall_at_k = 1 if found_in_sources else 0
-
-                    # Token-overlap metrics between GT answer and predicted context
-                    pred_norm_toks = _norm_tokens(context)
-                    gt_norm_toks = _norm_tokens(gt_answer)
-
-                    inter = set(gt_norm_toks) & set(pred_norm_toks)
-                    recall_val = len(inter) / max(1, len(gt_norm_toks))
-                    precision_val = len(inter) / max(1, len(pred_norm_toks)) if pred_norm_toks else 0.0
-                    f1_val = 0.0
-                    if (precision_val + recall_val) > 0:
-                        f1_val = 2 * (precision_val * recall_val) / (precision_val + recall_val)
-
-                except Exception:
-                    # On any error, fallback to zeros
-                    retrieval_recall_at_k = 0
-                    recall_val = 0.0
-                    precision_val = 0.0
-                    f1_val = 0.0
-
-                # Persist into ground_truth_qa (include evaluation metrics)
-                self.db.update_ground_truth_result(
-                    gt_id=gt_id,
-                    predicted_answer=context[:4000],
-                    retrieved_context=context,
-                    retrieved_sources=sources_text,
-                    retrieval_chunks=chunks,
-                    retrieval_recall_at_k=retrieval_recall_at_k,
-                    answer_token_recall=round(recall_val, 4),
-                    answer_token_precision=round(precision_val, 4),
-                    answer_f1=round(f1_val, 4),
-                )
-
-                # Compute embedding-based faithfulness/relevance using a local embedder
-                faith_val = None
-                rel_val = None
-                try:
-                    from embedders.embedder_factory import EmbedderFactory
-                    factory = EmbedderFactory()
-
-                    emb = None
-                    et = embedder_type.lower() if isinstance(embedder_type, str) else ''
-                    # Try to create matching embedder (best-effort)
-                    if et == 'ollama' or 'gemma' in et:
-                        try:
-                            emb = factory.create_gemma()
-                        except Exception:
-                            emb = None
-                    elif et in ('huggingface_local', 'huggingface-local', 'hf_local'):
-                        try:
-                            emb = factory.create_huggingface_local()
-                        except Exception:
-                            emb = None
-                    elif et in ('huggingface_api', 'huggingface-api', 'hf_api'):
-                        try:
-                            emb = factory.create_huggingface_api()
-                        except Exception:
-                            emb = None
-                    elif et == 'e5_large_instruct':
-                        try:
-                            emb = factory.create_e5_large_instruct()
-                        except Exception:
-                            emb = None
-                    elif et == 'e5_base':
-                        try:
-                            emb = factory.create_e5_base()
-                        except Exception:
-                            emb = None
-                    elif et == 'gte_multilingual_base':
-                        try:
-                            emb = factory.create_gte_multilingual_base()
-                        except Exception:
-                            emb = None
-
-                    if emb is not None:
-                        from evaluation.evaluators.auto_evaluator import AutoEvaluator
-                        evaluator = AutoEvaluator(embedder=emb)
-                        # Build joined_sources from sources list so we evaluate answer vs actual source text
-                        try:
-                            source_texts = []
-                            if isinstance(sources, list):
-                                for s in sources:
-                                    if isinstance(s, dict):
-                                        txt = s.get('text') or s.get('content') or s.get('snippet') or s.get('title') or str(s)
-                                        source_texts.append(str(txt))
-                                    else:
-                                        source_texts.append(str(s))
-                            else:
-                                source_texts.append(str(sources))
-                            joined_sources = "\n".join(source_texts)
-                        except Exception:
-                            joined_sources = context
-
-                        # Evaluate predicted/context against the joined sources (correct comparison)
-                        faith_val, rel_val = evaluator.evaluate_response(question, context, joined_sources)
-                except Exception:
-                    faith_val = None
-                    rel_val = None
-
-                # Persist faithfulness/relevance if computed
-                if faith_val is not None or rel_val is not None:
-                    try:
-                        self.db.update_ground_truth_result(
-                            gt_id=gt_id,
-                            predicted_answer=context[:4000],
-                            retrieved_context=context,
-                            retrieved_sources=sources_text,
-                            retrieval_chunks=chunks,
-                            retrieval_recall_at_k=retrieval_recall_at_k,
-                            answer_token_recall=round(recall_val, 4),
-                            answer_token_precision=round(precision_val, 4),
-                            answer_f1=round(f1_val, 4),
-                            faithfulness=float(faith_val) if faith_val is not None else None,
-                            relevance=float(rel_val) if rel_val is not None else None,
-                        )
-                    except Exception:
-                        pass
-
-                processed += 1
-
-            except Exception as e:
-                errors += 1
-                errors_list.append({'id': gt_id, 'error': str(e)})
-
-        return {
-            'processed': processed,
-            'errors': errors,
-            'error_details': errors_list
-        }
+        return res
+        
 
     def get_overview_stats(self) -> Dict[str, Any]:
         """Get overall system statistics for dashboard header."""
@@ -1226,159 +676,40 @@ class BackendDashboard:
 
         Returns faithfulness evaluation results with detailed scoring.
         """
-        # Lazy import to avoid heavy startup costs
+        # Delegate to the refactored faithfulness module
+        logger = logging.getLogger(__name__)
+        logger.info("Starting faithfulness evaluation (backend wrapper)")
         from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
         from llm.client_factory import LLMClientFactory
         from evaluation.evaluators.auto_evaluator import AutoEvaluator
+        from evaluation.backend_dashboard.faithfulness import run_faithfulness
 
-        rows = self.db.get_ground_truth_list(limit=limit or 10000)
-        processed = 0
-        errors = 0
-        errors_list = []
-        faithfulness_results = []
+        res = run_faithfulness(
+            self.db,
+            fetch_retrieval,
+            LLMClientFactory,
+            AutoEvaluator,
+            embedder_type=embedder_type,
+            reranker_type=reranker_type,
+            llm_choice=llm_choice,
+            use_query_enhancement=use_query_enhancement,
+            top_k=top_k,
+            limit=limit
+        )
 
-        all_faithfulness_scores = []
-        faithfulness_distribution = {
-            '0-0.2': 0, '0.2-0.4': 0, '0.4-0.6': 0,
-            '0.6-0.8': 0, '0.8-1.0': 0
-        }
-
-        # Initialize LLM client for evaluation
-        llm_client = None
-        if llm_choice != "none":
-            try:
-                llm_client = LLMClientFactory.create_from_string(llm_choice)
-            except Exception as e:
-                print(f"Warning: Could not initialize LLM client {llm_choice}: {e}")
-                llm_client = None
-
-        # Initialize evaluator
-        evaluator = AutoEvaluator(llm_client=llm_client)
-
-        for r in rows:
-            gt_id = r.get('id')
-            question = r.get('question')
-            true_answer = r.get('answer', '').strip()
-
-            try:
-                # Get retrieved context
-                result = fetch_retrieval(
-                    query_text=question,
-                    top_k=top_k,
-                    embedder_type=embedder_type,
-                    reranker_type=reranker_type,
-                    use_query_enhancement=use_query_enhancement,
-                )
-
-                context = result.get('context', '')
-
-                # Generate answer using LLM (simulate RAG response)
-                generated_answer = ""
-                if llm_client and context:
-                    try:
-                        from llm.chat_handler import build_messages
-                        messages = build_messages(
-                            query=question,
-                            context=context,
-                            history=[]
-                        )
-                        generated_answer = llm_client.generate(messages, max_tokens=512)
-                    except Exception as e:
-                        generated_answer = context[:1000]  # Fallback to context
-                        print(f"Warning: Could not generate answer for question {gt_id}: {e}")
-
-                # Evaluate faithfulness
-                if generated_answer and context:
-                    faithfulness_score = evaluator._evaluate_faithfulness(generated_answer, context)
-                else:
-                    faithfulness_score = 0.0
-
-                # Update distribution
-                if faithfulness_score <= 0.2:
-                    faithfulness_distribution['0-0.2'] += 1
-                elif faithfulness_score <= 0.4:
-                    faithfulness_distribution['0.2-0.4'] += 1
-                elif faithfulness_score <= 0.6:
-                    faithfulness_distribution['0.4-0.6'] += 1
-                elif faithfulness_score <= 0.8:
-                    faithfulness_distribution['0.6-0.8'] += 1
-                else:
-                    faithfulness_distribution['0.8-1.0'] += 1
-
-                # Store all scores for global statistics
-                all_faithfulness_scores.append(faithfulness_score)
-
-                faithfulness_results.append({
-                    'ground_truth_id': gt_id,
-                    'question': question[:100] + '...' if len(question) > 100 else question,
-                    'true_answer': true_answer[:200] + '...' if len(true_answer) > 200 else true_answer,
-                    'generated_answer': generated_answer[:200] + '...' if len(generated_answer) > 200 else generated_answer,
-                    'context_length': len(context),
-                    'faithfulness_score': round(faithfulness_score, 4),
-                    'error': None
-                })
-
-                processed += 1
-
-            except Exception as e:
-                errors += 1
-                errors_list.append(f"ID {gt_id}: {str(e)}")
-                faithfulness_results.append({
-                    'ground_truth_id': gt_id,
-                    'question': question[:100] + '...' if len(question) > 100 else question,
-                    'faithfulness_score': 0.0,
-                    'error': str(e)
-                })
-
-        # Calculate global faithfulness statistics
-        if all_faithfulness_scores:
-            global_avg_faithfulness = sum(all_faithfulness_scores) / len(all_faithfulness_scores)
-            global_high_faithfulness_ratio = sum(1 for s in all_faithfulness_scores if s > 0.8) / len(all_faithfulness_scores)
-            global_faithful_ratio = sum(1 for s in all_faithfulness_scores if s > 0.5) / len(all_faithfulness_scores)
-        else:
-            global_avg_faithfulness = 0.0
-            global_high_faithfulness_ratio = 0.0
-            global_faithful_ratio = 0.0
-
-        # Calculate averages for valid results
-        valid_results = [r for r in faithfulness_results if not r.get('error')]
-        if valid_results:
-            avg_faithfulness = sum(r['faithfulness_score'] for r in valid_results) / len(valid_results)
-        else:
-            avg_faithfulness = 0.0
-
-        result = {
-            'summary': {
-                'total_questions': len(rows),
-                'processed': processed,
-                'errors': errors,
-                'avg_faithfulness': round(avg_faithfulness, 4),
-                'global_avg_faithfulness': round(global_avg_faithfulness, 4),
-                'global_high_faithfulness_ratio': round(global_high_faithfulness_ratio, 4),
-                'global_faithful_ratio': round(global_faithful_ratio, 4),
-                'total_answers_evaluated': len(all_faithfulness_scores),
-                'faithfulness_distribution': faithfulness_distribution,
-                'embedder_used': embedder_type,
-                'reranker_used': reranker_type,
-                'llm_used': llm_choice,
-                'query_enhancement_used': use_query_enhancement
-            },
-            'results': faithfulness_results,
-            'errors_list': errors_list
-        }
-
-        # Save results to database if requested
         if save_to_db:
             self.save_evaluation_results_to_db(
                 evaluation_type='faithfulness',
-                results=result,
+                results=res,
                 embedder_type=embedder_type,
                 reranker_type=reranker_type,
                 llm_model=llm_choice,
                 use_query_enhancement=use_query_enhancement
             )
 
-        return result
+        logger.info("Completed faithfulness evaluation")
+
+        return res
 
     def evaluate_semantic_similarity_with_source(self, 
                                                 retrieved_sources: List[Dict[str, Any]], 

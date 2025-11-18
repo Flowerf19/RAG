@@ -270,6 +270,32 @@ export GOOGLE_API_KEY="your_key_here"
 export OPENAI_API_KEY="your_key_here"
 ```
 
+### API Keys Setup
+
+For full functionality, you'll need to set up API keys for various services:
+
+1. **Copy the secrets template**:
+   ```bash
+   cp .streamlit/secrets.example .streamlit/secret.toml
+   ```
+
+2. **Edit the secrets file** with your actual API keys:
+   ```toml
+   # HuggingFace API Token (required for E5-Large Multilingual embeddings via HF API)
+   HF_TOKEN = "hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+   # Google Gemini API Key (required for Gemini LLM inference)
+   gemini_api_key = "AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   ```
+
+3. **Environment Variables** (alternative to secrets.toml):
+   ```bash
+   export GOOGLE_API_KEY="your_gemini_key"
+   export HF_TOKEN="your_huggingface_token"
+   ```
+
+**⚠️ Security Note**: Never commit actual API keys to version control. The `.streamlit/secret.toml` file is already in `.gitignore`.
+
 ##  Use Cases
 
 - **Document Q&A**: Ask questions about your PDF collection

@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import time
 from typing import Any, Dict, List, Optional
+import threading
 
 from embedders.embedder_type import EmbedderType
 from pipeline.rag_pipeline import RAGPipeline
@@ -32,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 # Global cache for pipeline instances to avoid reloading models
 _PIPELINE_CACHE: Dict[str, RAGPipeline] = {}
+
+# Lock to prevent concurrent pipeline initializations (double-checked locking)
+_PIPELINE_LOCK = threading.Lock()
 
 
 def fetch_retrieval(
@@ -67,23 +71,29 @@ def fetch_retrieval(
     start_time = time.time() if _EVALUATION_AVAILABLE else None
 
     try:
-        logger.info(f"📥 Received query: {query_text[:100]}...")
+        logger.info(f"[RECEIVED] Received query: {query_text[:100]}...")
 
         # Setup embedder
         embedder_enum, use_api = _parse_embedder_type(embedder_type)
 
-        # Initialize pipeline with caching
+        # Initialize pipeline with caching (thread-safe double-checked locking)
         cache_key = f"{embedder_enum.value}_{use_api}_{embedder_type}"
+
         if cache_key not in _PIPELINE_CACHE:
-            logger.info(
-                f"🔄 Creating new pipeline instance for {cache_key} (first time may take 30-60s)"
-            )
-            _PIPELINE_CACHE[cache_key] = RAGPipeline(
-                embedder_type=embedder_enum, hf_use_api=use_api
-            )
-            logger.info(f"✅ Pipeline cached for {cache_key}")
+            # Acquire lock so only one thread/process in this interpreter creates the pipeline
+            with _PIPELINE_LOCK:
+                if cache_key not in _PIPELINE_CACHE:
+                    logger.info(
+                        f"[CREATING] Creating new pipeline instance for {cache_key} (first time may take 30-60s)"
+                    )
+                    _PIPELINE_CACHE[cache_key] = RAGPipeline(
+                        embedder_type=embedder_enum, hf_use_api=use_api
+                    )
+                    logger.info(f"[CACHED] Pipeline cached for {cache_key}")
         else:
-            logger.info(f"♻️ Using cached pipeline for {cache_key}")
+            logger.info(f"[USING] Using cached pipeline for {cache_key}")
+
+        pipeline = _PIPELINE_CACHE[cache_key]
 
         pipeline = _PIPELINE_CACHE[cache_key]
         
@@ -104,7 +114,7 @@ def fetch_retrieval(
             elif embedder_type.lower() == "paraphrase_minilm_l12_v2":
                 pipeline.embedder = factory.create_paraphrase_minilm_l12_v2(device="cpu")
             
-            logger.info(f"✅ Switched to {embedder_type} embedder")
+            logger.info(f"[SWITCHED] Switched to {embedder_type} embedder")
 
         retriever = RAGRetrievalService(pipeline)
 
@@ -114,10 +124,10 @@ def fetch_retrieval(
         logger.info(f"Expanded queries: {expanded_queries}")
 
         # Create fused embedding
-        logger.info(f"🔍 Embedding {len(expanded_queries)} queries...")
+        logger.info(f"[EMBEDDING] Embedding {len(expanded_queries)} queries...")
         fused_embedding = query_processor.fuse_query_embeddings(expanded_queries)
         bm25_query = " ".join(expanded_queries).strip()
-        logger.info("✅ Query embeddings created")
+        logger.info("[EMBEDDING] Query embeddings created")
 
         # Hybrid retrieval - get more results for potential reranking
         retrieval_top_k = top_k * 5 if reranker_type != "none" else top_k

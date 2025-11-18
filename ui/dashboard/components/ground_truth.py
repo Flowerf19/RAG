@@ -6,6 +6,7 @@ Handles ground truth Q&A import and evaluation.
 import streamlit as st
 import pandas as pd
 import logging
+import altair as alt
 from evaluation.backend_dashboard.api import BackendDashboard
 
 
@@ -24,11 +25,11 @@ class GroundTruthComponent:
 
     def display(self):
         """Display ground truth import and evaluation interface."""
-        st.header("📥 Import Ground-truth Q&A")
+        st.header("Import Ground-truth Q&A")
         st.markdown("Upload an Excel (.xlsx/.xls) or CSV file with columns: `STT`, `Câu hỏi`, `Câu trả lời`, `Nguồn`.")
 
         # Hướng dẫn chọn model để tránh lỗi
-        with st.expander("ℹ️ Hướng dẫn chọn Model (quan trọng!)", expanded=False):
+        with st.expander("Hướng dẫn chọn Model (quan trọng!)", expanded=False):
             st.markdown("""
             **⚠️ NGUYÊN TẮC: Embedding phải cùng chiều với vector store (1024d)**
 
@@ -156,7 +157,7 @@ class GroundTruthComponent:
 
             # Button to run full evaluation suite (all 3 metrics)
             eval_key = f"eval_{embedder_choice}_{reranker_choice}_{llm_choice}_{use_qem}_{sample_size}_{save_to_db}"
-            if st.button("🚀 Full Evaluation Suite (Ground-truth + Recall + Relevance + Faithfulness)", key=f"{self._key_prefix}_run_full_eval"):
+            if st.button("Full Evaluation Suite (Ground-truth + Recall + Relevance + Faithfulness)", key=f"{self._key_prefix}_run_full_eval"):
                 # Prevent duplicate evaluations
                 if not st.session_state.get(f"eval_done_{eval_key}", False):
                     self._run_full_evaluation_suite(embedder_choice, reranker_choice, llm_choice, use_qem, sample_size, save_to_db)
@@ -316,374 +317,6 @@ class GroundTruthComponent:
                 except Exception:
                     pass
 
-    def _run_semantic_similarity_evaluation(self, embedder_choice, reranker_choice, use_qem, sample_size, save_to_db):
-        """Run semantic similarity evaluation metric."""
-        try:
-            self.logger.info("Starting semantic similarity evaluation: embedder=%s reranker=%s use_qem=%s sample_size=%s save_to_db=%s",
-                             embedder_choice, reranker_choice, use_qem, sample_size, save_to_db)
-        except Exception:
-            pass
-        with st.spinner("Running semantic similarity evaluation (may take a while)..."):
-            try:
-                max_rows = None if sample_size == 0 else int(sample_size)
-                res = self.backend.evaluate_ground_truth_with_semantic_similarity(
-                    embedder_type=embedder_choice,
-                    reranker_type=reranker_choice,
-                    use_query_enhancement=use_qem,
-                    top_k=10,
-                    limit=max_rows,
-                    save_to_db=save_to_db,
-                )
-
-                # Display summary
-                summary = res.get('summary', {})
-                st.subheader("📊 Semantic Similarity Evaluation Summary")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Total Questions", summary.get('total_questions', 0))
-                with col2:
-                    st.metric("Processed", summary.get('processed', 0))
-                with col3:
-                    st.metric("Errors", summary.get('errors', 0))
-                with col4:
-                    st.metric("Avg Similarity", f"{summary.get('avg_semantic_similarity', 0):.4f}")
-
-                col5, col6, col7 = st.columns(3)
-                with col5:
-                    st.metric("Avg Best Match", f"{summary.get('avg_best_match_score', 0):.4f}")
-                with col6:
-                    st.metric("Chunks > Threshold", summary.get('total_chunks_above_threshold', 0))
-                with col7:
-                    st.metric("Embedder", summary.get('embedder_used', 'unknown'))
-
-                # Display detailed results
-                results = res.get('results', [])
-                if results:
-                    st.subheader("📋 Detailed Results")
-
-                    # Create dataframe for display
-                    df_data = []
-                    for res_item in results:
-                        df_data.append({
-                            'ID': res_item.get('ground_truth_id', 'unknown'),
-                            'Semantic Similarity': f"{res_item.get('semantic_similarity', 0):.4f}",
-                            'Best Match Score': f"{res_item.get('best_match_score', 0):.4f}",
-                            'Retrieved Chunks': res_item.get('retrieved_chunks', 0),
-                            'Chunks > Threshold': res_item.get('chunks_above_threshold', 0),
-                            'Status': '❌ Error' if res_item.get('error') else '✅ OK'
-                        })
-
-                    df = pd.DataFrame(df_data)
-                    st.dataframe(df, width='stretch')
-
-                    # Show expandable details for each result
-                    for i, res_item in enumerate(results):
-                        with st.expander(f"Question ID {res_item.get('ground_truth_id', 'unknown')} - Similarity: {res_item.get('semantic_similarity', 0):.4f}"):
-                            if res_item.get('error'):
-                                st.error(f"Error: {res_item['error']}")
-                            else:
-                                matched_chunks = res_item.get('matched_chunks', [])
-                                if matched_chunks:
-                                    st.write("**Top Matched Chunks:**")
-                                    for j, chunk in enumerate(matched_chunks[:5], 1):  # Show top 5
-                                        st.write(f"{j}. **Score:** {chunk['similarity_score']:.4f} - **File:** {chunk['file_name']} (page {chunk['page_number']})")
-                                        if 'chunk_text' in chunk:
-                                            st.write(f"   *Text:* {chunk['chunk_text'][:200]}...")
-                                else:
-                                    st.warning("No chunks matched above threshold")
-
-                # Display errors if any
-                errors_list = res.get('errors_list', [])
-                if errors_list:
-                    st.subheader("❌ Errors")
-                    for error in errors_list[:10]:  # Show first 10 errors
-                        st.error(error)
-                    if len(errors_list) > 10:
-                        st.info(f"... and {len(errors_list) - 10} more errors")
-
-                st.success(f"Semantic similarity evaluation completed: {summary.get('processed', 0)} processed, {summary.get('errors', 0)} errors")
-                try:
-                    self.logger.info("Semantic similarity completed: processed=%s errors=%s avg_similarity=%s",
-                                     summary.get('processed', 0), summary.get('errors', 0), summary.get('avg_semantic_similarity', 0))
-                except Exception:
-                    pass
-
-            except Exception as e:
-                st.error(f"Semantic similarity evaluation failed: {e}")
-                import traceback
-                st.code(traceback.format_exc())
-                try:
-                    self.logger.exception("Semantic similarity evaluation failed: %s", e)
-                except Exception:
-                    pass
-
-    def _run_recall_evaluation(self, embedder_choice, reranker_choice, use_qem, sample_size, save_to_db):
-        """Run recall evaluation metric."""
-        try:
-            self.logger.info("Starting recall evaluation: embedder=%s reranker=%s use_qem=%s sample_size=%s save_to_db=%s",
-                             embedder_choice, reranker_choice, use_qem, sample_size, save_to_db)
-        except Exception:
-            pass
-        with st.spinner("Running recall evaluation (may take a while)..."):
-            try:
-                max_rows = None if sample_size == 0 else int(sample_size)
-                res = self.backend.evaluate_recall(
-                    embedder_type=embedder_choice,
-                    reranker_type=reranker_choice,
-                    use_query_enhancement=use_qem,
-                    top_k=10,
-                    similarity_threshold=0.5,
-                    limit=max_rows,
-                    save_to_db=save_to_db,
-                )
-
-                # Display summary
-                summary = res.get('summary', {})
-                st.subheader("📊 Recall Evaluation Summary")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Overall Recall", f"{summary.get('overall_recall', 0):.4f}")
-                with col2:
-                    st.metric("Overall Precision", f"{summary.get('overall_precision', 0):.4f}")
-                with col3:
-                    st.metric("Overall F1 Score", f"{summary.get('overall_f1_score', 0):.4f}")
-                with col4:
-                    st.metric("Avg Recall", f"{summary.get('avg_recall', 0):.4f}")
-
-                col5, col6, col7, col8 = st.columns(4)
-                with col5:
-                    st.metric("Avg Precision", f"{summary.get('avg_precision', 0):.4f}")
-                with col6:
-                    st.metric("True Positives", summary.get('total_true_positives', 0))
-                with col7:
-                    st.metric("False Positives", summary.get('total_false_positives', 0))
-                with col8:
-                    st.metric("False Negatives", summary.get('total_false_negatives', 0))
-
-                # Display detailed results
-                results = res.get('results', [])
-                if results:
-                    st.subheader("📋 Detailed Recall Results")
-
-                    # Create dataframe for display
-                    df_data = []
-                    for res_item in results:
-                        df_data.append({
-                            'ID': res_item.get('ground_truth_id', 'unknown'),
-                            'Recall': f"{res_item.get('recall', 0):.4f}",
-                            'Precision': f"{res_item.get('precision', 0):.4f}",
-                            'F1 Score': f"{res_item.get('f1_score', 0):.4f}",
-                            'TP': res_item.get('true_positives', 0),
-                            'FP': res_item.get('false_positives', 0),
-                            'FN': res_item.get('false_negatives', 0),
-                            'Status': '❌ Error' if res_item.get('error') else '✅ OK'
-                        })
-
-                    df = pd.DataFrame(df_data)
-                    st.dataframe(df, width='stretch')
-
-                # Display errors if any
-                errors_list = res.get('errors_list', [])
-                if errors_list:
-                    st.subheader("❌ Errors")
-                    for error in errors_list[:10]:
-                        st.error(error)
-
-                st.success(f"Recall evaluation completed: {summary.get('processed', 0)} processed, {summary.get('errors', 0)} errors")
-                try:
-                    self.logger.info("Recall evaluation completed: processed=%s errors=%s overall_recall=%s",
-                                     summary.get('processed', 0), summary.get('errors', 0), summary.get('overall_recall', 0))
-                except Exception:
-                    pass
-
-            except Exception as e:
-                st.error(f"Recall evaluation failed: {e}")
-                import traceback
-                st.code(traceback.format_exc())
-                try:
-                    self.logger.exception("Recall evaluation failed: %s", e)
-                except Exception:
-                    pass
-
-    def _run_relevance_evaluation(self, embedder_choice, reranker_choice, use_qem, sample_size, save_to_db):
-        """Run relevance evaluation metric."""
-        try:
-            self.logger.info("Starting relevance evaluation: embedder=%s reranker=%s use_qem=%s sample_size=%s save_to_db=%s",
-                             embedder_choice, reranker_choice, use_qem, sample_size, save_to_db)
-        except Exception:
-            pass
-        with st.spinner("Running relevance evaluation (may take a while)..."):
-            try:
-                max_rows = None if sample_size == 0 else int(sample_size)
-                res = self.backend.evaluate_relevance(
-                    embedder_type=embedder_choice,
-                    reranker_type=reranker_choice,
-                    use_query_enhancement=use_qem,
-                    top_k=10,
-                    limit=max_rows,
-                    save_to_db=save_to_db,
-                )
-
-                # Display summary
-                summary = res.get('summary', {})
-                st.subheader("🎯 Relevance Evaluation Summary")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Avg Overall Relevance", f"{summary.get('avg_overall_relevance', 0):.4f}")
-                with col2:
-                    st.metric("Avg Chunk Relevance", f"{summary.get('avg_chunk_relevance', 0):.4f}")
-                with col3:
-                    st.metric("Global Avg Relevance", f"{summary.get('global_avg_relevance', 0):.4f}")
-                with col4:
-                    st.metric("High Relevance Ratio", f"{summary.get('global_high_relevance_ratio', 0):.4f}")
-
-                col5, col6, col7 = st.columns(3)
-                with col5:
-                    st.metric("Relevant Ratio (>0.5)", f"{summary.get('global_relevant_ratio', 0):.4f}")
-                with col6:
-                    st.metric("Total Chunks", summary.get('total_chunks_evaluated', 0))
-                with col7:
-                    st.metric("Processed Questions", summary.get('processed', 0))
-
-                # Display relevance distribution
-                dist = summary.get('relevance_distribution', {})
-                if dist:
-                    st.subheader("📈 Relevance Score Distribution")
-                    dist_df = pd.DataFrame(list(dist.items()), columns=['Score Range', 'Count'])
-                    st.bar_chart(dist_df.set_index('Score Range'))
-
-                # Display detailed results
-                results = res.get('results', [])
-                if results:
-                    st.subheader("📋 Detailed Relevance Results")
-
-                    # Create dataframe for display
-                    df_data = []
-                    for res_item in results:
-                        df_data.append({
-                            'ID': res_item.get('ground_truth_id', 'unknown'),
-                            'Overall Relevance': f"{res_item.get('overall_relevance', 0):.4f}",
-                            'Avg Chunk Relevance': f"{res_item.get('avg_chunk_relevance', 0):.4f}",
-                            'Semantic Similarity': f"{res_item.get('semantic_similarity', 0):.4f}",
-                            'Relevant Ratio': f"{res_item.get('relevant_chunks_ratio', 0):.4f}",
-                            'High Relevance Chunks': res_item.get('high_relevance_chunks', 0),
-                            'Status': '❌ Error' if res_item.get('error') else '✅ OK'
-                        })
-
-                    df = pd.DataFrame(df_data)
-                    st.dataframe(df, width='stretch')
-
-                # Display errors if any
-                errors_list = res.get('errors_list', [])
-                if errors_list:
-                    st.subheader("❌ Errors")
-                    for error in errors_list[:10]:
-                        st.error(error)
-
-                st.success(f"Relevance evaluation completed: {summary.get('processed', 0)} processed, {summary.get('errors', 0)} errors")
-                try:
-                    self.logger.info("Relevance evaluation completed: processed=%s errors=%s avg_overall_relevance=%s",
-                                     summary.get('processed', 0), summary.get('errors', 0), summary.get('avg_overall_relevance', 0))
-                except Exception:
-                    pass
-
-            except Exception as e:
-                st.error(f"Relevance evaluation failed: {e}")
-                import traceback
-                st.code(traceback.format_exc())
-                try:
-                    self.logger.exception("Relevance evaluation failed: %s", e)
-                except Exception:
-                    pass
-
-    def _run_faithfulness_evaluation(self, embedder_choice, reranker_choice, llm_choice, use_qem, sample_size, save_to_db):
-        """Run faithfulness evaluation metric."""
-        try:
-            self.logger.info("Starting faithfulness evaluation: embedder=%s reranker=%s llm=%s use_qem=%s sample_size=%s save_to_db=%s",
-                             embedder_choice, reranker_choice, llm_choice, use_qem, sample_size, save_to_db)
-        except Exception:
-            pass
-        with st.spinner("Running faithfulness evaluation (may take a while)..."):
-            try:
-                max_rows = None if sample_size == 0 else int(sample_size)
-                res = self.backend.evaluate_faithfulness(
-                    embedder_type=embedder_choice,
-                    reranker_type=reranker_choice,
-                    llm_choice=llm_choice,
-                    use_query_enhancement=use_qem,
-                    top_k=10,
-                    limit=max_rows,
-                    save_to_db=save_to_db,
-                )
-
-                # Display summary
-                summary = res.get('summary', {})
-                st.subheader("🎯 Faithfulness Evaluation Summary")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Avg Faithfulness", f"{summary.get('avg_faithfulness', 0):.4f}")
-                with col2:
-                    st.metric("Global Avg Faithfulness", f"{summary.get('global_avg_faithfulness', 0):.4f}")
-                with col3:
-                    st.metric("High Faithfulness Ratio", f"{summary.get('global_high_faithfulness_ratio', 0):.4f}")
-                with col4:
-                    st.metric("Faithful Ratio (>0.5)", f"{summary.get('global_faithful_ratio', 0):.4f}")
-
-                col5, col6 = st.columns(2)
-                with col5:
-                    st.metric("Total Answers Evaluated", summary.get('total_answers_evaluated', 0))
-                with col6:
-                    st.metric("Processed Questions", summary.get('processed', 0))
-
-                # Display faithfulness distribution
-                dist = summary.get('faithfulness_distribution', {})
-                if dist:
-                    st.subheader("📈 Faithfulness Score Distribution")
-                    dist_df = pd.DataFrame(list(dist.items()), columns=['Score Range', 'Count'])
-                    st.bar_chart(dist_df.set_index('Score Range'))
-
-                # Display detailed results
-                results = res.get('results', [])
-                if results:
-                    st.subheader("📋 Detailed Faithfulness Results")
-
-                    # Create dataframe for display
-                    df_data = []
-                    for res_item in results:
-                        df_data.append({
-                            'ID': res_item.get('ground_truth_id', 'unknown'),
-                            'Faithfulness Score': f"{res_item.get('faithfulness_score', 0):.4f}",
-                            'Context Length': res_item.get('context_length', 0),
-                            'Generated Answer': res_item.get('generated_answer', '')[:100] + '...' if len(res_item.get('generated_answer', '')) > 100 else res_item.get('generated_answer', ''),
-                            'Status': '❌ Error' if res_item.get('error') else '✅ OK'
-                        })
-
-                    df = pd.DataFrame(df_data)
-                    st.dataframe(df, width='stretch')
-
-                # Display errors if any
-                errors_list = res.get('errors_list', [])
-                if errors_list:
-                    st.subheader("❌ Errors")
-                    for error in errors_list[:10]:
-                        st.error(error)
-
-                st.success(f"Faithfulness evaluation completed: {summary.get('processed', 0)} processed, {summary.get('errors', 0)} errors")
-                try:
-                    self.logger.info("Faithfulness evaluation completed: processed=%s errors=%s avg_faithfulness=%s",
-                                     summary.get('processed', 0), summary.get('errors', 0), summary.get('avg_faithfulness', 0))
-                except Exception:
-                    pass
-
-            except Exception as e:
-                st.error(f"Faithfulness evaluation failed: {e}")
-                import traceback
-                st.code(traceback.format_exc())
-                try:
-                    self.logger.exception("Faithfulness evaluation failed: %s", e)
-                except Exception:
-                    pass
-
     def _run_full_evaluation_suite(self, embedder_choice, reranker_choice, llm_choice, use_qem, sample_size, save_to_db):
         """Run complete evaluation suite with all 3 metrics."""
         try:
@@ -695,37 +328,8 @@ class GroundTruthComponent:
             try:
                 max_rows = None if sample_size == 0 else int(sample_size)
 
-                # Run all three evaluations
-                semantic_result = self.backend.evaluate_ground_truth_with_semantic_similarity(
-                    embedder_type=embedder_choice,
-                    reranker_type=reranker_choice,
-                    use_query_enhancement=use_qem,
-                    top_k=10,
-                    limit=max_rows,
-                    save_to_db=save_to_db,
-                )
-
-                recall_result = self.backend.evaluate_recall(
-                    embedder_type=embedder_choice,
-                    reranker_type=reranker_choice,
-                    use_query_enhancement=use_qem,
-                    top_k=10,
-                    similarity_threshold=0.5,
-                    limit=max_rows,
-                    save_to_db=save_to_db,
-                )
-
-                relevance_result = self.backend.evaluate_relevance(
-                    embedder_type=embedder_choice,
-                    reranker_type=reranker_choice,
-                    use_query_enhancement=use_qem,
-                    top_k=10,
-                    limit=max_rows,
-                    save_to_db=save_to_db,
-                )
-
-                # Run faithfulness evaluation (requires LLM)
-                faithfulness_result = self.backend.evaluate_faithfulness(
+                # Run all evaluations in batch to avoid redundant retrieval
+                res = self.backend.evaluate_all_metrics_batch(
                     embedder_type=embedder_choice,
                     reranker_type=reranker_choice,
                     llm_choice=llm_choice,
@@ -735,8 +339,14 @@ class GroundTruthComponent:
                     save_to_db=save_to_db,
                 )
 
+                # Extract results from batch
+                semantic_result = res.get('semantic_similarity', {})
+                recall_result = res.get('recall', {})
+                relevance_result = res.get('relevance', {})
+                faithfulness_result = res.get('faithfulness', {})
+
                 # Display comprehensive summary
-                st.subheader("🚀 Full Evaluation Suite Results")
+                st.subheader("Full Evaluation Suite Results")
 
                 # Create comparison table
                 comparison_data = {
@@ -756,7 +366,7 @@ class GroundTruthComponent:
                 st.table(comparison_df)
 
                 # Display individual summaries in tabs
-                tab1, tab2, tab3, tab4 = st.tabs(["📊 Semantic Similarity", "📈 Recall Metrics", "🎯 Relevance Scores", "💯 Faithfulness Scores"])
+                tab1, tab2, tab3, tab4 = st.tabs(["Semantic Similarity", "Recall Metrics", "Relevance Scores", "Faithfulness Scores"])
 
                 with tab1:
                     sem_sum = semantic_result.get('summary', {})
@@ -784,12 +394,8 @@ class GroundTruthComponent:
                     with col3:
                         st.metric("Relevant Ratio", f"{rel_sum.get('global_relevant_ratio', 0):.4f}")
 
-                    # Show relevance distribution
                     dist = rel_sum.get('relevance_distribution', {})
-                    if dist:
-                        st.subheader("Relevance Distribution")
-                        dist_df = pd.DataFrame(list(dist.items()), columns=['Range', 'Count'])
-                        st.bar_chart(dist_df.set_index('Range'))
+                    self._render_score_distribution("Relevance Distribution", relevance_result.get('results', []), dist, score_keys=['overall_relevance', 'avg_chunk_relevance', 'semantic_similarity'])
 
                 with tab4:
                     faith_sum = faithfulness_result.get('summary', {})
@@ -801,15 +407,11 @@ class GroundTruthComponent:
                     with col3:
                         st.metric("Faithful Ratio (>0.5)", f"{faith_sum.get('global_faithful_ratio', 0):.4f}")
 
-                    # Show faithfulness distribution
                     dist = faith_sum.get('faithfulness_distribution', {})
-                    if dist:
-                        st.subheader("Faithfulness Distribution")
-                        dist_df = pd.DataFrame(list(dist.items()), columns=['Range', 'Count'])
-                        st.bar_chart(dist_df.set_index('Range'))
+                    self._render_score_distribution("Faithfulness Distribution", faithfulness_result.get('results', []), dist, score_keys=['faithfulness_score'])
 
                 # Configuration summary
-                st.subheader("⚙️ Evaluation Configuration")
+                st.subheader("Evaluation Configuration")
                 config_data = {
                     'Setting': ['Embedder', 'Reranker', 'Query Enhancement', 'Top K (chunks per question)', 'Max Questions to Evaluate'],
                     'Value': [embedder_choice, reranker_choice, str(use_qem), '10', str(sample_size) if sample_size > 0 else 'All']
@@ -831,6 +433,55 @@ class GroundTruthComponent:
                     self.logger.exception("Full evaluation suite failed: %s", e)
                 except Exception:
                     pass
+
+    def _render_score_distribution(self, title: str, results: list, dist_dict: dict, score_keys: list):
+        """Render a distribution: prefer raw per-result scores (boxplot + histogram),
+        fallback to bucketed counts when raw scores are not available.
+        """
+        try:
+            # Extract numeric scores from results using candidate keys
+            scores = []
+            for r in (results or []):
+                for key in score_keys:
+                    if not isinstance(r, dict):
+                        continue
+                    v = r.get(key)
+                    if v is None:
+                        continue
+                    try:
+                        scores.append(float(v))
+                        break
+                    except Exception:
+                        continue
+
+            # If we have enough raw scores, show boxplot + histogram
+            if len(scores) >= 3:
+                df_scores = pd.DataFrame({'score': scores})
+                st.subheader(title)
+                box = alt.Chart(df_scores).mark_boxplot().encode(x='score:Q')
+                hist = alt.Chart(df_scores).mark_bar().encode(
+                    x=alt.X('score:Q', bin=alt.Bin(maxbins=30), title='Score'),
+                    y=alt.Y('count()', title='Count')
+                )
+                st.altair_chart((box & hist).properties(height=340), use_container_width=True)
+                return
+
+            # Fallback to bucket dict if provided
+            if dist_dict:
+                dist_df = pd.DataFrame(list(dist_dict.items()), columns=['range', 'count'])
+                st.subheader(title)
+                chart = alt.Chart(dist_df).mark_bar().encode(
+                    x=alt.X('count:Q', title='Count'),
+                    y=alt.Y('range:N', sort=alt.SortField('count', order='descending'), title='Range'),
+                    tooltip=['range', 'count']
+                )
+                st.altair_chart(chart.properties(height=340), use_container_width=True)
+                return
+
+            st.info(f"No distribution data available for {title}")
+
+        except Exception as e:
+            st.error(f"Failed to render distribution: {e}")
 
     def _run_5_gt_with_logs(self, embedder_choice, reranker_choice, llm_choice, use_qem):
         """Run 5 ground truth queries with streaming logs."""

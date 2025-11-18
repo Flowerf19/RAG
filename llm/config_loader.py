@@ -99,35 +99,37 @@ def resolve_gemini_settings(
     if override_api_key:
         api_key = override_api_key
     else:
-        # Try to get from Streamlit secrets or config
-        try:
-            import streamlit as st
-            # Try to get from Streamlit secrets first
-            if hasattr(st, 'secrets'):
-                # Check for [gemini] section in secrets.toml with gemini_api_key
-                if 'gemini' in st.secrets and 'gemini_api_key' in st.secrets['gemini']:
-                    api_key = st.secrets['gemini']['gemini_api_key']
-                # Check for [gemini] section with api_key (old format)
-                elif 'gemini' in st.secrets and 'api_key' in st.secrets['gemini']:
-                    api_key = st.secrets['gemini']['api_key']
-                # Fallback to direct gemini_api_key
-                elif 'gemini_api_key' in st.secrets:
-                    api_key = st.secrets['gemini_api_key']
+        # Try to get from environment variable first, then Streamlit secrets, then config
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            try:
+                import streamlit as st
+                # Try to get from Streamlit secrets
+                if hasattr(st, 'secrets'):
+                    # Check for [gemini] section in secrets.toml with gemini_api_key
+                    if 'gemini' in st.secrets and 'gemini_api_key' in st.secrets['gemini']:
+                        api_key = st.secrets['gemini']['gemini_api_key']
+                    # Check for [gemini] section with api_key (old format)
+                    elif 'gemini' in st.secrets and 'api_key' in st.secrets['gemini']:
+                        api_key = st.secrets['gemini']['api_key']
+                    # Fallback to direct gemini_api_key
+                    elif 'gemini_api_key' in st.secrets:
+                        api_key = st.secrets['gemini_api_key']
+                    else:
+                        # Fallback to config file
+                        cfg = _require(get_config(), "llm.gemini")
+                        api_key = cfg.get("api_key", "")
                 else:
                     # Fallback to config file
                     cfg = _require(get_config(), "llm.gemini")
                     api_key = cfg.get("api_key", "")
-            else:
-                # Fallback to config file
+            except ImportError:
+                # Streamlit not available, use config file
                 cfg = _require(get_config(), "llm.gemini")
                 api_key = cfg.get("api_key", "")
-        except ImportError:
-            # Streamlit not available, use config file
-            cfg = _require(get_config(), "llm.gemini")
-            api_key = cfg.get("api_key", "")
 
     if not api_key:
-        raise ValueError("Gemini API key not found in secrets.toml or config/app.yaml")
+        raise ValueError("Gemini API key not found in GOOGLE_API_KEY env var, secrets.toml, or config/app.yaml")
 
     cfg = _require(get_config(), "llm.gemini")
     return {

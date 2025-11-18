@@ -232,3 +232,186 @@ def run_semantic_similarity(db, fetch_retrieval, embedder_getter, embedder_type:
     }
 
     return result
+
+def run_semantic_similarity_batch(db, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict]) -> Dict[str, Any]:
+    """Run semantic similarity evaluation using pre-fetched retrieval results.
+    
+    Args:
+        db: Database instance
+        retrieval_results: Dict of ground_truth_id -> retrieval result
+        ground_truth_rows: List of ground truth rows
+    """
+    processed = 0
+    errors = 0
+    errors_list: List[str] = []
+    semantic_results: List[Dict[str, Any]] = []
+
+    for r in ground_truth_rows:
+        gt_id = r.get('id')
+        question = r.get('question')
+        true_source = r.get('source', '').strip()
+
+        try:
+            # Get cached retrieval result
+            result = retrieval_results.get(gt_id, {})
+            if result.get('error'):
+                errors += 1
+                errors_list.append(f"ID {gt_id}: {result['error']}")
+                semantic_results.append({
+                    'ground_truth_id': gt_id,
+                    'question': question,
+                    'error': result['error'],
+                    'semantic_similarity': 0.0,
+                    'best_match_score': 0.0
+                })
+                continue
+
+            sources = result.get('sources', [])
+            
+            # Evaluate semantic similarity with true source
+            try:
+                if not true_source:
+                    semantic_results.append({
+                        'ground_truth_id': gt_id,
+                        'question': question,
+                        'true_source': true_source[:500] + '...' if len(true_source) > 500 else true_source,
+                        'retrieved_chunks': len(sources),
+                        'semantic_similarity': 0.0,
+                        'best_match_score': 0.0,
+                        'chunks_above_threshold': 0,
+                        'matched_chunks': [],
+                        'embedder_used': 'batch',
+                        'error': f'No source found for ground truth ID {gt_id}'
+                    })
+                    processed += 1
+                    continue
+                
+                # Get embedder from result or default
+                embedder_type = result.get('embedder_type', 'huggingface_local')
+                from evaluation.backend_dashboard.api import BackendDashboard
+                backend = BackendDashboard()
+                embedder = backend._get_or_create_embedder(embedder_type)
+                
+                # Get embeddings for true source
+                true_source_embedding = embedder.embed(true_source)
+                
+                # Calculate semantic similarity for each retrieved chunk
+                similarities = []
+                matched_chunks = []
+                
+                for i, source in enumerate(sources):
+                    chunk_text = source.get('text', source.get('content', source.get('snippet', '')))
+                    if chunk_text.strip():
+                        try:
+                            chunk_embedding = embedder.embed(chunk_text)
+                            
+                            # Calculate cosine similarity
+                            import numpy as np
+                            similarity = np.dot(true_source_embedding, chunk_embedding) / (
+                                np.linalg.norm(true_source_embedding) * np.linalg.norm(chunk_embedding)
+                            )
+                            
+                            similarities.append(float(similarity))
+                            
+                            # Store match info if similarity > 0.5
+                            if similarity > 0.5:
+                                matched_chunks.append({
+                                    'chunk_index': i,
+                                    'similarity_score': round(float(similarity), 4),
+                                    'chunk_text': chunk_text[:200] + '...' if len(chunk_text) > 200 else chunk_text,
+                                    'file_name': source.get('file_name', ''),
+                                    'page_number': source.get('page_number', 0)
+                                })
+                                
+                        except Exception:
+                            similarities.append(0.0)
+                
+                # Calculate overall metrics
+                if similarities:
+                    best_match_score = max(similarities)
+                    avg_similarity = sum(similarities) / len(similarities)
+                    
+                    # Sort matched chunks by similarity
+                    matched_chunks.sort(key=lambda x: x['similarity_score'], reverse=True)
+                    
+                    semantic_results.append({
+                        'ground_truth_id': gt_id,
+                        'question': question,
+                        'true_source': true_source[:500] + '...' if len(true_source) > 500 else true_source,
+                        'retrieved_chunks': len(sources),
+                        'semantic_similarity': round(avg_similarity, 4),
+                        'best_match_score': round(best_match_score, 4),
+                        'chunks_above_threshold': len([s for s in similarities if s > 0.5]),
+                        'matched_chunks': matched_chunks[:5],  # Top 5 matches
+                        'embedder_used': embedder_type,
+                        'error': None
+                    })
+                else:
+                    semantic_results.append({
+                        'ground_truth_id': gt_id,
+                        'question': question,
+                        'true_source': true_source[:500] + '...' if len(true_source) > 500 else true_source,
+                        'retrieved_chunks': len(sources),
+                        'semantic_similarity': 0.0,
+                        'best_match_score': 0.0,
+                        'chunks_above_threshold': 0,
+                        'matched_chunks': [],
+                        'embedder_used': embedder_type,
+                        'error': 'No chunks to evaluate'
+                    })
+                    
+            except Exception as e:
+                semantic_results.append({
+                    'ground_truth_id': gt_id,
+                    'question': question,
+                    'true_source': true_source[:500] + '...' if len(true_source) > 500 else true_source,
+                    'retrieved_chunks': len(sources),
+                    'semantic_similarity': 0.0,
+                    'best_match_score': 0.0,
+                    'chunks_above_threshold': 0,
+                    'matched_chunks': [],
+                    'embedder_used': embedder_type,
+                    'error': str(e)
+                })
+
+            processed += 1
+
+        except Exception as e:
+            errors += 1
+            errors_list.append(f"ID {gt_id}: {str(e)}")
+            semantic_results.append({
+                'ground_truth_id': gt_id,
+                'question': question,
+                'error': str(e),
+                'semantic_similarity': 0.0,
+                'best_match_score': 0.0
+            })
+
+    # Compute summary metrics
+    valid_results = [r for r in semantic_results if not r.get('error')]
+    if valid_results:
+        avg_semantic_similarity = sum(r.get('semantic_similarity', 0.0) for r in valid_results) / len(valid_results)
+        avg_best_match = sum(r.get('best_match_score', 0.0) for r in valid_results) / len(valid_results)
+        total_chunks_above_threshold = sum(r.get('chunks_above_threshold', 0) for r in valid_results)
+    else:
+        avg_semantic_similarity = 0.0
+        avg_best_match = 0.0
+        total_chunks_above_threshold = 0
+
+    result = {
+        'summary': {
+            'total_questions': len(ground_truth_rows),
+            'processed': processed,
+            'errors': errors,
+            'avg_semantic_similarity': round(avg_semantic_similarity, 4),
+            'avg_best_match_score': round(avg_best_match, 4),
+            'total_chunks_above_threshold': total_chunks_above_threshold,
+            'embedder_used': 'batch',
+            'reranker_used': 'batch',
+            'query_enhancement_used': True
+        },
+        'results': semantic_results,
+        'errors_list': errors_list
+    }
+
+    return result

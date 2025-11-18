@@ -129,13 +129,13 @@ class RAGEvaluationDashboard:
 
     def run(self):
         """Run the dashboard application."""
-        st.title("🚀 RAG Evaluation Dashboard")
+        st.title("RAG Evaluation Dashboard")
         st.markdown("Compare performance and accuracy across different RAG models")
 
         # Add refresh button
         col1, col2, col3 = st.columns([1, 1, 3])
         with col1:
-            if st.button("🔄 Refresh Data"):
+            if st.button("Refresh Data"):
                 self.backend.refresh_data()
                 # Force refresh all cached component data
                 st.session_state["force_refresh_recent"] = True

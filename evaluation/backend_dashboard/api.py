@@ -20,6 +20,8 @@ class BackendDashboard:
         self.db = MetricsDB(db_path)
         # Cache for embedder instances to avoid recreating them
         self._embedder_cache = {}
+        # Cache for retrieval results to avoid redundant fetches
+        self._retrieval_cache = {}
 
     def _get_or_create_embedder(self, embedder_type: str):
         """
@@ -80,6 +82,40 @@ class BackendDashboard:
         # Cache the embedder
         self._embedder_cache[cache_key] = embedder
         return embedder
+
+    def _get_or_fetch_retrieval(self, question: str, embedder_type: str, reranker_type: str, 
+                               use_query_enhancement: bool, top_k: int) -> Dict[str, Any]:
+        """
+        Get cached retrieval result or fetch new one if not exists.
+        
+        Args:
+            question: The query question
+            embedder_type: Type of embedder
+            reranker_type: Type of reranker
+            use_query_enhancement: Whether to use QEM
+            top_k: Number of top results to retrieve
+            
+        Returns:
+            Cached or freshly fetched retrieval result
+        """
+        cache_key = (question, embedder_type, reranker_type, use_query_enhancement, top_k)
+        
+        if cache_key in self._retrieval_cache:
+            return self._retrieval_cache[cache_key]
+        
+        # Fetch new retrieval result
+        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+        result = fetch_retrieval(
+            query_text=question,
+            embedder_type=embedder_type,
+            reranker_type=reranker_type,
+            use_query_enhancement=use_query_enhancement,
+            top_k=top_k
+        )
+        
+        # Cache the result
+        self._retrieval_cache[cache_key] = result
+        return result
 
     def _get_model_display_info(self, model_key: str, model_type: str) -> str:
         """Get display name for model, checking metadata and configs."""
@@ -193,15 +229,14 @@ class BackendDashboard:
         logger.info("Starting semantic similarity evaluation (backend wrapper)")
 
         try:
-            from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
+            from evaluation.backend_dashboard.semantic import run_semantic_similarity
         except ModuleNotFoundError:
-            fetch_retrieval = None
-
-        from evaluation.backend_dashboard.semantic import run_semantic_similarity
+            # Fallback if module not found
+            return {'error': 'Semantic similarity module not found'}
 
         res = run_semantic_similarity(
             self.db,
-            fetch_retrieval,
+            self._get_or_fetch_retrieval,  # Use cached retrieval
             self._get_or_create_embedder,
             embedder_type=embedder_type,
             reranker_type=reranker_type,
@@ -368,12 +403,11 @@ class BackendDashboard:
         # Delegate to the refactored recall module
         logger = logging.getLogger(__name__)
         logger.info("Starting recall evaluation (backend wrapper)")
-        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
         from evaluation.backend_dashboard.recall import run_recall
 
         res = run_recall(
             self.db,
-            fetch_retrieval,
+            self._get_or_fetch_retrieval,  # Use cached retrieval
             self.evaluate_semantic_similarity_with_source,
             embedder_type=embedder_type,
             reranker_type=reranker_type,
@@ -415,12 +449,11 @@ class BackendDashboard:
         # Delegate to the refactored relevance module
         logger = logging.getLogger(__name__)
         logger.info("Starting relevance evaluation (backend wrapper)")
-        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
         from evaluation.backend_dashboard.relevance import run_relevance
 
         res = run_relevance(
             self.db,
-            fetch_retrieval,
+            self._get_or_fetch_retrieval,  # Use cached retrieval
             self.evaluate_semantic_similarity_with_source,
             embedder_type=embedder_type,
             reranker_type=reranker_type,
@@ -616,7 +649,10 @@ class BackendDashboard:
 
     def refresh_data(self) -> bool:
         """Force refresh of cached data if needed."""
-        # In a real implementation, this might clear caches or re-query data
+        # Clear retrieval cache to force fresh fetches
+        self._retrieval_cache.clear()
+        # In a real implementation, this might also clear embedder cache if needed
+        # self._embedder_cache.clear()
         return True
 
     def get_llm_accuracy(self) -> List[Dict[str, Any]]:
@@ -804,14 +840,13 @@ class BackendDashboard:
         # Delegate to the refactored faithfulness module
         logger = logging.getLogger(__name__)
         logger.info("Starting faithfulness evaluation (backend wrapper)")
-        from pipeline.retrieval.retrieval_orchestrator import fetch_retrieval
         from llm.client_factory import LLMClientFactory
         from evaluation.evaluators.auto_evaluator import AutoEvaluator
         from evaluation.backend_dashboard.faithfulness import run_faithfulness
 
         res = run_faithfulness(
             self.db,
-            fetch_retrieval,
+            self._get_or_fetch_retrieval,  # Use cached retrieval
             LLMClientFactory,
             AutoEvaluator,
             embedder_type=embedder_type,
@@ -835,6 +870,121 @@ class BackendDashboard:
         logger.info("Completed faithfulness evaluation")
 
         return res
+
+    def evaluate_all_metrics_batch(self,
+                                   embedder_type: str = "huggingface_local",
+                                   reranker_type: str = "none",
+                                   llm_choice: str = "gemini",
+                                   use_query_enhancement: bool = True,
+                                   top_k: int = 10,
+                                   limit: int | None = None,
+                                   save_to_db: bool = True) -> Dict[str, Any]:
+        """
+        Evaluate all metrics (semantic similarity, recall, relevance, faithfulness) in batch.
+        Performs retrieval once per question and computes all metrics to avoid redundant fetches.
+        
+        Returns combined evaluation results for all metrics.
+        """
+        logger = logging.getLogger(__name__)
+        logger.info("Starting batch evaluation of all metrics")
+        
+        # Get ground truth data
+        ground_truth_rows = self.get_ground_truth_list(limit=limit)
+        if not ground_truth_rows:
+            return {'error': 'No ground truth data found'}
+        
+        # Perform retrieval once for all questions
+        retrieval_results = {}
+        for gt_row in ground_truth_rows:
+            question = gt_row.get('question', '').strip()
+            if question:
+                try:
+                    result = self._get_or_fetch_retrieval(
+                        question=question,
+                        embedder_type=embedder_type,
+                        reranker_type=reranker_type,
+                        use_query_enhancement=use_query_enhancement,
+                        top_k=top_k
+                    )
+                    retrieval_results[gt_row['id']] = result
+                except Exception as e:
+                    logger.warning(f"Failed to retrieve for question '{question}': {e}")
+                    retrieval_results[gt_row['id']] = {'error': str(e)}
+        
+        # Evaluate all metrics using cached retrieval results
+        results = {
+            'semantic_similarity': self._evaluate_semantic_similarity_batch(retrieval_results, ground_truth_rows),
+            'recall': self._evaluate_recall_batch(retrieval_results, ground_truth_rows, embedder_type),
+            'relevance': self._evaluate_relevance_batch(retrieval_results, ground_truth_rows, embedder_type),
+            'faithfulness': self._evaluate_faithfulness_batch(retrieval_results, ground_truth_rows, embedder_type, reranker_type, llm_choice, use_query_enhancement, top_k)
+        }
+        
+        # Save results to DB if requested
+        if save_to_db:
+            for metric_type, result in results.items():
+                if isinstance(result, dict) and 'summary' in result:
+                    self.save_evaluation_results_to_db(
+                        evaluation_type=metric_type,
+                        results=result,
+                        embedder_type=embedder_type,
+                        reranker_type=reranker_type,
+                        llm_model=llm_choice if metric_type == 'faithfulness' else None,
+                        use_query_enhancement=use_query_enhancement
+                    )
+        
+        logger.info("Completed batch evaluation of all metrics")
+        return results
+
+    def _evaluate_semantic_similarity_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict]) -> Dict[str, Any]:
+        """Batch evaluate semantic similarity using cached retrieval results."""
+        from evaluation.backend_dashboard.semantic import run_semantic_similarity_batch
+        
+        return run_semantic_similarity_batch(
+            self.db,
+            retrieval_results,
+            ground_truth_rows
+        )
+
+    def _evaluate_recall_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], embedder_type: str) -> Dict[str, Any]:
+        """Batch evaluate recall using cached retrieval results."""
+        from evaluation.backend_dashboard.recall import run_recall_batch
+        
+        return run_recall_batch(
+            self.db,
+            retrieval_results,
+            ground_truth_rows,
+            self.evaluate_semantic_similarity_with_source,
+            embedder_type=embedder_type
+        )
+
+    def _evaluate_relevance_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], embedder_type: str) -> Dict[str, Any]:
+        """Batch evaluate relevance using cached retrieval results."""
+        from evaluation.backend_dashboard.relevance import run_relevance_batch
+        
+        return run_relevance_batch(
+            self.db,
+            retrieval_results,
+            ground_truth_rows,
+            self.evaluate_semantic_similarity_with_source,
+            embedder_type=embedder_type
+        )
+
+    def _evaluate_faithfulness_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], 
+                                    embedder_type: str, reranker_type: str, llm_choice: str, 
+                                    use_query_enhancement: bool, top_k: int) -> Dict[str, Any]:
+        """Batch evaluate faithfulness using cached retrieval results."""
+        from evaluation.backend_dashboard.faithfulness import run_faithfulness_batch
+        
+        return run_faithfulness_batch(
+            self.db,
+            retrieval_results,
+            ground_truth_rows,
+            embedder_type=embedder_type,
+            reranker_type=reranker_type,
+            llm_choice=llm_choice,
+            use_query_enhancement=use_query_enhancement,
+            top_k=top_k
+        )
 
     def evaluate_semantic_similarity_with_source(self, 
                                                 retrieved_sources: List[Dict[str, Any]], 

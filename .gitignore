@@ -50,19 +50,6 @@ htmlcov/
 .streamlit/secrets.toml 
 
 
-# Data & Cache (Large files, generated)
-data/cache/
-data/chunks/
-data/embeddings/
-data/bm25_index/
-*.pkl
-*.json
-
-# Keep metadata directory tracked (explicitly unignore)
-!data/metadata/
-!data/metadata/**
-!data/batch_summary_*.json
-!data/batch_summary_20251118_030338.json
 
 # Temporary files
 *.tmp

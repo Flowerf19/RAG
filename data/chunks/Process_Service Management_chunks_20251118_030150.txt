@@ -1,0 +1,1286 @@
+Document: Process_Service Management.pdf
+Total chunks: 18
+New chunks processed: 18
+Skipped chunks: 0
+Timestamp: 20251118_030150
+================================================================================
+
+CHUNK 1: chunk_Process_Service Management_0_89afb09ad4c35c55
+Page: 1 | Tokens: 237 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 2/17 
+ 
+Revision History 
+Date 
+Version 
+Description 
+Author 
+Reviewer 
+10-05-2024 
+1.0 
+Issued version 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 3/17 
+Table of Contents 
+1. 
+INTRODUCTION .................................................................................................................. 5 
+1.1 
+PURPOSE ................................................................................................................ 5 
+1.2 
+SCOPE .................................................................................................................... 5 
+1.3 
+DEFINITIONS, ACRONYMS AND ABBREVIATIONS ......................................................... 5 
+1.4 
+REFERENCES ...........................................................................................................
+
+================================================================================
+
+CHUNK 2: chunk_Process_Service Management_1_00b3922452dcdf8d
+Page: 2 | Tokens: 260 | Type: semantic
+----------------------------------------
+5 
+2. 
+PROCESS ........................................................................................................................... 6 
+2.1 
+PROCESS CHARACTERISTICS .................................................................................... 6 
+2.2 
+WORKFLOW ............................................................................................................ 7 
+2.2.1 General Service management ............................................................................... 7 
+2.2.2 Manage staffing & planning (3.1) .......................................................................... 9 
+2.2.3 Manage quality & performance (3.2) .................................................................... 11 
+2.2.4 Manage resources (3.3) ..................................................................................... 13 
+2.2.5 Manage InfoSec (3.4) ........................................................................................ 15 
+2.3 
+RECORDS ............................................................................................................. 17 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 4/17 
+List of Tables and Figures 
+ 
+Table 1.1 – Definitions, Acronyms, and Abbreviations .................................................................... 5 
+Table 1.2 – References .............................................................................................................. 5 
+Table 2.1 - Process characteristics ...............................................................................................
+
+================================================================================
+
+CHUNK 3: chunk_Process_Service Management_2_06d0bcc6316d862c
+Page: 3 | Tokens: 258 | Type: semantic
+----------------------------------------
+6 
+Table 2.2 – Process records ...................................................................................................... 17 
+ 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 5/17 
+1. INTRODUCTION  
+1.1 PURPOSE This document defines the service management process which is applied to The Company’s services. 1.2 SCOPE 
+This process is used in service delivery realized at The Company. However, in a certain service, the Delivery Manager can decide whether to apply this entire process or 
+just a modified version of it or leave it out. It is highly emphasized that all activities tagged as mandatory 
+shall not be dropped out by team leader. 1.3 DEFINITIONS, ACRONYMS AND ABBREVIATIONS No Abbreviations 
+Description 
+1. 
+ SM 
+Service Manager 
+2. 
+ DM 
+Delivery Manager 
+3. 
+ CM 
+Competence Manager 
+4. 
+ HR 
+Human Resource Department 
+5. HRDC 
+Human Resource Development Committee 
+6. 
+ ISEC 
+Information Security Committee 
+7.
+
+================================================================================
+
+CHUNK 4: chunk_Process_Service Management_3_99ea481c8ce383fe
+Page: 4 | Tokens: 141 | Type: semantic
+----------------------------------------
+IT 
+IT Unit 
+8. DC 
+Delivery Center 
+9. 
+ SALES 
+Sales and Marketing Unit 
+10. The Company 
+ 
+11. N/A 
+Not Applicable 
+Table 1.1 – Definitions, Acronyms, and Abbreviations 
+ 
+1.4 REFERENCES 
+No Document 
+Code 
+Description 
+1. 
+ Process_Service Configuration 
+Management 
+QMS/PR_SCM001 
+Configuration Management 
+2. Process_Service Delivery 
+QMS/PR_SD001 
+Service Delivery  
+Table 1.2 – References 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+
+CHUNK 5: chunk_Process_Service Management_4_702eed98e0c5d777
+Page: 5 | Tokens: 221 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 6/17 
+2. PROCESS 
+2.1 PROCESS CHARACTERISTICS   
+Characteristic 
+Description 
+Requirements 
+Involved workers 
+• 
+Service Manager 
+• 
+Delivery Manager 
+• 
+Competence Manager 
+• 
+Human Resource Unit 
+• 
+Human Resource Development 
+Committee 
+• 
+Information Security Committee 
+• 
+IT & Office Management Unit 
+• 
+N/A 
+Entry criteria 
+• 
+Customer official service request 
+• 
+Customer’s request presented in written 
+form 
+Exit criteria 
+• 
+Customer official service request; 
+• 
+Service termination 
+• 
+Service termination conditions are 
+reached. Related processes 
+• 
+Service Delivery Process 
+• 
+Service Delivery Process 
+Tool 
+• 
+N/A 
+• 
+N/A 
+Table 2.1 - Process characteristics 
+ 
+ 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+
+CHUNK 6: chunk_Process_Service Management_5_0dab8026027dba22
+Page: 6 | Tokens: 218 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 7/17 
+2.2 WORKFLOW 
+2.2.1 GENERAL SERVICE MANAGEMENT 
+ 
+Figure 2.1 – General Service management process 
+ 
+Step 
+Task 
+Person 
+in 
+charge 
+Input 
+Output 
+Templates 
+1 
+Receive service request 
+DC Head 
+Customer official 
+request for service 
+Service request 
+and its related 
+criteria 
+N/A 
+2 
+Go/NoGo decision 
+DC Head 
+Service request and 
+its related criteria. Staff & resource 
+status 
+Request 
+acceptance or 
+rejection 
+confirmation. In case of 
+acceptance, SM 
+and DM must be 
+Free form for 
+rejection/acceptan
+ce confirmation. ’s SOW 
+templates & 
+examples for 
+Start 
+Go/No-
+Official client 
+request 
+Manage 
+staffing & 
+planning 
+SM, 
+DM, 
+CM, 
+HR,
+
+================================================================================
+
+CHUNK 7: chunk_Process_Service Management_6_a7b31fecbead956e
+Page: 6 | Tokens: 247 | Type: semantic
+----------------------------------------
+HRDC 
+Manage quality 
+& performance 
+SM, 
+DM, 
+IT, 
+ISEC 
+Manage 
+resources 
+Manage 
+InfoSec 
+SM, 
+DM, 
+CM, 
+SM, 
+DM, 
+IT 
+DC Head 
+DC Head 
+Receive service 
+request 
+End Service No 
+Yes 
+DC head  
+Scope of 
+Work 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 8/17 
+appointed and a 
+SOW (Scope of 
+Work) must be 
+defined. resource sharing 
+service (for both 
+Fixed-price and 
+Time & Material 
+models). Any other 
+templates that are 
+agreed with 
+customer. 3.1 
+Manage staffing & planning 
+SM, DM, 
+CM, HR, 
+HRDC 
+Service acceptance. Service request and 
+its related criteria. See details in 
+Manage staffing & 
+planning workflow 
+See details in 
+Manage staffing & 
+planning workflow 
+3.2
+
+================================================================================
+
+CHUNK 8: chunk_Process_Service Management_7_e2360c52638caad9
+Page: 7 | Tokens: 225 | Type: semantic
+----------------------------------------
+Manage quality & 
+performance 
+SM 
+DM 
+CM 
+Service acceptance. Service request and 
+its related criteria. See details in 
+Manage quality & 
+performance 
+workflow 
+See details in 
+Manage quality & 
+performance 
+workflow 
+3.3 
+Manage resources 
+SM 
+DM 
+IT 
+Service acceptance. Service request and 
+its related criteria. See details in 
+Manage resources 
+workflow 
+See details in 
+Manage resources 
+workflow 
+3.4 
+Manage InfoSec 
+SM 
+DM 
+IT 
+ISEC 
+Service acceptance. InfoSec related 
+criteria. See details in 
+Manage InfoSec 
+workflow 
+See details in 
+Manage InfoSec 
+workflow 
+4 
+End service 
+SM 
+DM 
+DC Head 
+Service request and 
+its related criteria. Service 
+consolidation/termi
+nation message 
+Free form 
+ 
+The workflows for sub-processes 3.1, 3.2, 3.3 and 3.4 are detailed in the next pages. XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+
+CHUNK 9: chunk_Process_Service Management_8_c0fca774279a9472
+Page: 8 | Tokens: 157 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 9/17 
+2.2.2 MANAGE STAFFING & PLANNING (3.1) 
+ 
+Figure 2.2 – Manage staffing & planning 
+ 
+ 
+Step 
+Task 
+Person 
+in 
+charge 
+Input 
+Output 
+Templates 
+1 
+Establish team organization 
+SM, DM 
+Service staffing 
+request or 
+estimation. Team organization 
+Team members 
+identified (profiles, 
+resumes) 
+Team organization 
+sample; 
+Short profile 
+sample 
+2 Establish staffing roadmap 
+SM, DM, 
+HR 
+Service staffing 
+request or 
+estimation.
+
+================================================================================
+
+CHUNK 10: chunk_Process_Service Management_9_f1dac687f0d9a045
+Page: 8 | Tokens: 248 | Type: semantic
+----------------------------------------
+Staffing roadmap; 
+Recruitment plan; 
+Free form 
+Start 
+Establish team 
+organization 
+Establish 
+governance model 
+Establish staffing 
+roadmap 
+Establish 
+knowledge 
+acquisition plan 
+Follow up & 
+maintain staffing 
+plan 
+Perform periodical 
+governance actions 
+Staff; 
+Allocation; 
+Timesheet; 
+Training records; 
+… 
+Customer 
+feedbacks 
+SM 
+DM 
+SM 
+DM 
+HR 
+DM 
+HRDC 
+SM, DM 
+SM 
+DM 
+SM, 
+DM, 
+CM, 
+HR, 
+HRDC 
+End 
+Service 
+ends? No 
+Service 
+ends? No 
+Yes 
+Yes 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 10/17 
+3 
+Establish knowledge 
+acquisition plan 
+DM, 
+HRDC 
+Service request and 
+its related criteria. Knowledge/compete
+nce status. Competence/Skill 
+gap report. Knowledge 
+acquisition plan.
+
+================================================================================
+
+CHUNK 11: chunk_Process_Service Management_10_8ba2bb26ab4149a2
+Page: 9 | Tokens: 207 | Type: semantic
+----------------------------------------
+Free form 
+4 
+Establish governance model 
+SM, DM 
+Service request and 
+its related criteria. Agreement on 
+governance 
+model/method  
+Team organization 
+sample; 
+5 
+Follow up & maintain staffing 
+plan 
+SM, DM, 
+HR 
+ 
+Staffing plan; 
+Recruitment plan; 
+Knowledge 
+acquisition plan; 
+Team member 
+availability 
+announcements; 
+Team members 
+profiles; 
+Training records; 
+Allocation plan & 
+records; 
+Timesheets; 
+Short profile 
+sample; 
+Allocation table 
+sample; Timesheet record 
+sample; 
+6 
+Perform periodical governance 
+actions 
+SM, DM 
+Customer 
+feedbacks; 
+Internally-detected 
+issues; Training reports; 
+Quality & 
+performance 
+reports; 
+InfoSec reports; 
+Audit reports; 
+Governance action 
+plans; 
+Action follow-ups 
+reports; 
+Free form 
+ 
+ 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+
+CHUNK 12: chunk_Process_Service Management_11_fd21d2c253c61a1f
+Page: 10 | Tokens: 255 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 11/17 
+ 
+2.2.3 MANAGE QUALITY & PERFORMANCE (3.2) 
+ 
+Figure 2.3 – Manage quality & performance Establish quality & 
+performance criteria 
+Service 
+ends? Start 
+Establish working 
+methodology 
+Monitor team quality & 
+performance 
+Actions 
+needed? Implement actions & 
+follow-up 
+Yes No 
+Yes End 
+No 
+Monitor individual quality 
+& performance 
+Actions 
+needed? Implement actions & 
+follow-up 
+No 
+Yes 
+DM 
+CM 
+CM 
+DM 
+DM 
+CM 
+DM 
+SM 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 12/17 
+ 
+Step 
+Task 
+Person in 
+charge 
+Input 
+Output 
+Templates 
+1 
+Establish working 
+methodology 
+DM, CM 
+Service request 
+and its related 
+criteria.
+
+================================================================================
+
+CHUNK 13: chunk_Process_Service Management_12_0b076718c772a64a
+Page: 11 | Tokens: 244 | Type: semantic
+----------------------------------------
+Service 
+governance 
+model; 
+Service delivery 
+model; 
+Team organization 
+sample 
+(governance 
+model; 
+technology stack; 
+tools…) 2 
+Establish quality & 
+performance criteria 
+DM 
+SM 
+Service request 
+and its related 
+criteria. Quality & 
+performance 
+criteria 
+Free form 
+3 
+Monitor team quality & 
+performance 
+DM 
+Quality & 
+performance 
+criteria 
+Team quality & 
+performance 
+assessment; 
+Lessons learned; 
+Free form 
+4 
+Monitor individual quality & 
+performance 
+CM 
+Quality & 
+performance 
+criteria 
+Individual quality 
+& performance 
+assessment; 
+Lessons learned; 
+Free form 
+5 
+Implement actions & follow-
+up (team) 
+DM 
+Quality & 
+performance 
+assessment. Lessons learned; 
+Team action 
+plans; 
+Team Action 
+reports; 
+Free form 
+6 
+Implement actions & follow-
+up (individual) 
+CM 
+Individual quality & 
+performance 
+assessment; 
+Lessons learned; 
+Individual action 
+plans; 
+Individual action 
+reports;  
+Free form 
+ 
+ 
+ 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+
+CHUNK 14: chunk_Process_Service Management_13_82ac9755d60c5320
+Page: 12 | Tokens: 189 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 13/17 
+2.2.4 MANAGE RESOURCES (3.3) 
+ 
+Figure 2.4 – Manage resources 
+Start 
+Approved? Create inventory 
+Define resource 
+utilization rules 
+Inventory; 
+Rules of usage; 
+… 
+Allocate resource 
+Approved
+? Update inventory 
+Receive resource 
+request 
+Add resource 
+Service 
+ends? Reject 
+resource Yes 
+Yes No 
+No 
+No 
+Release resources 
+Yes End 
+SM 
+DM 
+IT 
+DM, 
+IT 
+SM 
+DM 
+SM 
+DM 
+IT 
+IT 
+SM 
+DM 
+SM 
+IT 
+SM, 
+DM 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+
+CHUNK 15: chunk_Process_Service Management_14_3a7d33d7338b97a9
+Page: 13 | Tokens: 160 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 14/17 
+Step 
+Task 
+Person in 
+charge 
+Input 
+Output 
+Templates 
+1 
+Define resource utilization 
+rules 
+SM, DM 
+Resource list; 
+Manuals/Indication
+/Guidelines; 
+Specific usage 
+instructions; 
+Resource 
+utilization 
+rules/instructions 
+Free form 
+2 
+Create inventory 
+IT 
+Resource list; 
+Resource 
+inventory/resourc
+e control ledger 
+Free form (IT-
+defined template) 
+3 
+Receive resource request 
+DM, IT 
+Resource allocation 
+request from team 
+members 
+Resource 
+approval/rejection
+;
+
+================================================================================
+
+CHUNK 16: chunk_Process_Service Management_15_73f8d4c5b03d297f
+Page: 13 | Tokens: 167 | Type: semantic
+----------------------------------------
+Free from 
+4 
+Allocate resource 
+IT 
+Resource approval 
+Resource 
+allocation 
+notification 
+Free form 
+5 
+Release resources 
+IT 
+Resource release 
+request 
+Resource release 
+notification 
+Free from 
+6 
+Add resource 
+SM, DM 
+Resource adding 
+request (from 
+customer, SM or 
+DM); 
+Resource 
+availability 
+Resource adding 
+request approved 
+or rejected; 
+Free form 
+7 
+Update inventory 
+IT 
+Approval of 
+resource adding 
+request  
+Inventory updated 
+Free form (IT-
+defined template) 
+8 
+Release resource 
+IT 
+Resource release 
+request (from SM, 
+DM or customer); 
+Inventory updated 
+Free form (IT-
+defined template) 
+ 
+ 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+
+CHUNK 17: chunk_Process_Service Management_16_40235b694f23c9df
+Page: 14 | Tokens: 227 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 15/17 
+2.2.5 MANAGE INFOSEC (3.4) 
+ 
+Figure 2.5 – Manage InfoSec 
+ 
+ 
+ 
+Start 
+Receive InfoSec criteria 
+Extract applicable internal 
+InfoSec criteria 
+SM 
+DM 
+ISEC 
+ISEC 
+Issue service-specific 
+InfoSec criteria & plan 
+Service-specific 
+InfoSec criteria  
+Organize InfoSec trainings 
+Implement InfoSec criteria 
+Monitor InfoSec 
+InfoSec 
+event? Service-specific 
+InfoSec plan  
+Trigger actions 
+according to 
+InfoSec plan 
+Update InfoSec criteria & 
+plan 
+Service 
+ends? Yes No 
+No 
+Yes 
+End 
+ISEC,
+SM 
+ISEC 
+ISEC 
+ISEC, 
+IT 
+DM, 
+ISEC, 
+IT 
+DM, 
+ISEC,
+IT 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+
+CHUNK 18: chunk_Process_Service Management_17_e98a19df3ba28521
+Page: 15 | Tokens: 474 | Type: semantic
+----------------------------------------
+QMS 
+Classification  : Internal 
+Owner  : Delivery Center 
+Company  : 
+ 
+Service Management Process 
+QMS/PR_SM001 
+Version: 1.0 
+ 
+ 
+  
+Page 16/17 
+Step 
+Task 
+Person in 
+charge 
+Input 
+Output 
+Templates 
+1 
+Receive InfoSec criteria 
+SM, DM, 
+ISEC 
+InfoSec criteria 
+from customer or 
+partner (if there 
+are) 
+InfoSec criteria 
+available (and 
+signed if mutually 
+agreed); 
+N/A – depending 
+on customer or 
+partner 
+2 
+Extract applicable internal 
+InfoSec criteria 
+ISEC 
+Internal InfoSec 
+criteria 
+Internal InfoSec 
+criteria that are 
+applicable to 
+service 
+N/A – depending 
+on available 
+documentation 
+3 
+Issue service-specific 
+InfoSec criteria & plan 
+ISEC, SM 
+InfoSec criteria 
+from customer or 
+partner merged 
+with internal 
+InfoSec criteria 
+that are applicable 
+to service 
+InfoSec criteria 
+applicable to 
+service; 
+InfoSec plan 
+(including 
+mitigation & 
+contingency 
+actions) 
+N/A – depending 
+on available 
+documentation 
+4 
+Implement InfoSec 
+criteria 
+ISEC, IT 
+InfoSec criteria 
+applicable to 
+service 
+Network/Infrastruc
+ture configuration 
+data; 
+InfoSec action 
+report; 
+Free form 
+5 
+Organize InfoSec trainings 
+ISEC 
+InfoSec criteria 
+applicable to 
+service 
+InfoSec training 
+materials; 
+InfoSec training 
+records; 
+Free form 
+6 
+Monitor InfoSec 
+DM, ISEC, 
+IT 
+InfoSec periodical 
+reports; 
+InfoSec events (if 
+any) 
+InfoSec monitoring 
+records; 
+Free form 
+7 
+Trigger actions according to 
+InfoSec plan 
+DM, ISEC, 
+IT 
+InfoSec events (if 
+any) 
+InfoSec action 
+records; 
+Lessons learned; 
+Free form 
+8 
+Update InfoSec criteria & 
+plan 
+ISEC 
+InfoSec action 
+records; 
+Lessons learned; 
+Updated InfoSec 
+criteria & plan (if 
+necessary); 
+Free form 
+ 
+ 
+ 
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+XXX-XXX
+
+================================================================================
+

@@ -69,3 +69,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Database files
+*.db
+data/metrics.db

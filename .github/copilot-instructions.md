@@ -2,6 +2,50 @@
 
 This file gives focused, actionable guidance for an AI coding agent working in this repository.
 
+1) Big picture (one line):
+   - PDF -> `PDFLoaders` -> `chunkers` -> `embedders` -> FAISS (vectors) + Whoosh/BM25 -> `reranking` -> LLM/UI -> Evaluation
+
+2) Core components (quick refs):
+   - Loaders: `PDFLoaders/pdf_provider.py` (OCR heuristics, page aggregation)
+   - Chunking: `chunkers/semantic_chunker.py` (call `_aggregate_page_content()` to include text/tables/figures)
+   - Embedders: `embedders/embedder_factory.py`, `embedders/embedder_type.py` (factory pattern)
+   - Retrieval/orchestration: `pipeline/rag_pipeline.py`, `pipeline/retrieval_orchestrator.py`, `pipeline/retrieval/retriever.py`
+   - BM25: `BM25/bm25_manager.py`, `BM25/whoosh_indexer.py` (indexes in `data/bm25_index/`)
+   - Reranking: `reranking/reranker_factory.py` (pluggable providers)
+   - LLMs: `llm/client_factory.py` (Ollama, Gemini, LMStudio adapters)
+   - UI: `ui/app.py` (Streamlit RAGChatApp) + `ui/dashboard/` (evaluation dashboard)
+
+3) Essential developer workflows (Windows PowerShell examples):
+   - Create venv & install: `python -m venv .venv; .venv\Scripts\Activate.ps1; pip install -r requirements.txt`
+   - Install spaCy models: `python -c "import spacy; spacy.cli.download('en_core_web_sm')"`
+   - Process PDFs into vectors/BM25: `python -c "from pipeline.rag_pipeline import RAGPipeline; RAGPipeline().process_directory('data/pdf')"`
+   - Run UI: `streamlit run ui/app.py`
+   - Run evaluation dashboard: `streamlit run ui/dashboard/app.py`
+   - Tests: `pytest -q` (or run specific tests like `pytest test_new_embedders.py::test_embedding_creation -q`)
+
+4) Project-specific conventions (do this exactly):
+   - Single responsibility per module: loaders ⇢ extraction only; chunkers ⇢ chunking only; embedders ⇢ vectorization only; retriever ⇢ search only; UI ⇢ rendering only; evaluation ⇢ metrics only.
+   - Always aggregate page assets: call `_aggregate_page_content()` in `chunkers/semantic_chunker.py` to combine `page.text`, `page.tables`, `page.figures`.
+   - Use factory functions for pluggable implementations: use `embedders.embedder_factory`, `llm.client_factory`, `reranking.reranker_factory` instead of importing providers directly.
+   - Avoid global state: pass configs via constructors (see `pipeline/backend_connector.py`).
+
+5) Integration points & gotchas (practical):
+   - Ollama local endpoint: `http://localhost:11434` — confirm before using Ollama-based embedders/clients.
+   - Embedding dims: Gemma=768 vs BGE-M3/E5=1024 — switching embedder requires rebuilding FAISS indexes under `data/vectors/`.
+   - Vectors stored as `.faiss` + `.pkl`; BM25 index in `data/bm25_index/`.
+   - LLMs: Gemini needs `GOOGLE_API_KEY`; OpenAI needs `OPENAI_API_KEY`; LMStudio may require a local server.
+   - Rerankers may require provider API keys — check `reranking/reranker_factory.py` for each provider.
+   - Evaluation uses cached embedders: prefer `BackendDashboard._get_or_create_embedder()` to avoid repeated instantiation (performance win).
+
+6) Quick debug trace (fast entry points):
+   - Query flow: `query_enhancement/query_processor.py` -> `pipeline/retrieval_orchestrator.py` -> `pipeline/retrieval/retriever.py` -> `pipeline/score_fusion.py` -> `reranking/reranker_factory.py`
+   - Troubleshoot chunking: `chunkers/semantic_chunker.py` and `PDFLoaders/pdf_provider.py` (page aggregation/OCR).
+
+When updating these instructions: keep edits minimal, reference concrete file paths above, and verify with `pytest -q`. Ask me to expand any section (examples, commands, or files) if you want more detail.
+ # RAG — AI Coding Agent Instructions (concise)
+
+This file gives focused, actionable guidance for an AI coding agent working in this repository.
+
 1) Big picture (one-line):
    - PDF → `PDFLoaders` → `chunkers` → `embedders` → FAISS (vectors) + Whoosh/BM25 → `reranking` → LLM/UI/Evaluation
 

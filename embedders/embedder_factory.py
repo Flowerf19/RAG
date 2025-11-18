@@ -35,8 +35,8 @@ class EmbedderFactory:
     def create(self, embedder_type: EmbedderType, profile: EmbeddingProfile, **kwargs: Any) -> IEmbedder:
         """Create the requested embedder."""
         if embedder_type == EmbedderType.OLLAMA:
-            # Default to GemmaEmbedder for OLLAMA type
-            return GemmaEmbedder(
+            # Default to BGE3Embedder for local OLLAMA deployments (use bge-m3 by default)
+            return BGE3Embedder(
                 profile=profile,
                 base_url=kwargs.get('base_url', 'http://localhost:11434')
             ) # pyright: ignore[reportAbstractUsage]

@@ -54,10 +54,15 @@ htmlcov/
 data/cache/
 data/chunks/
 data/embeddings/
-data/metadata/
 data/bm25_index/
 *.pkl
 *.json
+
+# Keep metadata directory tracked (explicitly unignore)
+!data/metadata/
+!data/metadata/**
+!data/batch_summary_*.json
+!data/batch_summary_20251118_030338.json
 
 # Temporary files
 *.tmp

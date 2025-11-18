@@ -135,6 +135,12 @@ def fetch_retrieval(
             f"📚 Searching documents (retrieving top {retrieval_top_k} candidates)..."
         )
 
+        # Determine number of index pairs that will be searched for a helpful
+        # consolidated log message. `RAGRetrievalService.get_all_index_pairs`
+        # lists available FAISS indexes.
+        index_pairs = retriever.get_all_index_pairs()
+        num_indexes = len(index_pairs)
+
         results = retriever.retrieve_hybrid(
             query_text=query_text,
             top_k=retrieval_top_k,
@@ -180,7 +186,13 @@ def fetch_retrieval(
             return empty_response
 
         initial_count = len(results)
-        logger.info(f"Retrieved {initial_count} results from hybrid search")
+        # Consolidated info-level log: number of indexes searched and total
+        # merged results. This replaces multiple per-index INFO logs.
+        logger.info(
+            "Hybrid retrieval completed: searched %d index(es), merged %d result(s)",
+            num_indexes,
+            initial_count,
+        )
 
         # Apply reranking if specified
         reranked = False

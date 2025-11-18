@@ -14,12 +14,21 @@ class RecentActivityComponent:
 
     def display(self, limit: int = 25):
         st.header("Recent Activity")
-        # Backend provides `get_recent_metrics` for recent metric records
-        rows = self.backend.get_recent_metrics(limit=limit)
-        try:
-            self.logger.info("RecentActivity: fetched %d rows (limit=%d)", len(rows) if rows else 0, limit)
-        except Exception:
-            pass
+        
+        # Cache results in session state to avoid duplicate DB queries
+        cache_key = f"recent_activity_{limit}"
+        if cache_key not in st.session_state or st.session_state.get("force_refresh_recent", False):
+            # Backend provides `get_recent_metrics` for recent metric records
+            rows = self.backend.get_recent_metrics(limit=limit)
+            st.session_state[cache_key] = rows
+            st.session_state["force_refresh_recent"] = False
+            try:
+                self.logger.info("RecentActivity: fetched %d rows (limit=%d)", len(rows) if rows else 0, limit)
+            except Exception:
+                pass
+        else:
+            rows = st.session_state[cache_key]
+        
         if not rows:
             st.info("No recent activity available.")
             return

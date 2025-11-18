@@ -55,7 +55,7 @@ class GroundTruthComponent:
         embedder_choice = st.selectbox(
             "Embedder Model",
             ["ollama", "huggingface_local", "huggingface_api", "e5_large_instruct", "e5_base", "gte_multilingual_base", "paraphrase_mpnet_base_v2", "paraphrase_minilm_l12_v2"],
-            index=1,  # Default to huggingface_local (BGE-M3, 1024d) - compatible with vector store
+            index=0,  # Default to huggingface_local (BGE-M3, 1024d) - compatible with vector store
             help="Choose which embedder to use for evaluation (also used for retrieval if supported).",
             key=f"{self._key_prefix}_embedder_select",
         )
@@ -145,11 +145,24 @@ class GroundTruthComponent:
                 st.dataframe(normalized.head(10), width='stretch')
 
             if st.button("Import to DB", key=f"{self._key_prefix}_import_gt"):
-                self._import_to_db(normalized)
+                # Prevent duplicate imports
+                import_key = f"import_done_{hash(str(normalized.values.tobytes())[:10])}"
+                if not st.session_state.get(import_key, False):
+                    self._import_to_db(normalized)
+                    st.session_state[import_key] = True
+                    st.success("✅ Import completed!")
+                else:
+                    st.info("ℹ️ Data already imported (skipping duplicate operation)")
 
             # Button to run full evaluation suite (all 3 metrics)
+            eval_key = f"eval_{embedder_choice}_{reranker_choice}_{llm_choice}_{use_qem}_{sample_size}_{save_to_db}"
             if st.button("🚀 Full Evaluation Suite (Ground-truth + Recall + Relevance + Faithfulness)", key=f"{self._key_prefix}_run_full_eval"):
-                self._run_full_evaluation_suite(embedder_choice, reranker_choice, llm_choice, use_qem, sample_size, save_to_db)
+                # Prevent duplicate evaluations
+                if not st.session_state.get(f"eval_done_{eval_key}", False):
+                    self._run_full_evaluation_suite(embedder_choice, reranker_choice, llm_choice, use_qem, sample_size, save_to_db)
+                    st.session_state[f"eval_done_{eval_key}"] = True
+                else:
+                    st.info("ℹ️ Evaluation already completed for these settings (skipping duplicate operation)")
 
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")

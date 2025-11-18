@@ -8,6 +8,7 @@ Output: All data saved to data folder
 """
  
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
@@ -23,10 +24,15 @@ from pipeline.processing.embedding_processor import EmbeddingProcessor
 from pipeline.storage.file_manager import FileManager, BatchSummaryManager
 
 # Configure logging FIRST before any other imports
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# Note: This is called at module level for CLI usage, but can be disabled for library usage
+if __name__ != "__main__" and not os.getenv("RAG_FORCE_LOGGING", "").lower() in ("1", "true", "yes"):
+    # Skip basicConfig when imported as library to avoid overriding host app logging
+    pass
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s'
+    )
 
 
 
@@ -43,7 +49,7 @@ class RAGPipeline:
                  output_dir: str = "data",
                  pdf_dir: Optional[str | Path] = None,
                  embedder_type: EmbedderType = EmbedderType.OLLAMA,
-                 model_type: OllamaModelType = OllamaModelType.GEMMA,
+                 model_type: OllamaModelType = OllamaModelType.BGE_M3,
                  hf_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
                  hf_use_api: Optional[bool] = None,
                  hf_api_token: Optional[str] = None):
@@ -78,9 +84,6 @@ class RAGPipeline:
         for directory in [self.chunks_dir, self.embeddings_dir,
                          self.vectors_dir, self.metadata_dir, self.cache_dir]:
             directory.mkdir(parents=True, exist_ok=True)
-       
-        # Initialize cache for processed chunks
-        self.processed_chunks_cache = self.cache_dir / "processed_chunks.json"
        
         # Initialize components
         logger.info("Initializing RAG Pipeline...")

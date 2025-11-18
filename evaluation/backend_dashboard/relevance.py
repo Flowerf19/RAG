@@ -1,5 +1,9 @@
 """Relevance evaluation logic extracted from `api.py`."""
 from typing import Dict, Any, List
+import time
+
+from evaluation.metrics.logger import EvaluationLogger
+
 
 def run_relevance(db, fetch_retrieval, evaluate_semantic_similarity_with_source, embedder_type: str = "ollama",
                   reranker_type: str = "none", use_query_enhancement: bool = True,
@@ -16,12 +20,17 @@ def run_relevance(db, fetch_retrieval, evaluate_semantic_similarity_with_source,
         '0.6-0.8': 0, '0.8-1.0': 0
     }
 
+    eval_logger = EvaluationLogger()
+
     for r in rows:
         gt_id = r.get('id')
         question = r.get('question')
         true_source = r.get('source', '').strip()
 
         try:
+            # Time retrieval + semantic evaluation per ground-truth question
+            start_time = time.time()
+
             result = fetch_retrieval(
                 query_text=question,
                 top_k=top_k,
@@ -91,6 +100,35 @@ def run_relevance(db, fetch_retrieval, evaluate_semantic_similarity_with_source,
             })
 
             processed += 1
+
+            # Log per-question relevance into metrics DB so dashboard can display it
+            try:
+                latency = time.time() - start_time
+                eval_logger.log_evaluation(
+                    query=question,
+                    model=f"{embedder_type}_{reranker_type}",
+                    latency=latency,
+                    faithfulness=None,
+                    relevance=overall_relevance,
+                    recall=None,
+                    error=False,
+                    embedder_model=embedder_type,
+                    llm_model=None,
+                    reranker_model=reranker_type,
+                    embedder_specific_model=None,
+                    llm_specific_model=None,
+                    reranker_specific_model=None,
+                    query_enhanced=use_query_enhancement,
+                    embedding_tokens=0,
+                    reranking_tokens=0,
+                    llm_tokens=0,
+                    total_tokens=0,
+                    retrieval_chunks=len(result.get('sources', [])),
+                    metadata={'ground_truth_id': gt_id, 'evaluation_type': 'relevance'}
+                )
+            except Exception:
+                # Don't let logging failures break the evaluation
+                pass
 
         except Exception as e:
             errors += 1

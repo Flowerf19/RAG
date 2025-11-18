@@ -27,11 +27,35 @@ class GroundTruthComponent:
         st.header("📥 Import Ground-truth Q&A")
         st.markdown("Upload an Excel (.xlsx/.xls) or CSV file with columns: `STT`, `Câu hỏi`, `Câu trả lời`, `Nguồn`.")
 
+        # Hướng dẫn chọn model để tránh lỗi
+        with st.expander("ℹ️ Hướng dẫn chọn Model (quan trọng!)", expanded=False):
+            st.markdown("""
+            **⚠️ NGUYÊN TẮC: Embedding phải cùng chiều với vector store (1024d)**
+
+            **✅ Embedder tương thích (1024d):**
+            - `huggingface_local` ✅ (BGE-M3, mặc định)
+            - `e5_large_instruct` ✅ (1024d)
+
+            **❌ Embedder KHÔNG tương thích (768d/384d):**
+            - `ollama` ❌ (Gemma, 768d)
+            - `e5_base` ❌ (768d)
+            - `gte_multilingual_base` ❌ (768d)
+            - `paraphrase_mpnet_base_v2` ❌ (768d)
+            - `paraphrase_minilm_l12_v2` ❌ (384d)
+
+            **📊 Metrics cần gì:**
+            - **Faithfulness:** Cần LLM (gemini/ollama/lmstudio/openai)
+            - **Relevance:** Chỉ cần embedder
+            - **Recall:** Chỉ cần embedder
+
+            **🔄 Đổi embedder khác:** Xóa vector store cũ và rebuild
+            """)
+
         # Controls: select embedder, reranker, LLM, QEM toggle, sample size
         embedder_choice = st.selectbox(
             "Embedder Model",
             ["ollama", "huggingface_local", "huggingface_api", "e5_large_instruct", "e5_base", "gte_multilingual_base", "paraphrase_mpnet_base_v2", "paraphrase_minilm_l12_v2"],
-            index=5,  # Default to gte_multilingual_base instead of e5_base
+            index=1,  # Default to huggingface_local (BGE-M3, 1024d) - compatible with vector store
             help="Choose which embedder to use for evaluation (also used for retrieval if supported).",
             key=f"{self._key_prefix}_embedder_select",
         )
@@ -59,10 +83,11 @@ class GroundTruthComponent:
         )
 
         sample_size = st.number_input(
-            "Max rows to evaluate (0 = all)",
+            "Max ground-truth questions to evaluate (0 = all questions)",
             value=10,
             min_value=0,
             step=1,
+            help="Number of ground-truth questions to test. Each question will retrieve top 10 chunks for evaluation.",
             key=f"{self._key_prefix}_sample_size",
         )
 
@@ -115,40 +140,16 @@ class GroundTruthComponent:
             st.write(f"Detected {normalized.shape[0]} parsed rows. Use the checkbox below to show all rows.")
             show_all = st.checkbox("Show full parsed preview (all rows)", value=False, key=f"{self._key_prefix}_show_all_preview")
             if show_all:
-                st.dataframe(normalized, use_container_width=True)
+                st.dataframe(normalized, width='stretch')
             else:
-                st.dataframe(normalized.head(10), use_container_width=True)
+                st.dataframe(normalized.head(10), width='stretch')
 
             if st.button("Import to DB", key=f"{self._key_prefix}_import_gt"):
                 self._import_to_db(normalized)
 
-            # Button to run RAG on all ground-truth rows (or sample)
-            if st.button("Run RAG on ground-truth", key=f"{self._key_prefix}_run_rag_gt"):
-                self._run_rag_evaluation(embedder_choice, reranker_choice, llm_choice, use_qem, sample_size)
-
-            # Button to run semantic similarity evaluation
-            if st.button("🔍 Run Semantic Similarity Evaluation", key=f"{self._key_prefix}_run_semantic_eval"):
-                self._run_semantic_similarity_evaluation(embedder_choice, reranker_choice, use_qem, sample_size, save_to_db)
-
-            # Button to run recall evaluation
-            if st.button("📊 Evaluate Recall", key=f"{self._key_prefix}_run_recall_eval"):
-                self._run_recall_evaluation(embedder_choice, reranker_choice, use_qem, sample_size, save_to_db)
-
-            # Button to run relevance evaluation
-            if st.button("🎯 Evaluate Relevance", key=f"{self._key_prefix}_run_relevance_eval"):
-                self._run_relevance_evaluation(embedder_choice, reranker_choice, use_qem, sample_size, save_to_db)
-
-            # Button to run faithfulness evaluation
-            if st.button("💯 Evaluate Faithfulness", key=f"{self._key_prefix}_run_faithfulness_eval"):
-                self._run_faithfulness_evaluation(embedder_choice, reranker_choice, llm_choice, use_qem, sample_size, save_to_db)
-
             # Button to run full evaluation suite (all 3 metrics)
             if st.button("🚀 Full Evaluation Suite (Ground-truth + Recall + Relevance + Faithfulness)", key=f"{self._key_prefix}_run_full_eval"):
                 self._run_full_evaluation_suite(embedder_choice, reranker_choice, llm_choice, use_qem, sample_size, save_to_db)
-
-            # Button to run 5 ground-truth rows sequentially and stream logs to UI
-            if st.button("Run 5 GT (with logs)", key=f"{self._key_prefix}_run_5_gt"):
-                self._run_5_gt_with_logs(embedder_choice, reranker_choice, llm_choice, use_qem)
 
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")
@@ -360,7 +361,7 @@ class GroundTruthComponent:
                         })
 
                     df = pd.DataFrame(df_data)
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width='stretch')
 
                     # Show expandable details for each result
                     for i, res_item in enumerate(results):
@@ -466,7 +467,7 @@ class GroundTruthComponent:
                         })
 
                     df = pd.DataFrame(df_data)
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width='stretch')
 
                 # Display errors if any
                 errors_list = res.get('errors_list', [])
@@ -557,7 +558,7 @@ class GroundTruthComponent:
                         })
 
                     df = pd.DataFrame(df_data)
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width='stretch')
 
                 # Display errors if any
                 errors_list = res.get('errors_list', [])
@@ -645,7 +646,7 @@ class GroundTruthComponent:
                         })
 
                     df = pd.DataFrame(df_data)
-                    st.dataframe(df, use_container_width=True)
+                    st.dataframe(df, width='stretch')
 
                 # Display errors if any
                 errors_list = res.get('errors_list', [])
@@ -797,7 +798,7 @@ class GroundTruthComponent:
                 # Configuration summary
                 st.subheader("⚙️ Evaluation Configuration")
                 config_data = {
-                    'Setting': ['Embedder', 'Reranker', 'Query Enhancement', 'Top K', 'Sample Size'],
+                    'Setting': ['Embedder', 'Reranker', 'Query Enhancement', 'Top K (chunks per question)', 'Max Questions to Evaluate'],
                     'Value': [embedder_choice, reranker_choice, str(use_qem), '10', str(sample_size) if sample_size > 0 else 'All']
                 }
                 config_df = pd.DataFrame(config_data)

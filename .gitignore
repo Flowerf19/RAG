@@ -54,7 +54,6 @@ htmlcov/
 data/cache/
 data/chunks/
 data/embeddings/
-data/vectors/
 data/metadata/
 data/bm25_index/
 *.pkl

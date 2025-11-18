@@ -61,6 +61,7 @@ python -c "from pipeline.rag_pipeline import RAGPipeline; RAGPipeline().process_
 3. **Launch Web Interface**:
 ```bash
 streamlit run ui/app.py
+.venv\Scripts\Activate.ps1; streamlit run ui/dashboard/app.py
 ```
 
 ##  Architecture Overview

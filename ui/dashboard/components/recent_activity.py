@@ -35,7 +35,7 @@ class RecentActivityComponent:
             total_rows = len(df)
             shown = min(total_rows, limit)
             st.write(f"Showing {shown} of {total_rows} recent rows (limit {limit})")
-            st.dataframe(df.head(limit), use_container_width=True)
+            st.dataframe(df.head(limit), width='stretch')
             return
 
         total_rows = len(df)
@@ -54,7 +54,7 @@ class RecentActivityComponent:
         # Show counts: displayed vs total available
         displayed_count = len(out_df)
         st.write(f"Showing {displayed_count} of {total_rows} recent rows (limit {limit})")
-        st.dataframe(out_df, use_container_width=True)
+        st.dataframe(out_df, width='stretch')
 
         # Add a developer button to print recent activity to terminal/log
         if st.button("Print recent activity to terminal"):

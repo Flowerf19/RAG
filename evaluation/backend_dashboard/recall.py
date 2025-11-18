@@ -1,5 +1,9 @@
 """Recall evaluation logic extracted from `api.py`."""
 from typing import Dict, Any, List
+import time
+
+from evaluation.metrics.logger import EvaluationLogger
+
 
 def run_recall(db, fetch_retrieval, evaluate_semantic_similarity_with_source, embedder_type: str = "ollama",
                reranker_type: str = "none", use_query_enhancement: bool = True,
@@ -14,12 +18,16 @@ def run_recall(db, fetch_retrieval, evaluate_semantic_similarity_with_source, em
     total_false_positives = 0
     total_false_negatives = 0
 
+    eval_logger = EvaluationLogger()
+
     for r in rows:
         gt_id = r.get('id')
         question = r.get('question')
         true_source = r.get('source', '').strip()
 
         try:
+            start_time = time.time()
+
             result = fetch_retrieval(
                 query_text=question,
                 top_k=top_k,
@@ -80,6 +88,34 @@ def run_recall(db, fetch_retrieval, evaluate_semantic_similarity_with_source, em
             })
 
             processed += 1
+
+            # Log per-question recall metrics to metrics DB
+            try:
+                latency = time.time() - start_time
+                eval_logger.log_evaluation(
+                    query=question,
+                    model=f"{embedder_type}_{reranker_type}",
+                    latency=latency,
+                    faithfulness=None,
+                    relevance=None,
+                    recall=recall,
+                    error=False,
+                    embedder_model=embedder_type,
+                    llm_model=None,
+                    reranker_model=reranker_type,
+                    embedder_specific_model=None,
+                    llm_specific_model=None,
+                    reranker_specific_model=None,
+                    query_enhanced=use_query_enhancement,
+                    embedding_tokens=0,
+                    reranking_tokens=0,
+                    llm_tokens=0,
+                    total_tokens=0,
+                    retrieval_chunks=retrieved_chunks,
+                    metadata={'ground_truth_id': gt_id, 'evaluation_type': 'recall'}
+                )
+            except Exception:
+                pass
 
         except Exception as e:
             errors += 1

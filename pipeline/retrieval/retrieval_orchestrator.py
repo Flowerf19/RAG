@@ -19,7 +19,7 @@ from query_enhancement.query_processor import create_query_processor
 # Import evaluation components
 try:
     from evaluation.metrics.logger import EvaluationLogger
-    from evaluation.evaluators.auto_evaluator import AutoEvaluator
+    from evaluation.evaluators.auto_evaluator import AutoEvaluator  # noqa: F401
     from evaluation.metrics.token_counter import token_counter
     _EVALUATION_AVAILABLE = True
 except ImportError:
@@ -43,6 +43,7 @@ def fetch_retrieval(
     use_query_enhancement: bool = True,
     api_tokens: Optional[Dict[str, str]] = None,
     llm_model: Optional[str] = None,
+    evaluate_response: bool = False,  # Disabled by default - evaluation should happen in dedicated methods
 ) -> Dict[str, Any]:
     """
     Enhanced retrieval function combining query enhancement and reranking.
@@ -58,6 +59,7 @@ def fetch_retrieval(
         use_query_enhancement: Whether to use query enhancement module
         api_tokens: Dict of API tokens for rerankers (keys: "hf", "cohere", "jina")
         llm_model: LLM model name for evaluation logging (e.g., "gemini", "lmstudio")
+        evaluate_response: DISABLED - Response evaluation should happen in dedicated evaluation methods
 
     Returns:
         Dict with keys: "context" (str), "sources" (list), "queries" (list), "retrieval_info" (dict)
@@ -156,12 +158,13 @@ def fetch_retrieval(
                     embedder_specific_model=embedder_specific,
                     llm_specific_model=llm_model,  # LLM model name is already specific
                     reranker_specific_model=None,  # No reranker used
-                    query_enhanced=use_query_enhancement,
-                    embedding_tokens=0,
-                    reranking_tokens=0,
-                    llm_tokens=0,
-                    total_tokens=0,
-                    retrieval_chunks=0
+                        query_enhanced=use_query_enhancement,
+                        embedding_tokens=0,
+                        reranking_tokens=0,
+                        llm_tokens=0,
+                        total_tokens=0,
+                        retrieval_chunks=0,
+                        metadata={'evaluation_type': 'retrieval'}
                 )
 
             return empty_response
@@ -215,25 +218,17 @@ def fetch_retrieval(
                 logger.error(f"Error counting tokens: {e}")
                 # Continue with zero token counts
 
-            # Build joined_sources from sources for a correct faithfulness evaluation
-            try:
-                source_texts = []
-                if isinstance(sources, list):
-                    for s in sources:
-                        if isinstance(s, dict):
-                            txt = s.get('text') or s.get('content') or s.get('snippet') or s.get('title') or str(s)
-                            source_texts.append(str(txt))
-                        else:
-                            source_texts.append(str(s))
-                else:
-                    source_texts.append(str(sources))
-                joined_sources = "\n".join(source_texts)
-            except Exception:
-                joined_sources = context
+            # No joined_sources needed at retrieval-level; skip assigning unused variable
 
-            # Evaluate response quality: compare predicted/context against the actual joined sources
-            evaluator = AutoEvaluator(embedder=pipeline.embedder)
-            faithfulness, relevance, recall = evaluator.evaluate_response(query_text, context, joined_sources)
+            # NOTE: Response quality evaluation should be done in dashboard modules where
+            # actual LLM responses and ground truth are available. The current evaluation
+            # incorrectly uses retrieval context as "answer" and compares it against itself.
+            # Faithfulness/relevance scores are inflated, and recall is always None.
+            # DISABLED: Evaluation should only happen in dedicated evaluation methods
+            # if evaluate_response:
+            #     evaluator = AutoEvaluator(embedder=pipeline.embedder)
+            #     # We don't use the results since they're set to None in logging anyway
+            #     evaluator.evaluate_response(query_text, context, joined_sources)
 
             # Log evaluation with token counts
             eval_logger = EvaluationLogger()
@@ -246,9 +241,9 @@ def fetch_retrieval(
                 query=query_text,
                 model=llm_model or f"{embedder_type}_{reranker_type}",
                 latency=latency,
-                faithfulness=faithfulness,
-                relevance=relevance,
-                recall=recall,
+                faithfulness=None,  # Not evaluated at retrieval level - use dedicated faithfulness evaluation
+                relevance=None,     # Not evaluated at retrieval level - use dedicated relevance evaluation  
+                recall=None,        # Not evaluated at retrieval level - use dedicated recall evaluation
                 error=False,
                 embedder_model=embedder_type,
                 llm_model=llm_model,
@@ -261,7 +256,8 @@ def fetch_retrieval(
                 reranking_tokens=reranking_tokens,
                 llm_tokens=llm_tokens,
                 total_tokens=embedding_tokens + reranking_tokens + llm_tokens,
-                retrieval_chunks=initial_count
+                retrieval_chunks=initial_count,
+                metadata={'evaluation_type': 'retrieval'}
             )
 
         return {
@@ -399,7 +395,6 @@ def _apply_reranking(
     """
     try:
         from reranking.reranker_factory import RerankerFactory
-        from reranking.reranker_type import RerankerType
 
         # Map reranker_type string to enum
         reranker_enum = _parse_reranker_type(reranker_type)

@@ -1,5 +1,9 @@
 """Faithfulness evaluation logic extracted from `api.py`."""
 from typing import Dict, Any, List
+import time
+
+from evaluation.metrics.logger import EvaluationLogger
+from evaluation.metrics.token_counter import token_counter
 
 def run_faithfulness(db, fetch_retrieval, llm_client_factory, AutoEvaluatorClass, embedder_type: str = "ollama",
                      reranker_type: str = "none", llm_choice: str = "gemini",
@@ -25,21 +29,28 @@ def run_faithfulness(db, fetch_retrieval, llm_client_factory, AutoEvaluatorClass
 
     evaluator = AutoEvaluatorClass(llm_client=llm_client)
 
+    eval_logger = EvaluationLogger()
+
     for r in rows:
         gt_id = r.get('id')
         question = r.get('question')
         true_answer = r.get('answer', '').strip()
 
         try:
+            # Time this single GT retrieval+generation run
+            start_time = time.time()
+
             result = fetch_retrieval(
                 query_text=question,
                 top_k=top_k,
                 embedder_type=embedder_type,
                 reranker_type=reranker_type,
                 use_query_enhancement=use_query_enhancement,
+                llm_model=llm_choice,
             )
 
             context = result.get('context', '')
+            sources = result.get('sources', [])
 
             generated_answer = ""
             if llm_client and context:
@@ -54,10 +65,45 @@ def run_faithfulness(db, fetch_retrieval, llm_client_factory, AutoEvaluatorClass
                 except Exception:
                     generated_answer = context[:1000]
 
+            # Compute scores
             if generated_answer and context:
                 faithfulness_score = evaluator._evaluate_faithfulness(generated_answer, context)
+                relevance_score = evaluator._evaluate_relevance(generated_answer, question)
             else:
                 faithfulness_score = 0.0
+                relevance_score = 0.0
+
+            # Approximate recall: if ground-truth 'source' exists, check substring matches
+            recall_score = None
+            try:
+                true_source = r.get('source', '') or ''
+                if true_source and sources:
+                    matched = 0
+                    total = len(sources)
+                    for s in sources:
+                        text = ''
+                        if isinstance(s, dict):
+                            text = (s.get('text') or s.get('content') or s.get('snippet') or '')
+                        else:
+                            text = str(s)
+                        if not text:
+                            continue
+                        # crude substring check
+                        if true_source.strip() and (true_source.strip() in text or text in true_source.strip()):
+                            matched += 1
+                    recall_score = matched / total if total > 0 else 0.0
+                else:
+                    recall_score = None
+            except Exception:
+                recall_score = None
+
+            latency = time.time() - start_time
+
+            # Estimate LLM tokens used for generated answer (best-effort)
+            try:
+                llm_tokens = token_counter.count_tokens(generated_answer, llm_choice) if generated_answer else 0
+            except Exception:
+                llm_tokens = 0
 
             if faithfulness_score <= 0.2:
                 faithfulness_distribution['0-0.2'] += 1
@@ -79,8 +125,37 @@ def run_faithfulness(db, fetch_retrieval, llm_client_factory, AutoEvaluatorClass
                 'generated_answer': generated_answer[:200] + '...' if len(generated_answer) > 200 else generated_answer,
                 'context_length': len(context),
                 'faithfulness_score': round(faithfulness_score, 4),
+                'relevance_score': round(relevance_score, 4) if isinstance(relevance_score, (int, float)) else None,
+                'recall_score': round(recall_score, 4) if isinstance(recall_score, (int, float)) else None,
                 'error': None
             })
+
+            # Log per-question metric so metrics table gets populated with scores
+            try:
+                eval_logger.log_evaluation(
+                    query=question,
+                    model=llm_choice or f"{embedder_type}_{reranker_type}",
+                    latency=latency,
+                    faithfulness=faithfulness_score,
+                    relevance=relevance_score,
+                    recall=recall_score,
+                    error=False,
+                    embedder_model=embedder_type,
+                    llm_model=llm_choice,
+                    reranker_model=reranker_type,
+                    embedder_specific_model=None,
+                    llm_specific_model=llm_choice,
+                    reranker_specific_model=None,
+                    query_enhanced=use_query_enhancement,
+                    embedding_tokens=0,
+                    reranking_tokens=0,
+                    llm_tokens=llm_tokens,
+                    total_tokens=llm_tokens,
+                    retrieval_chunks=len(sources) if isinstance(sources, list) else 0,
+                    metadata={'ground_truth_id': gt_id, 'evaluation_type': 'faithfulness'}
+                )
+            except Exception:
+                pass
 
             processed += 1
 

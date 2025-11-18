@@ -81,12 +81,15 @@ class EvaluationLogger:
         if reranker_specific_model:
             final_metadata['reranker_specific_model'] = reranker_specific_model
         
+        # Ensure llm_model is a readable string in stored metric (avoid None showing in logs)
+        llm_model_val = llm_model if llm_model is not None else 'none'
+
         metric = {
             'timestamp': datetime.utcnow().isoformat(),
             'query': query,
             'model': model,
             'embedder_model': embedder_model,
-            'llm_model': llm_model,
+            'llm_model': llm_model_val,
             'reranker_model': reranker_model,
             'query_enhanced': query_enhanced,
             'latency': latency,
@@ -104,10 +107,18 @@ class EvaluationLogger:
         }
 
         try:
+            # Avoid writing retrieval-level-only logs to the metrics DB because they
+            # contain no per-question evaluation scores and are misleading in dashboards.
+            if isinstance(metric.get('metadata'), dict) and metric['metadata'].get('evaluation_type') == 'retrieval':
+                logger.info("Skipping DB write for retrieval-level metric (metadata evaluation_type='retrieval').")
+                print(f"DEBUG: Skipped retrieval-level metric for query: {query[:80]}...")
+                return -1
+
             # Debug: print metric dict
             print(f"DEBUG: Metric dict keys: {list(metric.keys())}")
             for k, v in metric.items():
                 print(f"  {k}: {type(v)} = {v}")
+
             record_id = self.db.insert_metric(metric_dict=metric)
             faithfulness_str = f"{faithfulness:.3f}" if isinstance(faithfulness, (int, float)) else str(faithfulness)
             relevance_str = f"{relevance:.3f}" if isinstance(relevance, (int, float)) else str(relevance)
@@ -230,6 +241,14 @@ class _PipelineTimer:
         """Add tokens used for LLM operations."""
         self.tokens['llm'] += tokens
         self._update_total_tokens()
+
+    def _update_total_tokens(self):
+        """Update the total tokens count."""
+        self.tokens['total'] = (
+            self.tokens['embedding'] +
+            self.tokens['reranking'] +
+            self.tokens['llm']
+        )
 
     def set_model_config(self,
                         embedder_model: str = None,

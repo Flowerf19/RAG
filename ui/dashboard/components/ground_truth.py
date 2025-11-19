@@ -274,6 +274,10 @@ class GroundTruthComponent:
         try:
             inserted = self.backend.insert_ground_truth_rows(rows)
             st.success(f"Inserted {inserted} ground-truth rows into DB")
+            # Clear evaluation done flags to allow re-running after new import
+            for key in list(st.session_state.keys()):
+                if key.startswith("eval_done_"):
+                    del st.session_state[key]
             try:
                 self.logger.info("Inserted %d ground-truth rows into DB", inserted)
             except Exception:

@@ -3,7 +3,7 @@ Backend Dashboard API
 Provides data access for the evaluation dashboard from different system stages.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 import json
 import logging
@@ -782,7 +782,7 @@ class BackendDashboard:
         # Use the bulk insert helper on MetricsDB which accepts a list of dicts
         return self.db.insert_ground_truth_rows(rows)
 
-    def get_ground_truth_list(self, limit: int = 1000) -> List[Dict[str, Any]]:
+    def get_ground_truth_list(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Return list of ground-truth QA pairs."""
         return self.db.get_ground_truth_list(limit)
 

@@ -216,15 +216,18 @@ class MetricsDB:
             conn.commit()
             return count
 
-    def get_ground_truth_list(self, limit: int = 1000) -> List[Dict]:
+    def get_ground_truth_list(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Return ground truth QA entries."""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute("SELECT * FROM ground_truth_qa ORDER BY id DESC LIMIT ?", (limit,))
+            if limit is None:
+                cursor = conn.execute("SELECT * FROM ground_truth_qa ORDER BY id DESC")
+            else:
+                cursor = conn.execute("SELECT * FROM ground_truth_qa ORDER BY id DESC LIMIT ?", (limit,))
             rows = cursor.fetchall()
         return [dict(r) for r in rows]
 
-    def get_metrics(self, model: Optional[str] = None, limit: int = 1000) -> List[Dict]:
+    def get_metrics(self, model: Optional[str] = None, limit: Optional[int] = None) -> List[Dict]:
         """Retrieve metrics, optionally filtered by model."""
         query = "SELECT * FROM metrics"
         params = []
@@ -233,8 +236,10 @@ class MetricsDB:
             query += " WHERE model = ?"
             params.append(model)
 
-        query += " ORDER BY timestamp DESC LIMIT ?"
-        params.append(limit)
+        query += " ORDER BY timestamp DESC"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
 
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row

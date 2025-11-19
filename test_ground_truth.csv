@@ -1,0 +1,89 @@
+STT,Câu hỏi,Câu trả lời,Nguồn
+1,"Chủ sở hữu của Quy trình Quản lý Rủi ro (ISMS/PR_RSK001) là ai?","Information Security Committee (Ủy ban An ninh Thông tin).","Risk Management Owner: Information Security Committee
+ISMS/PR_RSK001 Version: 5.0 Company:
+Revision History
+Date Version Description Author Reviewer
+19/05/2015 1.0 Issue version
+23/07/2019 2.0 Generalization for company use and for ISO
+27001
+19/04/2021 3.0 3rd issue version
+02/06/2022 4.0 4th issue version, minor change related
+requirements of the certificate
+28/05/2024 5.0 - Updated according to the requirements
+of ISO 27001:2022 Standard
+- Updated according to 's
+Process_Risk Management.pdf"
+2,"Mục đích của Quy trình Quản lý Rủi ro là gì?","Mô tả quy trình quản lý rủi ro, là khuôn khổ chung cho việc quản lý các chiều khác nhau của Rủi ro, đặc biệt là Rủi ro Bảo mật để đảm bảo quản lý phù hợp và mức độ rủi ro chấp nhận được.","2. CEO Chief Executive Officer
+3. Chief Information Security Officer
+4. The Company
+Table 1.1 – Definitions, Acronyms, and Abbreviations
+1.2 PURPOSE
+This document describes the risk management process. This is the common framework for
+in the different dimensions of Risk Management, especially Security Risk Management to ensure
+the proper administration and acceptable level of risks, to maintain the security of internal operations
+as well of the delivery of services to clients.
+1.3 SCOPE
+This process shall be applied to any process or planned activity within The Company.
+Process_Risk Management.pdf"
+3,"Quy trình Quản lý Cấu hình Dịch vụ có những hoạt động (Activities) chính nào?","Plan & Setup Configuration Management (CM) và Control CM changes.","End
+End service?
+Yes No
+XXX-XXX
+XX -XX
+QMS Classification : Internal Owner : Delivery Center
+Company :
+Service Configuration Management Process
+QMS/PR_SCM001 Version: 1.0
+2.3 ACTIVITIES AND TASKS
+2.3.1 ACTIVITIES
+Phase Activity Reference
+1.0 Plan & Setup Configuration Management (CM)
+2.0 Control CM changes
+Table 2.2 - Process activities
+2.3.2 TASKS
+Step Task Person in
+charge Input Output Reference
+1 Plan & Setup Configuration Management
+1.1
+Study service information to identify the
+Process_Service Configuration Management.pdf"
+4,"Trong pha Thực hiện (Execution), đội trưởng (TL) đảm bảo tuân thủ các quy tắc ISMS bằng cách nào?","Đảm bảo dự án và thành viên tuân thủ các quy tắc ISMS, đầu ra là báo cáo ISMS (báo cáo từ khóa).","QMS/PR_SCM001
+3 Execution
+3.1 Execute onboard HR
+Collaborate with IT, HR
+department to get necessary
+resources for project
+TL • Human
+resources
+• Project
+organization
+• Onboard plan
+Onboard training
+evaluation
+Free form
+3.2 Ensure project and members
+follow ISMS rules
+TL • Human
+resources
+• Project
+organization
+ISMS report
+(keyword report)
+Free form
+XXX-XXX
+XX -XX
+Owner : Delivery Center Company :
+Service Delivery Process
+QMS/PR_SD001 Version: 1.0
+3.3 Inform to interested parties
+Process_Service Delivery.pdf"
+5,"Mục đích của Quy trình Quản lý Dịch vụ (QMS/PR_SM001) là gì?","Xác định quy trình quản lý dịch vụ được áp dụng cho các dịch vụ của Công ty.","1. INTRODUCTION
+1.1 PURPOSE
+This document defines the service management process which is applied to The Company’s services.
+1.2 SCOPE
+This process is used in service delivery realized at The Company.
+However, in a certain service, the Delivery Manager can decide whether to apply this entire process or
+just a modified version of it or leave it out. It is highly emphasized that all activities tagged as mandatory
+shall not be dropped out by team leader.
+1.3 DEFINITIONS, ACRONYMS AND ABBREVIATIONS
+Process_Service Management.pdf"

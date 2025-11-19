@@ -7,6 +7,7 @@ Tests the complete evaluation pipeline with a specific ground truth question.
 import sys
 import os
 import logging
+import pytest
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,6 +23,7 @@ def setup_logging():
 
 def test_evaluation_storage():
     """Test evaluation data storage and computation."""
+    pytest.skip("This test is for the old evaluation system, now using Ragas")
     print("🚀 Starting evaluation storage test...")
 
     # Initialize backend
@@ -126,7 +128,7 @@ Process_Risk Management.pdf"""
         print(f"❌ Batch evaluation failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False, f"Batch evaluation failed: {e}"
 
     # Check if results were saved to database
     print("\n💾 Checking database storage...")
@@ -174,10 +176,10 @@ Process_Risk Management.pdf"""
 
         if success:
             print("✅ Evaluation results successfully saved to database!")
-            return True
+            assert success
         else:
             print("❌ Evaluation results not found in database")
-            return False
+            assert False, "Evaluation results not found in database"
 
     except Exception as e:
         print(f"❌ Database check failed: {e}")

@@ -210,272 +210,6 @@ class BackendDashboard:
 
         return model_key
 
-    def evaluate_ground_truth_with_semantic_similarity(self,
-                                                      embedder_type: str = "ollama",
-                                                      reranker_type: str = "none",
-                                                      use_query_enhancement: bool = True,
-                                                      top_k: int = 10,
-                                                      api_tokens: dict | None = None,
-                                                      llm_model: str | None = None,
-                                                      limit: int | None = None,
-                                                      save_to_db: bool = True) -> Dict[str, Any]:
-        """
-        Enhanced ground truth evaluation with semantic similarity to true source.
-        
-        Returns evaluation results including semantic similarity scores.
-        """
-        # Delegate to the refactored semantic module
-        logger = logging.getLogger(__name__)
-        logger.info("Starting semantic similarity evaluation (backend wrapper)")
-
-        try:
-            from evaluation.backend_dashboard.semantic import run_semantic_similarity
-        except ModuleNotFoundError:
-            # Fallback if module not found
-            return {'error': 'Semantic similarity module not found'}
-
-        res = run_semantic_similarity(
-            self.db,
-            self._get_or_fetch_retrieval,  # Use cached retrieval
-            self._get_or_create_embedder,
-            embedder_type=embedder_type,
-            reranker_type=reranker_type,
-            use_query_enhancement=use_query_enhancement,
-            top_k=top_k,
-            api_tokens=api_tokens,
-            llm_model=llm_model,
-            limit=limit
-        )
-
-        if save_to_db:
-            self.save_evaluation_results_to_db(
-                evaluation_type='semantic_similarity',
-                results=res,
-                embedder_type=embedder_type,
-                reranker_type=reranker_type,
-                use_query_enhancement=use_query_enhancement
-            )
-
-        logger.info("Completed semantic similarity evaluation")
-        return res
-
-    def save_evaluation_results_to_db(self,
-                                     evaluation_type: str,
-                                     results: Dict[str, Any],
-                                     embedder_type: str = "ollama",
-                                     reranker_type: str = "none",
-                                     use_query_enhancement: bool = True,
-                                     llm_model: str = None) -> None:
-        """
-        Save evaluation results to database for historical tracking.
-
-        Args:
-            evaluation_type: Type of evaluation ('semantic_similarity', 'recall', 'relevance', 'full_suite')
-            results: Results dictionary from evaluation method
-            embedder_type: Embedder model used
-            reranker_type: Reranker model used
-            use_query_enhancement: Whether QEM was used
-            llm_model: LLM model used (for faithfulness evaluation)
-        """
-        try:
-            summary = results.get('summary', {})
-            detailed_results = results.get('results', [])
-
-            # Create metadata for the evaluation run
-            metadata = {
-                'evaluation_type': evaluation_type,
-                'embedder_used': embedder_type,
-                'reranker_used': reranker_type,
-                'query_enhancement_used': use_query_enhancement,
-                'timestamp': datetime.utcnow().isoformat(),
-                'total_questions': summary.get('total_questions', 0),
-                'processed': summary.get('processed', 0),
-                'errors': summary.get('errors', 0)
-            }
-
-            # Add LLM model if provided (for faithfulness evaluation)
-            if llm_model:
-                metadata['llm_used'] = llm_model
-
-            # Add evaluation-specific metrics to metadata
-            if evaluation_type == 'semantic_similarity':
-                metadata.update({
-                    'avg_semantic_similarity': summary.get('avg_semantic_similarity', 0),
-                    'avg_best_match_score': summary.get('avg_best_match_score', 0),
-                    'total_chunks_above_threshold': summary.get('total_chunks_above_threshold', 0)
-                })
-            elif evaluation_type == 'recall':
-                metadata.update({
-                    'overall_recall': summary.get('overall_recall', 0),
-                    'overall_precision': summary.get('overall_precision', 0),
-                    'overall_f1_score': summary.get('overall_f1_score', 0),
-                    'total_true_positives': summary.get('total_true_positives', 0),
-                    'total_false_positives': summary.get('total_false_positives', 0),
-                    'total_false_negatives': summary.get('total_false_negatives', 0)
-                })
-            elif evaluation_type == 'relevance':
-                metadata.update({
-                    'avg_overall_relevance': summary.get('avg_overall_relevance', 0),
-                    'avg_chunk_relevance': summary.get('avg_chunk_relevance', 0),
-                    'global_avg_relevance': summary.get('global_avg_relevance', 0),
-                    'global_high_relevance_ratio': summary.get('global_high_relevance_ratio', 0),
-                    'global_relevant_ratio': summary.get('global_relevant_ratio', 0),
-                    'relevance_distribution': summary.get('relevance_distribution', {})
-                })
-            elif evaluation_type == 'faithfulness':
-                metadata.update({
-                    'avg_faithfulness': summary.get('avg_faithfulness', 0),
-                    'global_avg_faithfulness': summary.get('global_avg_faithfulness', 0),
-                    'global_high_faithfulness_ratio': summary.get('global_high_faithfulness_ratio', 0),
-                    'global_faithful_ratio': summary.get('global_faithful_ratio', 0),
-                    'faithfulness_distribution': summary.get('faithfulness_distribution', {})
-                })
-
-            # Save summary metrics to metrics table
-            self.db.insert_metric(
-                query=f"Evaluation: {evaluation_type}",
-                model=f"{embedder_type}_{reranker_type}_{llm_model}" if llm_model else f"{embedder_type}_{reranker_type}",
-                embedder_model=embedder_type,
-                reranker_model=reranker_type,
-                llm_model=llm_model,
-                query_enhanced=use_query_enhancement,
-                recall=summary.get('overall_recall') if evaluation_type == 'recall' else None,
-                relevance=summary.get('avg_overall_relevance') if evaluation_type == 'relevance' else summary.get('avg_semantic_similarity') if evaluation_type == 'semantic_similarity' else None,
-                faithfulness=summary.get('avg_faithfulness') if evaluation_type == 'faithfulness' else None,
-                metadata=json.dumps(metadata)
-            )
-
-            # Save detailed results to ground truth table
-            for result in detailed_results:
-                if evaluation_type == 'semantic_similarity':
-                    self.db.update_ground_truth_result(
-                        gt_id=result.get('ground_truth_id'),
-                        retrieval_chunks=result.get('retrieved_chunks', 0),
-                        retrieval_recall_at_k=result.get('chunks_above_threshold', 0),
-                        answer_token_recall=result.get('semantic_similarity', 0.0),
-                        answer_f1=result.get('best_match_score', 0.0)
-                    )
-                elif evaluation_type == 'recall':
-                    self.db.update_ground_truth_result(
-                        gt_id=result.get('ground_truth_id'),
-                        retrieval_chunks=result.get('retrieved_chunks', 0),
-                        retrieval_recall_at_k=result.get('true_positives', 0),
-                        answer_token_recall=result.get('recall', 0.0),
-                        answer_token_precision=result.get('precision', 0.0),
-                        answer_f1=result.get('f1_score', 0.0)
-                    )
-                elif evaluation_type == 'relevance':
-                    self.db.update_ground_truth_result(
-                        gt_id=result.get('ground_truth_id'),
-                        retrieval_chunks=result.get('retrieved_chunks', 0),
-                        answer_token_recall=result.get('overall_relevance', 0.0),
-                        answer_token_precision=result.get('avg_chunk_relevance', 0.0)
-                    )
-                elif evaluation_type == 'faithfulness':
-                    self.db.update_ground_truth_result(
-                        gt_id=result.get('ground_truth_id'),
-                        retrieval_chunks=result.get('context_length', 0),
-                        answer_token_recall=result.get('faithfulness_score', 0.0)
-                    )
-
-        except Exception as e:
-            print(f"Warning: Failed to save evaluation results to database: {e}")
-            # Don't raise exception to avoid breaking the evaluation flow
-
-    def evaluate_recall(self,
-                        embedder_type: str = "huggingface_local",
-                        reranker_type: str = "none",
-                        use_query_enhancement: bool = True,
-                        top_k: int = 10,
-                        similarity_threshold: float = 0.5,
-                        limit: int | None = None,
-                        save_to_db: bool = True) -> Dict[str, Any]:
-        """
-        Evaluate recall metric for RAG system.
-
-        Recall = True Positives / (True Positives + False Negatives)
-        Where:
-        - True Positives: Retrieved chunks that are semantically similar to ground truth source
-        - False Negatives: Relevant chunks in database that were not retrieved
-
-        Returns recall evaluation results.
-        """
-        # Delegate to the refactored recall module
-        logger = logging.getLogger(__name__)
-        logger.info("Starting recall evaluation (backend wrapper)")
-        from evaluation.backend_dashboard.recall import run_recall
-
-        res = run_recall(
-            self.db,
-            self._get_or_fetch_retrieval,  # Use cached retrieval
-            self.evaluate_semantic_similarity_with_source,
-            embedder_type=embedder_type,
-            reranker_type=reranker_type,
-            use_query_enhancement=use_query_enhancement,
-            top_k=top_k,
-            similarity_threshold=similarity_threshold,
-            limit=limit
-        )
-
-        if save_to_db:
-            self.save_evaluation_results_to_db(
-                evaluation_type='recall',
-                results=res,
-                embedder_type=embedder_type,
-                reranker_type=reranker_type,
-                use_query_enhancement=use_query_enhancement
-            )
-
-        logger.info("Completed recall evaluation")
-
-        return res
-
-    def evaluate_relevance(self,
-                           embedder_type: str = "huggingface_local",
-                           reranker_type: str = "none",
-                           use_query_enhancement: bool = True,
-                           top_k: int = 10,
-                           limit: int | None = None,
-                           save_to_db: bool = True) -> Dict[str, Any]:
-        """
-        Evaluate relevance metric for RAG system.
-
-        Relevance measures how well retrieved content matches the user's query.
-        This includes both semantic similarity to ground truth source and
-        query-chunk relevance scoring.
-
-        Returns relevance evaluation results with detailed scoring.
-        """
-        # Delegate to the refactored relevance module
-        logger = logging.getLogger(__name__)
-        logger.info("Starting relevance evaluation (backend wrapper)")
-        from evaluation.backend_dashboard.relevance import run_relevance
-
-        res = run_relevance(
-            self.db,
-            self._get_or_fetch_retrieval,  # Use cached retrieval
-            self.evaluate_semantic_similarity_with_source,
-            embedder_type=embedder_type,
-            reranker_type=reranker_type,
-            use_query_enhancement=use_query_enhancement,
-            top_k=top_k,
-            limit=limit
-        )
-
-        if save_to_db:
-            self.save_evaluation_results_to_db(
-                evaluation_type='relevance',
-                results=res,
-                embedder_type=embedder_type,
-                reranker_type=reranker_type,
-                use_query_enhancement=use_query_enhancement
-            )
-
-        logger.info("Completed relevance evaluation")
-
-        return res
-        
-
     def get_overview_stats(self) -> Dict[str, Any]:
         """Get overall system statistics for dashboard header."""
         llm_stats = self.db.get_llm_stats()
@@ -786,277 +520,244 @@ class BackendDashboard:
         """Return list of ground-truth QA pairs."""
         return self.db.get_ground_truth_list(limit)
 
-    def evaluate_faithfulness(self,
-                              embedder_type: str = "huggingface_local",
-                              reranker_type: str = "none",
-                              llm_choice: str = "gemini",
-                              use_query_enhancement: bool = True,
-                              top_k: int = 10,
-                              limit: int | None = None,
-                              save_to_db: bool = True) -> Dict[str, Any]:
+    def evaluate_ground_truth_with_ragas(self,
+                                         llm_provider: str = 'ollama',
+                                         model_name: Optional[str] = None,
+                                         api_key: str | None = None,
+                                         limit: int | None = None,
+                                         save_to_db: bool = True,
+                                         generate_visualizations: bool = True) -> Dict[str, Any]:
         """
-        Evaluate faithfulness metric for RAG system.
+        Evaluate ground truth using Ragas framework with configurable LLM provider.
 
-        Faithfulness measures how well the generated answer is grounded in the retrieved context.
-        This uses LLM-based evaluation to score answer faithfulness.
+        This method provides standardized evaluation metrics:
+        - faithfulness: How faithful the answer is to the context
+        - context_recall: How much of the ground truth is covered by the context
+        - context_relevance: How relevant the context is to the question
 
-        Returns faithfulness evaluation results with detailed scoring.
-        """
-        # Delegate to the refactored faithfulness module
-        logger = logging.getLogger(__name__)
-        logger.info("Starting faithfulness evaluation (backend wrapper)")
-        from llm.client_factory import LLMClientFactory
-        from evaluation.evaluators.auto_evaluator import AutoEvaluator
-        from evaluation.backend_dashboard.faithfulness import run_faithfulness
-
-        res = run_faithfulness(
-            self.db,
-            self._get_or_fetch_retrieval,  # Use cached retrieval
-            LLMClientFactory,
-            AutoEvaluator,
-            embedder_type=embedder_type,
-            reranker_type=reranker_type,
-            llm_choice=llm_choice,
-            use_query_enhancement=use_query_enhancement,
-            top_k=top_k,
-            limit=limit
-        )
-
-        if save_to_db:
-            self.save_evaluation_results_to_db(
-                evaluation_type='faithfulness',
-                results=res,
-                embedder_type=embedder_type,
-                reranker_type=reranker_type,
-                llm_model=llm_choice,
-                use_query_enhancement=use_query_enhancement
-            )
-
-        logger.info("Completed faithfulness evaluation")
-
-        return res
-
-    def evaluate_all_metrics_batch(self,
-                                   embedder_type: str = "huggingface_local",
-                                   reranker_type: str = "none",
-                                   llm_choice: str = "gemini",
-                                   use_query_enhancement: bool = True,
-                                   top_k: int = 10,
-                                   limit: int | None = None,
-                                   save_to_db: bool = True) -> Dict[str, Any]:
-        """
-        Evaluate all metrics (semantic similarity, recall, relevance, faithfulness) in batch.
-        Performs retrieval once per question and computes all metrics to avoid redundant fetches.
-        
-        Returns combined evaluation results for all metrics.
-        """
-        logger = logging.getLogger(__name__)
-        logger.info("Starting batch evaluation of all metrics")
-        
-        # Get ground truth data
-        ground_truth_rows = self.get_ground_truth_list(limit=limit)
-        if not ground_truth_rows:
-            return {'error': 'No ground truth data found'}
-        
-        # Perform retrieval once for all questions
-        retrieval_results = {}
-        for gt_row in ground_truth_rows:
-            question = gt_row.get('question', '').strip()
-            if question:
-                try:
-                    result = self._get_or_fetch_retrieval(
-                        question=question,
-                        embedder_type=embedder_type,
-                        reranker_type=reranker_type,
-                        use_query_enhancement=use_query_enhancement,
-                        top_k=top_k
-                    )
-                    retrieval_results[gt_row['id']] = result
-                except Exception as e:
-                    logger.warning(f"Failed to retrieve for question '{question}': {e}")
-                    retrieval_results[gt_row['id']] = {'error': str(e)}
-        
-        # Evaluate all metrics using cached retrieval results
-        results = {
-            'semantic_similarity': self._evaluate_semantic_similarity_batch(retrieval_results, ground_truth_rows),
-            'recall': self._evaluate_recall_batch(retrieval_results, ground_truth_rows, embedder_type, reranker_type, llm_choice),
-            'relevance': self._evaluate_relevance_batch(retrieval_results, ground_truth_rows, embedder_type, reranker_type, llm_choice),
-            'faithfulness': self._evaluate_faithfulness_batch(retrieval_results, ground_truth_rows, embedder_type, reranker_type, llm_choice, use_query_enhancement, top_k)
-        }
-        
-        # Save results to DB if requested
-        if save_to_db:
-            for metric_type, result in results.items():
-                if isinstance(result, dict) and 'summary' in result:
-                    self.save_evaluation_results_to_db(
-                        evaluation_type=metric_type,
-                        results=result,
-                        embedder_type=embedder_type,
-                        reranker_type=reranker_type,
-                        llm_model=llm_choice,  # Always include llm_choice for batch evaluation
-                        use_query_enhancement=use_query_enhancement
-                    )
-        
-        logger.info("Completed batch evaluation of all metrics")
-        return results
-
-    def _evaluate_semantic_similarity_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict]) -> Dict[str, Any]:
-        """Batch evaluate semantic similarity using cached retrieval results."""
-        from evaluation.backend_dashboard.semantic import run_semantic_similarity_batch
-        
-        return run_semantic_similarity_batch(
-            self.db,
-            retrieval_results,
-            ground_truth_rows
-        )
-
-    def _evaluate_recall_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], embedder_type: str, reranker_type: str, llm_choice: str) -> Dict[str, Any]:
-        """Batch evaluate recall using cached retrieval results."""
-        from evaluation.backend_dashboard.recall import run_recall_batch
-        
-        return run_recall_batch(
-            self.db,
-            retrieval_results,
-            ground_truth_rows,
-            self.evaluate_semantic_similarity_with_source,
-            embedder_type=embedder_type,
-            reranker_type=reranker_type,
-            llm_choice=llm_choice
-        )
-
-    def _evaluate_relevance_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], embedder_type: str, reranker_type: str, llm_choice: str) -> Dict[str, Any]:
-        """Batch evaluate relevance using cached retrieval results."""
-        from evaluation.backend_dashboard.relevance import run_relevance_batch
-        
-        return run_relevance_batch(
-            self.db,
-            retrieval_results,
-            ground_truth_rows,
-            self.evaluate_semantic_similarity_with_source,
-            embedder_type=embedder_type,
-            reranker_type=reranker_type,
-            llm_choice=llm_choice
-        )
-
-    def _evaluate_faithfulness_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], 
-                                    embedder_type: str, reranker_type: str, llm_choice: str, 
-                                    use_query_enhancement: bool, top_k: int) -> Dict[str, Any]:
-        """Batch evaluate faithfulness using cached retrieval results."""
-        from evaluation.backend_dashboard.faithfulness import run_faithfulness_batch
-        
-        return run_faithfulness_batch(
-            self.db,
-            retrieval_results,
-            ground_truth_rows,
-            embedder_type=embedder_type,
-            reranker_type=reranker_type,
-            llm_choice=llm_choice,
-            use_query_enhancement=use_query_enhancement,
-            top_k=top_k
-        )
-
-    def evaluate_semantic_similarity_with_source(self, 
-                                                retrieved_sources: List[Dict[str, Any]], 
-                                                ground_truth_id: int,
-                                                embedder_type: str = "huggingface_local") -> Dict[str, Any]:
-        """
-        Evaluate semantic similarity between retrieved content and true source from database.
-        
         Args:
-            retrieved_sources: List of retrieved source dictionaries from RAG
-            ground_truth_id: ID of ground truth entry to get true source
-            embedder_type: Embedder type to use for semantic similarity
-            
+            llm_provider: LLM provider to use ('ollama' or 'gemini')
+            model_name: Model name (optional, defaults based on provider)
+            api_key: Google API key for Gemini. If None, uses GOOGLE_API_KEY env var.
+            limit: Limit number of ground truth items to evaluate
+            save_to_db: Whether to save results to database
+
         Returns:
-            Dict with semantic similarity scores and analysis
+            Dictionary with Ragas evaluation results
         """
         try:
-            # Get ground truth entry with true source
-            gt_rows = self.db.get_ground_truth_list(limit=10000)
-            true_source = None
-            
-            for row in gt_rows:
-                if row.get('id') == ground_truth_id:
-                    true_source = row.get('source', '').strip()
-                    break
-            
-            if not true_source:
-                return {
-                    'error': f'No source found for ground truth ID {ground_truth_id}',
-                    'semantic_similarity': 0.0,
-                    'best_match_score': 0.0,
-                    'matched_chunks': []
-                }
-            
-            # Get cached embedder instance
-            embedder = self._get_or_create_embedder(embedder_type)
-            
-            # Get embeddings for true source
-            true_source_embedding = embedder.embed(true_source)
-            
-            # Calculate semantic similarity for each retrieved chunk
-            similarities = []
-            matched_chunks = []
-            
-            for i, source in enumerate(retrieved_sources):
-                chunk_text = source.get('text', source.get('content', source.get('snippet', '')))
-                if chunk_text.strip():
+            from evaluation.backend_dashboard.ragas_evaluator import RagasEvaluator
+            import json
+            import os
+
+            logger = logging.getLogger(__name__)
+            logger.info(f"Starting Ragas evaluation with {llm_provider.upper()} LLM")
+
+            # Get API key for Gemini if needed
+            if llm_provider == 'gemini' and not api_key:
+                api_key = os.getenv('GOOGLE_API_KEY')
+                if not api_key:
                     try:
-                        chunk_embedding = embedder.embed(chunk_text)
-                        
-                        # Calculate cosine similarity
-                        import numpy as np
-                        similarity = np.dot(true_source_embedding, chunk_embedding) / (
-                            np.linalg.norm(true_source_embedding) * np.linalg.norm(chunk_embedding)
-                        )
-                        
-                        similarities.append(float(similarity))
-                        
-                        # Store match info if similarity > 0.5
-                        if similarity > 0.5:
-                            matched_chunks.append({
-                                'chunk_index': i,
-                                'similarity_score': round(float(similarity), 4),
-                                'chunk_text': chunk_text[:200] + '...' if len(chunk_text) > 200 else chunk_text,
-                                'file_name': source.get('file_name', ''),
-                                'page_number': source.get('page_number', 0)
-                            })
-                            
+                        import streamlit as st
+                        api_key = st.secrets.get('GOOGLE_API_KEY')
                     except Exception:
-                        similarities.append(0.0)
-            
-            # Calculate overall metrics
-            if similarities:
-                best_match_score = max(similarities)
-                avg_similarity = sum(similarities) / len(similarities)
-                
-                # Sort matched chunks by similarity
-                matched_chunks.sort(key=lambda x: x['similarity_score'], reverse=True)
-                
-                return {
-                    'semantic_similarity': round(avg_similarity, 4),
-                    'best_match_score': round(best_match_score, 4),
-                    'matched_chunks': matched_chunks[:5],  # Top 5 matches
-                    'total_chunks_evaluated': len(similarities),
-                    'chunks_above_threshold': len([s for s in similarities if s > 0.5]),
-                    'true_source_length': len(true_source),
-                    'embedder_used': embedder_type
-                }
-            else:
-                return {
-                    'semantic_similarity': 0.0,
-                    'best_match_score': 0.0,
-                    'matched_chunks': [],
-                    'total_chunks_evaluated': 0,
-                    'chunks_above_threshold': 0,
-                    'true_source_length': len(true_source),
-                    'embedder_used': embedder_type
-                }
-                
-        except Exception as e:
-            return {
-                'error': str(e),
-                'semantic_similarity': 0.0,
-                'best_match_score': 0.0,
-                'matched_chunks': []
+                        pass
+
+                if not api_key:
+                    return {'error': 'GOOGLE_API_KEY must be provided via parameter, environment variable, or Streamlit secrets for Gemini provider'}
+
+            # Initialize Ragas evaluator with specified provider
+            ragas_evaluator = RagasEvaluator(llm_provider=llm_provider, model_name=model_name, api_key=api_key)
+
+            # Load ground truth data from database instead of JSON file
+            ground_truth_rows = self.get_ground_truth_list(limit=limit)
+            if not ground_truth_rows:
+                return {'error': 'No ground truth data found in database'}
+
+            # Convert database format to Ragas format
+            ground_truth_data = []
+            for row in ground_truth_rows:
+                # For Ragas evaluation, we need contexts. If not available, use empty list
+                contexts = []
+                if row.get('retrieved_context'):
+                    try:
+                        # Try to parse as JSON list
+                        contexts = json.loads(row['retrieved_context'])
+                    except Exception:
+                        # If not JSON, treat as single context string
+                        contexts = [row['retrieved_context']]
+
+                ground_truth_data.append({
+                    'question': row['question'],
+                    'answer': row['predicted_answer'] if row['predicted_answer'] is not None else row['answer'],
+                    'contexts': contexts,
+                    'ground_truth': row['answer']  # The correct answer
+                })
+
+            logger.info(f"Evaluating {len(ground_truth_data)} ground truth samples with Ragas")
+
+            # Prepare data for batch evaluation
+            questions = []
+            answers = []
+            contexts_list = []
+            ground_truths = []
+
+            for item in ground_truth_data:
+                questions.append(item['question'])
+                answers.append(item['answer'])  # Back to 'answer'
+                contexts_list.append(item['contexts'])
+                ground_truths.append(item['ground_truth'])
+
+            # Run batch evaluation
+            results = ragas_evaluator.evaluate_batch(
+                questions, answers, contexts_list, ground_truths
+            )
+
+            # Aggregate results
+            faithfulness_scores = [r.faithfulness for r in results]
+            context_recall_scores = [r.context_recall for r in results]
+            context_relevance_scores = [r.context_relevance for r in results]
+            answer_relevancy_scores = [r.answer_relevancy for r in results]
+
+            summary = {
+                'evaluation_type': 'ragas',
+                'total_samples': len(results),
+                'faithfulness': {
+                    'mean': sum(faithfulness_scores) / len(faithfulness_scores),
+                    'min': min(faithfulness_scores),
+                    'max': max(faithfulness_scores),
+                    'scores': faithfulness_scores
+                },
+                'context_recall': {
+                    'mean': sum(context_recall_scores) / len(context_recall_scores),
+                    'min': min(context_recall_scores),
+                    'max': max(context_recall_scores),
+                    'scores': context_recall_scores
+                },
+                'context_relevance': {
+                    'mean': sum(context_relevance_scores) / len(context_relevance_scores) if context_relevance_scores else 0.0,
+                    'min': min(context_relevance_scores) if context_relevance_scores else 0.0,
+                    'max': max(context_relevance_scores) if context_relevance_scores else 0.0,
+                    'scores': context_relevance_scores
+                },
+                'answer_relevancy': {
+                    'mean': sum(answer_relevancy_scores) / len(answer_relevancy_scores) if answer_relevancy_scores else 0.0,
+                    'min': min(answer_relevancy_scores) if answer_relevancy_scores else 0.0,
+                    'max': max(answer_relevancy_scores) if answer_relevancy_scores else 0.0,
+                    'scores': answer_relevancy_scores
+                },
+                'detailed_results': [
+                    {
+                        'question': r.question,
+                        'answer': r.answer,
+                        'contexts': r.contexts,
+                        'ground_truth': r.ground_truth,
+                        'faithfulness': r.faithfulness,
+                        'context_recall': r.context_recall,
+                        'context_relevance': r.context_relevance,
+                        'answer_relevancy': r.answer_relevancy
+                    }
+                    for r in results
+                ]
             }
+
+            # Save to database if requested
+            if save_to_db:
+                try:
+                    logger.info(f"Saving {len(results)} evaluation results to database...")
+
+                    # Create a mapping of questions to database IDs for efficient lookup
+                    gt_rows = self.get_ground_truth_list()
+                    question_to_id = {gt['question']: gt['id'] for gt in gt_rows}
+
+                    saved_count = 0
+                    for result in results:
+                        question = result.question
+                        if question in question_to_id:
+                            gt_id = question_to_id[question]
+
+                            # Save evaluation results to the corresponding ground truth row
+                            self.db.update_ground_truth_result(
+                                gt_id=gt_id,
+                                predicted_answer=result.answer,  # The generated answer
+                                retrieved_context=json.dumps(result.contexts) if result.contexts else None,
+                                retrieval_chunks=len(result.contexts) if result.contexts else 0,
+                                faithfulness=result.faithfulness,
+                                relevance=result.context_relevance,  # Ragas context_relevance maps to our relevance
+                                evaluated_at=datetime.utcnow().isoformat()
+                            )
+                            saved_count += 1
+                        else:
+                            logger.warning(f"No matching ground truth found for question: {question[:50]}...")
+
+                    logger.info(f"Successfully saved {saved_count}/{len(results)} evaluation results to database")
+
+                    # Also save summary metrics to the metrics table for dashboard display
+                    # Use a synthetic model name that represents this ground truth evaluation
+                    model_name = f"ground_truth_{llm_provider}_{model_name or 'default'}"
+                    timestamp = datetime.utcnow().isoformat()
+
+                    # Save one row per evaluated sample to metrics table
+                    for i, result in enumerate(results):
+                        self.db.insert_metric(
+                            timestamp=timestamp,
+                            query=result.question,
+                            model=model_name,
+                            embedder_model="ground_truth_evaluation",  # Placeholder
+                            llm_model=llm_provider,
+                            reranker_model="none",  # Placeholder
+                            query_enhanced=False,
+                            latency=0.0,  # No latency for ground truth evaluation
+                            faithfulness=result.faithfulness,
+                            relevance=result.context_relevance,
+                            recall=result.context_recall,
+                            error=False,
+                            error_message=None,
+                            metadata=json.dumps({
+                                "evaluation_type": "ragas_ground_truth",
+                                "answer_relevancy": result.answer_relevancy,
+                                "sample_index": i
+                            })
+                        )
+
+                    logger.info(f"Saved {len(results)} summary metrics to metrics table for model '{model_name}'")
+
+                except Exception as e:
+                    logger.error(f"Failed to save evaluation results to database: {e}")
+                    return {'error': f'Failed to save results: {str(e)}'}
+
+            logger.info("Ragas evaluation completed successfully")
+
+            # Generate visualizations if requested
+            if generate_visualizations:
+                try:
+                    from evaluation.visualizations import RAGMetricsVisualizer
+                    visualizer = RAGMetricsVisualizer("data/visualizations")
+
+                    # Create config name based on parameters
+                    config_name = f"{llm_provider.upper()}_{model_name or 'default'}"
+                    if limit:
+                        config_name += f"_limit_{limit}"
+
+                    viz_results = visualizer.visualize_from_ragas_output(
+                        summary,
+                        config_name=config_name,
+                        title_prefix=f"RAG Evaluation - {config_name}",
+                        save_charts=True,
+                        show_charts=False
+                    )
+
+                    if "error" not in viz_results:
+                        summary["visualizations"] = viz_results
+                        logger.info(f"Generated {len(viz_results)} visualizations")
+                    else:
+                        logger.warning(f"Failed to generate visualizations: {viz_results['error']}")
+
+                except Exception as viz_error:
+                    logger.warning(f"Visualization generation failed: {viz_error}")
+
+            return summary
+
+        except Exception as e:
+            logger.error(f"Error in Ragas evaluation: {str(e)}")
+            return {'error': str(e)}

@@ -25,7 +25,7 @@ from pipeline.storage.file_manager import FileManager, BatchSummaryManager
 
 # Configure logging FIRST before any other imports
 # Note: This is called at module level for CLI usage, but can be disabled for library usage
-if __name__ != "__main__" and not os.getenv("RAG_FORCE_LOGGING", "").lower() in ("1", "true", "yes"):
+if __name__ != "__main__" and os.getenv("RAG_FORCE_LOGGING", "").lower() not in ("1", "true", "yes"):
     # Skip basicConfig when imported as library to avoid overriding host app logging
     pass
 else:
@@ -239,6 +239,47 @@ class RAGPipeline:
             normalize_scores=normalize_scores,
         )
 
+    def _is_pdf_processed(self, pdf_path: str | Path) -> tuple[bool, Optional[Dict[str, Any]]]:
+        """
+        Check if PDF has already been processed by looking for existing chunks.
+        
+        Args:
+            pdf_path: Path to PDF file
+            
+        Returns:
+            Tuple of (is_processed, cached_result_dict)
+        """
+        pdf_path = Path(pdf_path)
+        pdf_name = pdf_path.stem  # filename without extension
+        
+        # Look for chunk files that match this PDF
+        chunk_files = list(self.chunks_dir.glob(f"{pdf_name}_chunks_*.txt"))
+        
+        if not chunk_files:
+            return False, None
+            
+        # Get the most recent chunk file
+        latest_chunk_file = max(chunk_files, key=lambda f: f.stat().st_mtime)
+        
+        # Read the first few lines to verify it matches our PDF
+        try:
+            with open(latest_chunk_file, 'r', encoding='utf-8') as f:
+                first_line = f.readline().strip()
+                if f"Document: {pdf_path.name}" in first_line:
+                    # PDF has been processed, create cached result
+                    cached_result = {
+                        "success": True,
+                        "file_name": pdf_path.name,
+                        "chunks_file": str(latest_chunk_file),
+                        "cached": True,
+                        "timestamp": latest_chunk_file.stem.split('_')[-1]  # Extract timestamp
+                    }
+                    return True, cached_result
+        except Exception as e:
+            logger.warning(f"Error reading chunk file {latest_chunk_file}: {e}")
+            
+        return False, None
+
     def process_pdf(self, pdf_path: str | Path, chunk_callback=None) -> Dict[str, Any]:
         """
         Process single PDF through complete pipeline (orchestrates all steps).
@@ -254,6 +295,14 @@ class RAGPipeline:
         pdf_path = PDFProcessor.validate_pdf_path(pdf_path)
         file_name = pdf_path.stem
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Step 1.5: Check if PDF already processed
+        is_processed, cached_result = self._is_pdf_processed(pdf_path)
+        if is_processed:
+            logger.info(f"PDF {pdf_path.name} already processed, using cached result")
+            return cached_result
+
+        logger.info(f"Processing new PDF: {pdf_path.name}")
 
         # Step 2: Load PDF and create chunks (delegates to PDFProcessor)
         pdf_doc, chunk_set = self.pdf_processor.process(pdf_path)
@@ -362,6 +411,10 @@ class RAGPipeline:
            
             try:
                 result = self.process_pdf(str(pdf_file))
+                if result.get("cached", False):
+                    logger.info(f"  → Using cached result for {pdf_file.name}")
+                else:
+                    logger.info(f"  → Processed new PDF: {pdf_file.name}")
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error processing {pdf_file.name}: {e}")

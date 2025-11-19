@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 from evaluation.backend_dashboard.api import BackendDashboard
+from evaluation.visualizations.visualizer import RAGMetricsVisualizer
 
 
 class ModelPerformanceComponent:
@@ -9,6 +9,16 @@ class ModelPerformanceComponent:
         self.backend = backend
 
     def display(self):
+        # Overview stats section
+        st.header("Tổng quan hệ thống")
+        stats = self.backend.get_overview_stats()
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Số truy vấn", stats.get('total_queries', 0))
+        col2.metric("Số ground-truth", stats.get('model_count', 0))
+        col3.metric("Tỷ lệ lỗi (%)", stats.get('error_rate', 0))
+        st.write("---")
+        st.write(f"Trung bình: Accuracy={stats.get('avg_accuracy', 0):.3f}, Faithfulness={stats.get('avg_faithfulness', 0):.3f}, Relevance={stats.get('avg_relevance', 0):.3f}, Recall={stats.get('avg_recall', 0):.3f}, Latency={stats.get('avg_latency', 0):.3f}s")
+
         st.header("Hiệu năng theo model")
 
         # Giải thích về tên model
@@ -44,20 +54,39 @@ class ModelPerformanceComponent:
         # Show table preview
         st.dataframe(df[['model', 'accuracy', 'faithfulness', 'relevance', 'recall', 'latency', 'error_rate']])
 
-        # Scatter: Accuracy vs Recall — size by latency
-        scatter_df = df[['model', 'accuracy', 'recall', 'latency']].fillna(0)
-        scatter = (
-            alt.Chart(scatter_df)
-            .mark_square(size=100)
-            .encode(
-                x=alt.X('accuracy:Q', title='Accuracy'),
-                y=alt.Y('recall:Q', title='Recall'),
-                size=alt.Size('latency:Q', title='Latency (s)', scale=alt.Scale(range=[100, 1000])),
-                color=alt.Color('latency:Q', title='Latency (s)', scale=alt.Scale(scheme='viridis')),
-                tooltip=['model', 'accuracy', 'recall', 'latency']
-            )
-            .interactive()
-            .properties(height=420)
-        )
+        # Use new visualizations module to display metrics comparisons
+        st.header("Visual Comparison of Model Configurations")
 
-        st.altair_chart(scatter, use_container_width=True)
+        try:
+            # Prepare DataFrame expected by visualizer
+            viz_df = pd.DataFrame({
+                'Configuration': df['model'],
+                'Faithfulness': df.get('faithfulness', pd.Series([0]*len(df))).astype(float),
+                'Context_Recall': df.get('recall', pd.Series([0]*len(df))).astype(float),
+                'Context_Relevance': df.get('relevance', pd.Series([0]*len(df))).astype(float),
+                'Answer_Relevancy': df.get('answer_relevancy', df.get('relevance', pd.Series([0]*len(df)))).astype(float)
+            })
+
+            visualizer = RAGMetricsVisualizer(output_dir="data/visualizations")
+            viz_results = visualizer.generate_all_charts(viz_df, title_prefix="Model Performance Comparison", save_charts=True, show_charts=False)
+
+            if "error" in viz_results:
+                st.warning(f"Could not generate visualizations: {viz_results['error']}")
+            else:
+                # Show generated charts inline
+                st.subheader("Charts")
+                chart_files = {k: v for k, v in viz_results.items() if k != 'table' and k != 'error'}
+                if chart_files:
+                    cols = st.columns(2)
+                    for i, (chart_type, chart_path) in enumerate(chart_files.items()):
+                        with cols[i % 2]:
+                            st.subheader(chart_type.replace('_', ' ').title())
+                            try:
+                                st.image(chart_path, width='stretch')
+                            except Exception as e:
+                                st.error(f"Could not load chart {chart_type}: {e}")
+                else:
+                    st.info("No charts generated to display.")
+
+        except Exception as e:
+            st.error(f"Visualization failed: {e}")

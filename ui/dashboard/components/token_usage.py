@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
+import matplotlib.pyplot as plt
 from evaluation.backend_dashboard.api import BackendDashboard
 
 
@@ -33,13 +33,34 @@ class TokenUsageComponent:
                 melt = df.melt(id_vars=['model'], value_vars=value_cols, var_name='component', value_name='tokens')
                 # Clean component names
                 melt['component'] = melt['component'].str.replace('total_', '').str.replace('_tokens', '').str.replace('_', ' ').str.title()
-                chart = alt.Chart(melt).mark_bar().encode(
-                    y=alt.Y('model:N', sort=alt.EncodingSortField(field='tokens', op='sum', order='descending'), title='Model'),
-                    x=alt.X('tokens:Q', title='Tokens'),
-                    color=alt.Color('component:N', title='Component'),
-                    tooltip=['model', 'component', 'tokens']
-                ).properties(height=420)
-                st.altair_chart(chart, use_container_width=True)
+
+                # Create stacked horizontal bar chart per model
+                try:
+                    models = list(melt['model'].unique())
+                    components = list(melt['component'].unique())
+                    # Prepare values matrix
+                    vals_by_comp = {}
+                    for comp in components:
+                        comp_series = melt[melt['component'] == comp].set_index('model')['tokens']
+                        comp_vals = [float(comp_series.get(m, 0)) for m in models]
+                        vals_by_comp[comp] = comp_vals
+
+                    fig, ax = plt.subplots(figsize=(8, max(2, 0.6 * len(models))))
+                    left = [0.0] * len(models)
+                    for comp in components:
+                        vals = vals_by_comp[comp]
+                        ax.barh(models, vals, left=left, label=comp)
+                        left = [l + v for l, v in zip(left, vals)]
+
+                    ax.set_xlabel('Tokens')
+                    ax.set_ylabel('Model')
+                    ax.set_title('Token Usage by Model and Component')
+                    ax.legend()
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close(fig)
+                except Exception as e:
+                    st.error(f"Could not render token breakdown chart: {e}")
                 return
 
         # Fallback simple breakdown

@@ -101,7 +101,7 @@ def run_recall(db, fetch_retrieval, evaluate_semantic_similarity_with_source, em
                     recall=recall,
                     error=False,
                     embedder_model=embedder_type,
-                    llm_model=None,
+                    llm_model=llm_choice,
                     reranker_model=reranker_type,
                     embedder_specific_model=None,
                     llm_specific_model=None,
@@ -183,7 +183,8 @@ def run_recall(db, fetch_retrieval, evaluate_semantic_similarity_with_source, em
     return result
 
 def run_recall_batch(db, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], 
-                    evaluate_semantic_similarity_with_source, embedder_type: str = "huggingface_local") -> Dict[str, Any]:
+                    evaluate_semantic_similarity_with_source, embedder_type: str = "huggingface_local", 
+                    reranker_type: str = "none", llm_choice: str = None) -> Dict[str, Any]:
     """Run recall evaluation using pre-fetched retrieval results."""
     processed = 0
     errors = 0
@@ -277,15 +278,15 @@ def run_recall_batch(db, retrieval_results: Dict[int, Dict], ground_truth_rows: 
                 latency = time.time() - start_time
                 eval_logger.log_evaluation(
                     query=question,
-                    model=f"batch_{embedder_type}",
+                    model=f"{embedder_type}_{reranker_type}_{llm_choice}" if llm_choice else f"{embedder_type}_{reranker_type}",
                     latency=latency,
                     faithfulness=None,
                     relevance=None,
                     recall=recall,
                     error=False,
                     embedder_model=embedder_type,
-                    llm_model=None,
-                    reranker_model='batch',
+                    llm_model=llm_choice,
+                    reranker_model=reranker_type,
                     embedder_specific_model=None,
                     llm_specific_model=None,
                     reranker_specific_model=None,

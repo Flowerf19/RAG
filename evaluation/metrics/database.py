@@ -339,6 +339,7 @@ class MetricsDB:
                     AVG(latency) as avg_latency,
                     AVG(faithfulness) as avg_faithfulness,
                     AVG(relevance) as avg_relevance,
+                    AVG(recall) as avg_recall,
                     SUM(CASE WHEN error = 1 THEN 1 ELSE 0 END) as error_count
                 FROM metrics
                 GROUP BY model
@@ -353,7 +354,8 @@ class MetricsDB:
                     'avg_latency': round(row['avg_latency'] or 0, 3),
                     'avg_faithfulness': round(row['avg_faithfulness'] or 0, 3),
                     'avg_relevance': round(row['avg_relevance'] or 0, 3),
-                    'avg_accuracy': round(((row['avg_faithfulness'] or 0) + (row['avg_relevance'] or 0)) / 2, 3),
+                    'avg_recall': round(row['avg_recall'] or 0, 3),
+                    'avg_accuracy': round(((row['avg_faithfulness'] or 0) + (row['avg_relevance'] or 0) + (row['avg_recall'] or 0)) / 3, 3),
                     'error_rate': round((row['error_count'] or 0) / total * 100, 2) if total > 0 else 0
                 }
 

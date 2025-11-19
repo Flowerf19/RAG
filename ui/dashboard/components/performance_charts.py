@@ -20,17 +20,8 @@ class PerformanceChartsComponent:
 		st.header("Performance Charts")
 
 		data = self.backend.get_model_comparison_data()
-		# data is expected to contain lists for 'embedding', 'llm', 'reranking'
-		combined = []
-		if isinstance(data, dict):
-			for k in ['embedding', 'llm', 'reranking']:
-				items = data.get(k) or []
-				for it in items:
-					it_copy = dict(it)
-					it_copy['component_type'] = k
-					combined.append(it_copy)
-		elif isinstance(data, list):
-			combined = data
+		# Use unified model data (now all in 'llm' list)
+		combined = data.get('llm', [])
 
 		if not combined:
 			st.info("No model performance data available")

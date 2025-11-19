@@ -395,7 +395,7 @@ def run_faithfulness_batch(db, retrieval_results: Dict[int, Dict], ground_truth_
             try:
                 eval_logger.log_evaluation(
                     query=question,
-                    model=llm_choice or f"batch_{embedder_type}_{reranker_type}",
+                    model=f"{embedder_type}_{reranker_type}_{llm_choice}" if llm_choice else f"{embedder_type}_{reranker_type}",
                     latency=latency,
                     faithfulness=faithfulness_score,
                     relevance=relevance_score,

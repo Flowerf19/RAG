@@ -334,7 +334,7 @@ class BackendDashboard:
             # Save summary metrics to metrics table
             self.db.insert_metric(
                 query=f"Evaluation: {evaluation_type}",
-                model=f"{embedder_type}_{reranker_type}",
+                model=f"{embedder_type}_{reranker_type}_{llm_model}" if llm_model else f"{embedder_type}_{reranker_type}",
                 embedder_model=embedder_type,
                 reranker_model=reranker_type,
                 llm_model=llm_model,
@@ -514,67 +514,32 @@ class BackendDashboard:
 
     def get_model_comparison_data(self) -> Dict[str, List[Dict[str, Any]]]:
         """Get data for model comparison tables."""
-        embedder_stats = self.db.get_embedder_stats()
-        llm_stats = self.db.get_llm_stats()
-        reranker_stats = self.db.get_reranker_stats()
-        qe_comparison = self.db.get_query_enhancement_comparison()
+        # Use unified model stats instead of component-specific stats
+        # This ensures all evaluation types from the same configuration are aggregated
+        model_stats = self.db.get_model_stats()
 
         # Convert to list format for display
-        embedding_models = []
-        llm_models = []
-        reranking_models = []
-        query_enhancement = []
+        all_models = []
 
-        for model_name, model_stats in embedder_stats.items():
-            embedding_models.append({
-                'model': self._get_model_display_info(model_name, 'embedder'),
-                'queries': model_stats['total_queries'],
-                'accuracy': model_stats['avg_accuracy'],
-                'faithfulness': model_stats['avg_faithfulness'],
-                'relevance': model_stats['avg_relevance'],
-                'recall': model_stats['avg_recall'],
-                'latency': model_stats['avg_latency'],
-                'error_rate': model_stats['error_rate']
+        for model_name, model_stats_data in model_stats.items():
+            all_models.append({
+                'model': model_name,  # Use the unified model name directly
+                'queries': model_stats_data['total_queries'],
+                'accuracy': model_stats_data['avg_accuracy'],
+                'faithfulness': model_stats_data['avg_faithfulness'],
+                'relevance': model_stats_data['avg_relevance'],
+                'recall': model_stats_data['avg_recall'],
+                'latency': model_stats_data['avg_latency'],
+                'error_rate': model_stats_data['error_rate']
             })
 
-        for model_name, model_stats in llm_stats.items():
-            llm_models.append({
-                'model': self._get_model_display_info(model_name, 'llm'),
-                'queries': model_stats['total_queries'],
-                'accuracy': model_stats['avg_accuracy'],
-                'faithfulness': model_stats['avg_faithfulness'],
-                'relevance': model_stats['avg_relevance'],
-                'recall': model_stats['avg_recall'],
-                'latency': model_stats['avg_latency'],
-                'error_rate': model_stats['error_rate']
-            })
-
-        for model_name, model_stats in reranker_stats.items():
-            reranking_models.append({
-                'model': self._get_model_display_info(model_name, 'reranker'),
-                'queries': model_stats['total_queries'],
-                'accuracy': model_stats['avg_accuracy'],
-                'faithfulness': model_stats['avg_faithfulness'],
-                'relevance': model_stats['avg_relevance'],
-                'recall': model_stats['avg_recall'],
-                'latency': model_stats['avg_latency'],
-                'error_rate': model_stats['error_rate']
-            })
-
-        for qe_status, qe_stats in qe_comparison.items():
-            query_enhancement.append({
-                'model': self._get_model_display_info(qe_status, 'qe'),
-                'queries': qe_stats['total_queries'],
-                'accuracy': qe_stats['avg_accuracy'],
-                'latency': qe_stats['avg_latency'],
-                'error_rate': qe_stats['error_rate']
-            })
-
+        # For backward compatibility, return in the expected format
+        # But now all models are in one combined list
         return {
-            'reranking': sorted(reranking_models, key=lambda x: x['accuracy'], reverse=True),
-            'embedding': sorted(embedding_models, key=lambda x: x['accuracy'], reverse=True),
-            'llm': sorted(llm_models, key=lambda x: x['accuracy'], reverse=True),
-            'query_enhancement': sorted(query_enhancement, key=lambda x: x['accuracy'], reverse=True)
+            'reranking': [],  # Empty since we're using unified model names
+            'embedding': [],  # Empty since we're using unified model names
+            'llm': sorted(all_models, key=lambda x: x['accuracy'], reverse=True),  # Put all models here
+            'query_enhancement': []  # Keep query enhancement separate
         }
 
     def get_latency_over_time(self, hours: int = 24) -> List[Dict[str, Any]]:
@@ -914,8 +879,8 @@ class BackendDashboard:
         # Evaluate all metrics using cached retrieval results
         results = {
             'semantic_similarity': self._evaluate_semantic_similarity_batch(retrieval_results, ground_truth_rows),
-            'recall': self._evaluate_recall_batch(retrieval_results, ground_truth_rows, embedder_type),
-            'relevance': self._evaluate_relevance_batch(retrieval_results, ground_truth_rows, embedder_type),
+            'recall': self._evaluate_recall_batch(retrieval_results, ground_truth_rows, embedder_type, reranker_type, llm_choice),
+            'relevance': self._evaluate_relevance_batch(retrieval_results, ground_truth_rows, embedder_type, reranker_type, llm_choice),
             'faithfulness': self._evaluate_faithfulness_batch(retrieval_results, ground_truth_rows, embedder_type, reranker_type, llm_choice, use_query_enhancement, top_k)
         }
         
@@ -928,7 +893,7 @@ class BackendDashboard:
                         results=result,
                         embedder_type=embedder_type,
                         reranker_type=reranker_type,
-                        llm_model=llm_choice if metric_type == 'faithfulness' else None,
+                        llm_model=llm_choice,  # Always include llm_choice for batch evaluation
                         use_query_enhancement=use_query_enhancement
                     )
         
@@ -945,7 +910,7 @@ class BackendDashboard:
             ground_truth_rows
         )
 
-    def _evaluate_recall_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], embedder_type: str) -> Dict[str, Any]:
+    def _evaluate_recall_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], embedder_type: str, reranker_type: str, llm_choice: str) -> Dict[str, Any]:
         """Batch evaluate recall using cached retrieval results."""
         from evaluation.backend_dashboard.recall import run_recall_batch
         
@@ -954,10 +919,12 @@ class BackendDashboard:
             retrieval_results,
             ground_truth_rows,
             self.evaluate_semantic_similarity_with_source,
-            embedder_type=embedder_type
+            embedder_type=embedder_type,
+            reranker_type=reranker_type,
+            llm_choice=llm_choice
         )
 
-    def _evaluate_relevance_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], embedder_type: str) -> Dict[str, Any]:
+    def _evaluate_relevance_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], embedder_type: str, reranker_type: str, llm_choice: str) -> Dict[str, Any]:
         """Batch evaluate relevance using cached retrieval results."""
         from evaluation.backend_dashboard.relevance import run_relevance_batch
         
@@ -966,7 +933,9 @@ class BackendDashboard:
             retrieval_results,
             ground_truth_rows,
             self.evaluate_semantic_similarity_with_source,
-            embedder_type=embedder_type
+            embedder_type=embedder_type,
+            reranker_type=reranker_type,
+            llm_choice=llm_choice
         )
 
     def _evaluate_faithfulness_batch(self, retrieval_results: Dict[int, Dict], ground_truth_rows: List[Dict], 

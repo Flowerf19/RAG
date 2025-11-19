@@ -326,8 +326,6 @@ class GroundTruthComponent:
             pass
         with st.spinner("Running full evaluation suite (may take several minutes)..."):
             try:
-                max_rows = None if sample_size == 0 else int(sample_size)
-
                 # Run all evaluations in batch to avoid redundant retrieval
                 res = self.backend.evaluate_all_metrics_batch(
                     embedder_type=embedder_choice,
@@ -335,7 +333,7 @@ class GroundTruthComponent:
                     llm_choice=llm_choice,
                     use_query_enhancement=use_qem,
                     top_k=10,
-                    limit=max_rows,
+                    limit=None,  # Always run on all ground truth entries
                     save_to_db=save_to_db,
                 )
 
@@ -365,7 +363,21 @@ class GroundTruthComponent:
                 comparison_df = pd.DataFrame(comparison_data)
                 st.table(comparison_df)
 
-                # Display individual summaries in tabs
+                # Dedicated Faithfulness and Recall table
+                st.subheader("Faithfulness & Recall Summary")
+                faithfulness_recall_data = {
+                    'Metric': ['Average Faithfulness Score', 'High Faithfulness Ratio (>0.8)', 'Faithful Ratio (>0.5)', 'Overall Recall', 'Recall Precision', 'Recall F1 Score'],
+                    'Score': [
+                        f"{faithfulness_result.get('summary', {}).get('avg_faithfulness', 0):.4f}",
+                        f"{faithfulness_result.get('summary', {}).get('global_high_faithfulness_ratio', 0):.4f}",
+                        f"{faithfulness_result.get('summary', {}).get('global_faithful_ratio', 0):.4f}",
+                        f"{recall_result.get('summary', {}).get('overall_recall', 0):.4f}",
+                        f"{recall_result.get('summary', {}).get('overall_precision', 0):.4f}",
+                        f"{recall_result.get('summary', {}).get('overall_f1_score', 0):.4f}"
+                    ]
+                }
+                faithfulness_recall_df = pd.DataFrame(faithfulness_recall_data)
+                st.table(faithfulness_recall_df)
                 tab1, tab2, tab3, tab4 = st.tabs(["Semantic Similarity", "Recall Metrics", "Relevance Scores", "Faithfulness Scores"])
 
                 with tab1:
@@ -458,12 +470,13 @@ class GroundTruthComponent:
             if len(scores) >= 3:
                 df_scores = pd.DataFrame({'score': scores})
                 st.subheader(title)
-                box = alt.Chart(df_scores).mark_boxplot().encode(x='score:Q')
+                box = alt.Chart(df_scores).mark_boxplot().encode(x='score:Q').properties(height=170)
                 hist = alt.Chart(df_scores).mark_bar().encode(
                     x=alt.X('score:Q', bin=alt.Bin(maxbins=30), title='Score'),
                     y=alt.Y('count()', title='Count')
-                )
-                st.altair_chart((box & hist).properties(height=340), use_container_width=True)
+                ).properties(height=170)
+                combined_chart = alt.vconcat(box, hist)
+                st.altair_chart(combined_chart, use_container_width=True)
                 return
 
             # Fallback to bucket dict if provided
@@ -474,8 +487,8 @@ class GroundTruthComponent:
                     x=alt.X('count:Q', title='Count'),
                     y=alt.Y('range:N', sort=alt.SortField('count', order='descending'), title='Range'),
                     tooltip=['range', 'count']
-                )
-                st.altair_chart(chart.properties(height=340), use_container_width=True)
+                ).properties(height=340)
+                st.altair_chart(chart, use_container_width=True)
                 return
 
             st.info(f"No distribution data available for {title}")

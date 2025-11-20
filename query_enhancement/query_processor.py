@@ -46,14 +46,14 @@ class QueryProcessor:
             return [query_text]
 
         try:
-            logger.info("✨ Enhancing query...")
+            logger.info("Enhancing query...")
             expanded_queries = self.qem.enhance(query_text)
             expanded_queries = [q for q in expanded_queries if q and q.strip()]
             
             if not expanded_queries:
                 expanded_queries = [query_text]
                 
-            logger.info(f"✅ Query enhanced: {len(expanded_queries)} queries generated")
+            logger.info(f"Query enhanced: {len(expanded_queries)} queries generated")
             return expanded_queries
             
         except Exception as exc:
@@ -116,7 +116,7 @@ def create_query_processor(
             )
             from llm.config_loader import get_config
 
-            logger.info("🔧 Initializing Query Enhancement Module...")
+            logger.info("Initializing Query Enhancement Module...")
             app_config = get_config()
             qem_settings = load_qem_settings()
             qem_module = QueryEnhancementModule(app_config, qem_settings, logger=logger)

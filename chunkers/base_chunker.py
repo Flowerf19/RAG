@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "PDFLoaders"))
 try:
     from PDFLoaders.provider import PDFDocument, PageContent
 except ImportError:
-    from PDFLoaders.providerprovider import PDFDocument, PageContent
+    from PDFLoaders.provider.models import PDFDocument, PageContent
 
 
 class BaseChunker(ABC):

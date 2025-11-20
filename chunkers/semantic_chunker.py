@@ -240,15 +240,13 @@ class SemanticChunker(BaseChunker):
         # page.tables (pdfplumber) would add: "[Table 1]\nDate | Version\n19/05/2015 | 1.0"
         # → Same content in different format = 100% duplication!
         # Strategy: Use ONLY page.text (already has table content)
-        
+
         # 3. Figures (OCR-extracted text from images/diagrams) - SKIP TO AVOID DUPLICATION
         # page.text (PyMuPDF) already contains figure content as plain text
         # page.figures (OCR) would add the same content again
         # Strategy: Use ONLY page.text (already has figure content)
-        
-        return "\n\n".join(parts)
-        
-        # Clean text for better embedding quality
+
+        # Clean text for better embedding quality before returning
         aggregated_text = "\n\n".join(parts)
         return self.text_cleaner.clean(aggregated_text)
 

@@ -99,7 +99,8 @@ class QueryEnhancementModule:
         self.settings = qem_settings or load_qem_settings()
         self.languages = self._normalise_language_requirements(self.settings.get("languages"))
         self.log_path = Path(self.settings.get("log_path", "data/logs/qem_activity.json"))
-        self.client = QEMLLMClient(app_config, self.settings, self.logger)
+        # Lazily instantiate the LLM client so disabling QEM does not require LLM setup
+        self.client: Optional[QEMLLMClient] = None
         self._language_detection_enabled = detect is not None
 
     @staticmethod
@@ -153,7 +154,8 @@ class QueryEnhancementModule:
         )
 
         try:
-            raw_output = self.client.generate_variants(prompt)
+            client = self._get_client()
+            raw_output = client.generate_variants(prompt)
             variants = parse_llm_list(raw_output)
             queries = [user_query] + variants
             queries = deduplicate_queries(queries)
@@ -166,6 +168,14 @@ class QueryEnhancementModule:
             self._log_queries(user_query, [user_query], None, error=str(exc))
         return [user_query]
 
+    def _get_client(self) -> QEMLLMClient:
+        """
+        Lazily create the LLM client to avoid requiring credentials when QEM is disabled.
+        """
+        if self.client is None:
+            self.client = QEMLLMClient(self.app_config, self.settings, self.logger)
+        return self.client
+
     def _log_queries(
         self,
         original_query: str,
@@ -174,8 +184,11 @@ class QueryEnhancementModule:
         *,
         error: Optional[str] = None,
     ) -> None:
+        backend = self.client.backend if self.client else (
+            self.settings.get("backend") or self.settings.get("fallback_backend")
+        )
         payload = {
-            "backend": self.client.backend,
+            "backend": backend,
             "query": original_query,
             "queries": queries,
             "raw_output": raw_output,

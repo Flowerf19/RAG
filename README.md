@@ -359,6 +359,19 @@ pip install -r requirements.txt
 - REST API endpoints
 - Performance analytics dashboard
 
+##  Dependency Extraction
+
+A helper script is provided to scan the repository for imports and write out a requirements file.  
+
+```bash
+python scripts/generate_requirements.py --output requirements.auto.txt
+```
+
+- Use `--root` if you want to scan a different directory than the repository root.
+- Add `--ignore some_dir` for folders you want to skip (can be repeated).
+- Use `--include module_name` for imports that are loaded dynamically and might otherwise be missed.
+- Packages that are not currently installed are added without pinned versions so you can review them manually.
+
 ##  License
 
 MIT License - see [LICENSE](LICENSE) file for details.

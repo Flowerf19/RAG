@@ -9,6 +9,14 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
+try:  # pragma: no cover - optional dependency guard
+    from langdetect import DetectorFactory, LangDetectException, detect
+
+    DetectorFactory.seed = 0
+except Exception:  # pragma: no cover - fallback when langdetect missing
+    LangDetectException = Exception  # type: ignore[misc,assignment]
+    detect = None
+
 try:
     import yaml  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
@@ -92,6 +100,7 @@ class QueryEnhancementModule:
         self.languages = self._normalise_language_requirements(self.settings.get("languages"))
         self.log_path = Path(self.settings.get("log_path", "data/logs/qem_activity.json"))
         self.client = QEMLLMClient(app_config, self.settings, self.logger)
+        self._language_detection_enabled = detect is not None
 
     @staticmethod
     def _normalise_language_requirements(config_value: Any) -> Dict[str, int]:
@@ -109,6 +118,23 @@ class QueryEnhancementModule:
     def is_enabled(self) -> bool:
         return bool(self.settings.get("enabled", True))
 
+    def _detect_language(self, text: str) -> str:
+        """
+        Detect the user query language. Falls back to 'unknown' on failure.
+        """
+        cleaned = (text or "").strip()
+        if not cleaned or not self._language_detection_enabled:
+            return "unknown"
+
+        try:
+            detected = detect(cleaned)
+        except LangDetectException:
+            return "unknown"
+        except Exception as exc:  # pragma: no cover - logging only
+            self.logger.debug("Language detection error: %s", exc)
+            return "unknown"
+        return detected or "unknown"
+
     def enhance(self, user_query: str) -> List[str]:
         """
         Generate enhanced queries. On failure, return the original query only.
@@ -116,10 +142,14 @@ class QueryEnhancementModule:
         if not self.is_enabled():
             return [user_query]
 
+        detected_language = self._detect_language(user_query)
+        self.logger.debug("QEM detected language: %s", detected_language)
+
         prompt = build_prompt(
             user_query=user_query,
             language_requirements=self.languages,
             additional_instructions=self.settings.get("additional_instructions"),
+            input_language=detected_language,
         )
 
         try:

@@ -37,8 +37,8 @@ from datasets import Dataset
 
 # Conditional imports for different LLM providers
 try:
-    from langchain_google_genai import ChatGoogleGenerativeAI
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    from langchain_google_genai import ChatGoogleGenerativeAI  # noqa: F401
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings  # noqa: F401
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False

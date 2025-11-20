@@ -27,6 +27,9 @@ class GroundTruthEvaluationService:
             try:
                 # Run Ragas evaluation with all metrics
                 ragas_result = self.backend.evaluate_ground_truth_with_ragas(
+                    llm_provider=llm_choice if llm_choice != "none" else "ollama",
+                    embedder_choice=embedder_choice,
+                    reranker_choice=reranker_choice,
                     limit=None if sample_size == 0 else sample_size,
                     save_to_db=save_to_db,
                 )

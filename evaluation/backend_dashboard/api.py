@@ -523,6 +523,8 @@ class BackendDashboard:
     def evaluate_ground_truth_with_ragas(self,
                                          llm_provider: str = 'ollama',
                                          model_name: Optional[str] = None,
+                                         embedder_choice: str = 'ground_truth_evaluation',
+                                         reranker_choice: str = 'none',
                                          api_key: str | None = None,
                                          limit: int | None = None,
                                          save_to_db: bool = True,
@@ -577,7 +579,8 @@ class BackendDashboard:
             # Convert database format to Ragas format
             ground_truth_data = []
             for row in ground_truth_rows:
-                # For Ragas evaluation, we need contexts. If not available, use empty list
+                # For Ragas evaluation, we need contexts. Try to use stored retrieved_context;
+                # if missing, perform a fresh retrieval so ContextRelevance can be computed.
                 contexts = []
                 if row.get('retrieved_context'):
                     try:
@@ -586,6 +589,25 @@ class BackendDashboard:
                     except Exception:
                         # If not JSON, treat as single context string
                         contexts = [row['retrieved_context']]
+                else:
+                    # No retrieved_context stored — attempt to fetch retrieval now
+                    try:
+                        # Use a conservative top_k for evaluation contexts
+                        retrieval_result = self._get_or_fetch_retrieval(
+                            question=row['question'],
+                            embedder_type=embedder_choice,
+                            reranker_type=reranker_choice,
+                            use_query_enhancement=False,
+                            top_k=5,
+                        )
+
+                        # `fetch_retrieval` returns UI-style `sources`; each source has `full_text` or `snippet`
+                        sources = retrieval_result.get('sources', []) if isinstance(retrieval_result, dict) else []
+                        contexts = [s.get('full_text') or s.get('snippet') for s in sources if s]
+                        logger.info(f"Fetched {len(contexts)} retrieval contexts for question: {row['question'][:60]}...")
+                    except Exception as e:
+                        logger.debug(f"Retrieval fetch failed for question '{row.get('question','')[:60]}...': {e}")
+                        contexts = []
 
                 ground_truth_data.append({
                     'question': row['question'],
@@ -693,8 +715,8 @@ class BackendDashboard:
                     logger.info(f"Successfully saved {saved_count}/{len(results)} evaluation results to database")
 
                     # Also save summary metrics to the metrics table for dashboard display
-                    # Use a synthetic model name that represents this ground truth evaluation
-                    model_name = f"ground_truth_{llm_provider}_{model_name or 'default'}"
+                    # Use the unified model name format: {embedder}_{reranker}_{llm}
+                    model_name = f"{embedder_choice}_{reranker_choice}_{llm_provider}"
                     timestamp = datetime.utcnow().isoformat()
 
                     # Save one row per evaluated sample to metrics table
@@ -703,9 +725,9 @@ class BackendDashboard:
                             timestamp=timestamp,
                             query=result.question,
                             model=model_name,
-                            embedder_model="ground_truth_evaluation",  # Placeholder
+                            embedder_model=embedder_choice,
                             llm_model=llm_provider,
-                            reranker_model="none",  # Placeholder
+                            reranker_model=reranker_choice,
                             query_enhanced=False,
                             latency=0.0,  # No latency for ground truth evaluation
                             faithfulness=result.faithfulness,

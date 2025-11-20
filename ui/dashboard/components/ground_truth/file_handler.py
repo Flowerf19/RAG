@@ -6,35 +6,100 @@ Handles file upload, parsing, and database import for ground truth data.
 import streamlit as st
 import pandas as pd
 import logging
+import unicodedata
 
 
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize column names and data from uploaded files."""
-    # Expected column mappings (case-insensitive)
+    # Expected column mappings (case-insensitive, flexible)
     column_mappings = {
-        'question': ['question', 'câu hỏi', 'cau hoi', 'q', 'query'],
-        'answer': ['answer', 'câu trả lời', 'cau tra loi', 'a', 'response'],
-        'source': ['source', 'nguồn', 'nguon', 's', 'reference']
+        'question': ['question', 'câu hỏi', 'cau hoi', 'q', 'query', 'câu hoi', 'cau hỏi', 'câu hỏi (question)'],
+        'answer': ['answer', 'câu trả lời', 'cau tra loi', 'a', 'response', 'cau tra loi', 'cau trả lời', 'câu trả lời (answer)'],
+        'source': ['source', 'nguồn', 'nguon', 's', 'reference', 'nguon', 'nguồn', 'nguồn (source)']
     }
 
-    # Create normalized dataframe
-    normalized = pd.DataFrame()
+    # Debug: print actual columns
+    print(f"DEBUG: Original columns: {list(df.columns)}")
+    print(f"DEBUG: Lowercased columns: {[col.lower().strip() for col in df.columns]}")
+
+    # Create normalized dataframe with the same number of rows
+    normalized = pd.DataFrame(index=df.index)
 
     # Find and map columns
     df_columns = [col.lower().strip() for col in df.columns]
+    df_columns_normalized = [unicodedata.normalize('NFC', col) for col in df_columns]
 
     for target_col, possible_names in column_mappings.items():
-        for possible_name in possible_names:
-            if possible_name in df_columns:
-                col_idx = df_columns.index(possible_name)
+        possible_names_normalized = [unicodedata.normalize('NFC', name) for name in possible_names]
+        
+        mapped = False
+        for i, possible_name in enumerate(possible_names_normalized):
+            if possible_name in df_columns_normalized:
+                col_idx = df_columns_normalized.index(possible_name)
                 normalized[target_col] = df.iloc[:, col_idx].fillna('')
+                print(f"DEBUG: Mapped '{df.columns[col_idx]}' to '{target_col}'")
+                mapped = True
                 break
+        
+        # If no exact match, try partial matching
+        if not mapped:
+            for i, col in enumerate(df_columns_normalized):
+                for possible_name in possible_names_normalized:
+                    if possible_name in col or col in possible_name:
+                        normalized[target_col] = df.iloc[:, i].fillna('')
+                        print(f"DEBUG: Partial mapped '{df.columns[i]}' to '{target_col}'")
+                        mapped = True
+                        break
+                if mapped:
+                    break
+        
+        # If still no match, try position-based mapping
+        if not mapped:
+            # Assume order: STT (index), Question, Answer, Source
+            if target_col == 'question' and len(df.columns) >= 2:
+                normalized[target_col] = df.iloc[:, 1].astype(str).fillna('')
+                print(f"DEBUG: Position mapped column 1 '{df.columns[1]}' to '{target_col}'")
+                mapped = True
+            elif target_col == 'answer' and len(df.columns) >= 3:
+                normalized[target_col] = df.iloc[:, 2].astype(str).fillna('')
+                print(f"DEBUG: Position mapped column 2 '{df.columns[2]}' to '{target_col}'")
+                mapped = True
+            elif target_col == 'source' and len(df.columns) >= 4:
+                normalized[target_col] = df.iloc[:, 3].astype(str).fillna('')
+                print(f"DEBUG: Position mapped column 3 '{df.columns[3]}' to '{target_col}'")
+                mapped = True
+        
+        # If still no mapping found after all attempts, create empty column
+        if not mapped:
+            normalized[target_col] = ''
 
-    # Ensure all required columns exist
-    for col in ['question', 'answer', 'source']:
-        if col not in normalized.columns:
-            normalized[col] = ''
-
+    print(f"DEBUG: Normalized columns: {list(normalized.columns)}")
+    print(f"DEBUG: Normalized shape: {normalized.shape}")
+    
+    # Filter out empty rows (rows where question or answer are empty/NaN)
+    # But keep rows that have at least some data
+    def has_content(val):
+        val_str = str(val).strip().lower()
+        return val_str not in ['', 'nan', 'none', 'null', 'nat'] and not pd.isna(val)
+    
+    # Keep rows where at least question or answer has content
+    try:
+        mask = []
+        for idx, row in normalized.iterrows():
+            q_content = has_content(row['question'])
+            a_content = has_content(row['answer'])
+            has_any = q_content or a_content
+            mask.append(has_any)
+            print(f"DEBUG: Row {idx}: q='{str(row['question'])[:30]}...', a='{str(row['answer'])[:30]}...', has_content={has_any}")
+        
+        print(f"DEBUG: Final mask: {mask}")
+        normalized = normalized[mask].reset_index(drop=True)
+    except Exception as e:
+        print(f"DEBUG: Error in filtering: {e}")
+        # If filtering fails, keep all rows
+        pass
+    
+    print(f"DEBUG: After filtering empty rows: {normalized.shape}")
     return normalized
 
 
@@ -52,7 +117,33 @@ class GroundTruthFileHandler:
             if uploaded.name.lower().endswith('.csv'):
                 df = pd.read_csv(uploaded)
             else:
-                df = pd.read_excel(uploaded)
+                # Try to read Excel with more robust options
+                try:
+                    # Try reading the first sheet
+                    df = pd.read_excel(uploaded, engine='openpyxl', sheet_name=0)
+                    print(f"DEBUG: Read sheet 0, shape: {df.shape}")
+                    
+                    # If the first few rows are empty, try to find the header
+                    if df.empty or df.iloc[0].isna().all():
+                        # Try reading with header detection
+                        df = pd.read_excel(uploaded, engine='openpyxl', header=0)
+                        print(f"DEBUG: Re-read with header=0, shape: {df.shape}")
+                        
+                except ImportError:
+                    df = pd.read_excel(uploaded)
+
+            print(f"DEBUG: File read successfully. Shape: {df.shape}")
+            print(f"DEBUG: Columns: {list(df.columns)}")
+            print(f"DEBUG: dtypes:\n{df.dtypes}")
+            print(f"DEBUG: First few rows:\n{df.head()}")
+
+            # Skip empty rows at the beginning if any
+            df = df.dropna(how='all').reset_index(drop=True)
+            
+            # Also skip rows where the main columns are all empty
+            main_cols = [col for col in df.columns if col.lower().strip() not in ['stt', 'index', 'no', 'number']]
+            if main_cols:
+                df = df.dropna(subset=main_cols, how='all').reset_index(drop=True)
 
             st.write(f"Detected {df.shape[0]} rows in uploaded file")
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, Iterable, List, Optional
 
 try:
     import spacy
@@ -23,6 +23,17 @@ except ImportError as exc:  # pragma: no cover - handled at runtime
         "spaCy is required for BM25 keyword extraction. "
         "Install the appropriate models (e.g. en_core_web_sm, vi_core_news_lg)."
     ) from exc
+
+# Optional language detection
+try:
+    from langdetect import DetectorFactory, LangDetectException, detect
+
+    DetectorFactory.seed = 0  # deterministic detection
+    LANGDETECT_AVAILABLE = True
+except Exception:  # pragma: no cover - optional dependency
+    detect = None
+    LangDetectException = Exception
+    LANGDETECT_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +78,17 @@ class KeywordExtractor:
 
     def detect_language(self, text: str) -> str:
         """
-        Lightweight language detection based on accented characters.
-        Default to English when no clear Vietnamese markers appear.
+        Detect language using langdetect when available, otherwise fall back
+        to a lightweight accented-character heuristic. Defaults to English.
         """
+        if LANGDETECT_AVAILABLE:
+            try:
+                lang = detect(text)
+                if lang:
+                    return lang.lower()
+            except LangDetectException:
+                logger.debug("langdetect could not determine language; falling back to heuristic.")
+
         if self._accent_pattern.search(text):
             return "vi"
         return "en"

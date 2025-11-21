@@ -535,7 +535,7 @@ class BackendDashboard:
         This method provides standardized evaluation metrics:
         - faithfulness: How faithful the answer is to the context
         - context_recall: How much of the ground truth is covered by the context
-        - context_relevance: How relevant the context is to the question
+        - answer_correctness: How correct the generated answer is
 
         Args:
             llm_provider: LLM provider to use ('ollama' or 'gemini')
@@ -551,6 +551,7 @@ class BackendDashboard:
             from evaluation.backend_dashboard.ragas_evaluator import RagasEvaluator
             import json
             import os
+            import math
 
             logger = logging.getLogger(__name__)
             logger.info(f"Starting Ragas evaluation with {llm_provider.upper()} LLM")
@@ -635,37 +636,64 @@ class BackendDashboard:
                 questions, answers, contexts_list, ground_truths
             )
 
-            # Aggregate results
+            # DEBUG: Check for NaN values in results
+            logger.info("DEBUG: Checking evaluation results for NaN values")
+            for i, result in enumerate(results):
+                if hasattr(result, 'context_recall') and (result.context_recall is None or (isinstance(result.context_recall, float) and math.isnan(result.context_recall))):
+                    logger.error(f"Sample {i}: context_recall is NaN/None")
+                    logger.error(f"  Question: {result.question[:50]}...")
+                    logger.error(f"  Contexts: {len(result.contexts) if result.contexts else 0} items")
+                if hasattr(result, 'answer_relevancy') and (result.answer_relevancy is None or (isinstance(result.answer_relevancy, float) and math.isnan(result.answer_relevancy))):
+                    logger.error(f"Sample {i}: answer_relevancy is NaN/None")
+
+            # Aggregate results (handle NaN values)
+            import math
+            
+            def safe_mean(values):
+                """Calculate mean, filtering out NaN values."""
+                valid_values = [v for v in values if v is not None and not (isinstance(v, float) and math.isnan(v))]
+                return sum(valid_values) / len(valid_values) if valid_values else 0.0
+            
+            def safe_min(values):
+                """Calculate min, filtering out NaN values."""
+                valid_values = [v for v in values if v is not None and not (isinstance(v, float) and math.isnan(v))]
+                return min(valid_values) if valid_values else 0.0
+            
+            def safe_max(values):
+                """Calculate max, filtering out NaN values."""
+                valid_values = [v for v in values if v is not None and not (isinstance(v, float) and math.isnan(v))]
+                return max(valid_values) if valid_values else 0.0
+            
             faithfulness_scores = [r.faithfulness for r in results]
             context_recall_scores = [r.context_recall for r in results]
-            context_relevance_scores = [r.context_relevance for r in results]
+            answer_correctness_scores = [r.answer_correctness for r in results]
             answer_relevancy_scores = [r.answer_relevancy for r in results]
 
             summary = {
                 'evaluation_type': 'ragas',
                 'total_samples': len(results),
                 'faithfulness': {
-                    'mean': sum(faithfulness_scores) / len(faithfulness_scores),
-                    'min': min(faithfulness_scores),
-                    'max': max(faithfulness_scores),
+                    'mean': safe_mean(faithfulness_scores),
+                    'min': safe_min(faithfulness_scores),
+                    'max': safe_max(faithfulness_scores),
                     'scores': faithfulness_scores
                 },
                 'context_recall': {
-                    'mean': sum(context_recall_scores) / len(context_recall_scores),
-                    'min': min(context_recall_scores),
-                    'max': max(context_recall_scores),
+                    'mean': safe_mean(context_recall_scores),
+                    'min': safe_min(context_recall_scores),
+                    'max': safe_max(context_recall_scores),
                     'scores': context_recall_scores
                 },
-                'context_relevance': {
-                    'mean': sum(context_relevance_scores) / len(context_relevance_scores) if context_relevance_scores else 0.0,
-                    'min': min(context_relevance_scores) if context_relevance_scores else 0.0,
-                    'max': max(context_relevance_scores) if context_relevance_scores else 0.0,
-                    'scores': context_relevance_scores
+                'answer_correctness': {
+                    'mean': safe_mean(answer_correctness_scores),
+                    'min': safe_min(answer_correctness_scores),
+                    'max': safe_max(answer_correctness_scores),
+                    'scores': answer_correctness_scores
                 },
                 'answer_relevancy': {
-                    'mean': sum(answer_relevancy_scores) / len(answer_relevancy_scores) if answer_relevancy_scores else 0.0,
-                    'min': min(answer_relevancy_scores) if answer_relevancy_scores else 0.0,
-                    'max': max(answer_relevancy_scores) if answer_relevancy_scores else 0.0,
+                    'mean': safe_mean(answer_relevancy_scores),
+                    'min': safe_min(answer_relevancy_scores),
+                    'max': safe_max(answer_relevancy_scores),
                     'scores': answer_relevancy_scores
                 },
                 'detailed_results': [
@@ -676,7 +704,7 @@ class BackendDashboard:
                         'ground_truth': r.ground_truth,
                         'faithfulness': r.faithfulness,
                         'context_recall': r.context_recall,
-                        'context_relevance': r.context_relevance,
+                        'answer_correctness': r.answer_correctness,
                         'answer_relevancy': r.answer_relevancy
                     }
                     for r in results
@@ -705,7 +733,8 @@ class BackendDashboard:
                                 retrieved_context=json.dumps(result.contexts) if result.contexts else None,
                                 retrieval_chunks=len(result.contexts) if result.contexts else 0,
                                 faithfulness=result.faithfulness,
-                                relevance=result.context_relevance,  # Ragas context_relevance maps to our relevance
+                                relevance=result.answer_relevancy,  # FIXED: Use answer_relevancy instead of answer_correctness
+                                answer_correctness=result.answer_correctness,  # Keep answer_correctness separate
                                 evaluated_at=datetime.utcnow().isoformat()
                             )
                             saved_count += 1
@@ -721,6 +750,12 @@ class BackendDashboard:
 
                     # Save one row per evaluated sample to metrics table
                     for i, result in enumerate(results):
+                        # Handle NaN values by converting them to None for database storage
+                        def safe_float(value):
+                            if value is None or (isinstance(value, float) and math.isnan(value)):
+                                return None
+                            return float(value)
+                        
                         self.db.insert_metric(
                             timestamp=timestamp,
                             query=result.question,
@@ -730,14 +765,16 @@ class BackendDashboard:
                             reranker_model=reranker_choice,
                             query_enhanced=False,
                             latency=0.0,  # No latency for ground truth evaluation
-                            faithfulness=result.faithfulness,
-                            relevance=result.context_relevance,
-                            recall=result.context_recall,
+                            faithfulness=safe_float(result.faithfulness),
+                            relevance=safe_float(result.answer_relevancy),  # FIXED: Use answer_relevancy
+                            answer_correctness=safe_float(result.answer_correctness),
+                            recall=safe_float(result.context_recall),  # This is context_recall
                             error=False,
                             error_message=None,
                             metadata=json.dumps({
                                 "evaluation_type": "ragas_ground_truth",
-                                "answer_relevancy": result.answer_relevancy,
+                                "answer_relevancy": safe_float(result.answer_relevancy),
+                                "context_recall": safe_float(result.context_recall),
                                 "sample_index": i
                             })
                         )

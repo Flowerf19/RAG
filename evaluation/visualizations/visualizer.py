@@ -202,7 +202,7 @@ class RAGMetricsVisualizer:
             ],
             'Faithfulness': [1.000, 0.950, 0.980],
             'Context_Recall': [1.000, 0.920, 0.990],
-            'Context_Relevance': [1.000, 0.940, 0.970],
+            'Answer_Correctness': [1.000, 0.940, 0.970],
             'Answer_Relevancy': [1.000, 0.960, 0.985]
         }
         df = pd.DataFrame(sample_data)

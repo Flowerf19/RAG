@@ -22,7 +22,7 @@ def prepare_metrics_dataframe(evaluation_results: List[Dict[str, Any]],
         config_names: Optional list of configuration names (if None, uses indices)
 
     Returns:
-        DataFrame with columns: Configuration, Faithfulness, Context_Recall, Context_Relevance, Answer_Relevancy
+        DataFrame with columns: Configuration, Faithfulness, Context_Recall, Answer_Correctness, Answer_Relevancy
     """
     try:
         if not evaluation_results:
@@ -43,20 +43,20 @@ def prepare_metrics_dataframe(evaluation_results: List[Dict[str, Any]],
                 # Direct metrics dict
                 faithfulness = result.get('faithfulness', result.get('Faithfulness', 0.0))
                 context_recall = result.get('context_recall', result.get('Context_Recall', 0.0))
-                context_relevance = result.get('context_relevance', result.get('Context_Relevance', 0.0))
+                answer_correctness = result.get('answer_correctness', result.get('Answer_Correctness', 0.0))
                 answer_relevancy = result.get('answer_relevancy', result.get('Answer_Relevancy', 0.0))
             else:
                 # Assume it's an object with attributes
                 faithfulness = getattr(result, 'faithfulness', 0.0)
                 context_recall = getattr(result, 'context_recall', 0.0)
-                context_relevance = getattr(result, 'context_relevance', 0.0)
+                answer_correctness = getattr(result, 'answer_correctness', 0.0)
                 answer_relevancy = getattr(result, 'answer_relevancy', 0.0)
 
             rows.append({
                 'Configuration': config_name,
                 'Faithfulness': float(faithfulness),
                 'Context_Recall': float(context_recall),
-                'Context_Relevance': float(context_relevance),
+                'Answer_Correctness': float(answer_correctness),
                 'Answer_Relevancy': float(answer_relevancy)
             })
 
@@ -85,14 +85,14 @@ def prepare_metrics_from_ragas_output(ragas_summary: Dict[str, Any],
         # Extract metrics from summary
         faithfulness = ragas_summary.get('faithfulness', {}).get('mean', 0.0)
         context_recall = ragas_summary.get('context_recall', {}).get('mean', 0.0)
-        context_relevance = ragas_summary.get('context_relevance', {}).get('mean', 0.0)
+        answer_correctness = ragas_summary.get('answer_correctness', {}).get('mean', 0.0)
         answer_relevancy = ragas_summary.get('answer_relevancy', {}).get('mean', 0.0)
 
         df = pd.DataFrame([{
             'Configuration': config_name,
             'Faithfulness': float(faithfulness),
             'Context_Recall': float(context_recall),
-            'Context_Relevance': float(context_relevance),
+            'Answer_Correctness': float(answer_correctness),
             'Answer_Relevancy': float(answer_relevancy)
         }])
 

@@ -7,6 +7,12 @@ import streamlit as st
 import pandas as pd
 import logging
 import unicodedata
+from rich.console import Console
+from rich.logging import RichHandler
+
+# Initialize rich console and configure logging for Unicode-safe output
+console = Console()
+logging.basicConfig(level=logging.INFO, handlers=[RichHandler()])
 
 
 def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -19,8 +25,8 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     }
 
     # Debug: print actual columns
-    print(f"DEBUG: Original columns: {list(df.columns)}")
-    print(f"DEBUG: Lowercased columns: {[col.lower().strip() for col in df.columns]}")
+    console.print(f"DEBUG: Original columns: {list(df.columns)}", style="dim")
+    console.print(f"DEBUG: Lowercased columns: {[col.lower().strip() for col in df.columns]}", style="dim")
 
     # Create normalized dataframe with the same number of rows
     normalized = pd.DataFrame(index=df.index)
@@ -37,7 +43,7 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             if possible_name in df_columns_normalized:
                 col_idx = df_columns_normalized.index(possible_name)
                 normalized[target_col] = df.iloc[:, col_idx].fillna('')
-                print(f"DEBUG: Mapped '{df.columns[col_idx]}' to '{target_col}'")
+                console.print(f"DEBUG: Mapped '{df.columns[col_idx]}' to '{target_col}'", style="yellow")
                 mapped = True
                 break
         
@@ -47,7 +53,7 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
                 for possible_name in possible_names_normalized:
                     if possible_name in col or col in possible_name:
                         normalized[target_col] = df.iloc[:, i].fillna('')
-                        print(f"DEBUG: Partial mapped '{df.columns[i]}' to '{target_col}'")
+                        console.print(f"DEBUG: Partial mapped '{df.columns[i]}' to '{target_col}'", style="yellow")
                         mapped = True
                         break
                 if mapped:
@@ -58,23 +64,23 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             # Assume order: STT (index), Question, Answer, Source
             if target_col == 'question' and len(df.columns) >= 2:
                 normalized[target_col] = df.iloc[:, 1].astype(str).fillna('')
-                print(f"DEBUG: Position mapped column 1 '{df.columns[1]}' to '{target_col}'")
+                console.print(f"DEBUG: Position mapped column 1 '{df.columns[1]}' to '{target_col}'", style="yellow")
                 mapped = True
             elif target_col == 'answer' and len(df.columns) >= 3:
                 normalized[target_col] = df.iloc[:, 2].astype(str).fillna('')
-                print(f"DEBUG: Position mapped column 2 '{df.columns[2]}' to '{target_col}'")
+                console.print(f"DEBUG: Position mapped column 2 '{df.columns[2]}' to '{target_col}'", style="yellow")
                 mapped = True
             elif target_col == 'source' and len(df.columns) >= 4:
                 normalized[target_col] = df.iloc[:, 3].astype(str).fillna('')
-                print(f"DEBUG: Position mapped column 3 '{df.columns[3]}' to '{target_col}'")
+                console.print(f"DEBUG: Position mapped column 3 '{df.columns[3]}' to '{target_col}'", style="yellow")
                 mapped = True
         
         # If still no mapping found after all attempts, create empty column
         if not mapped:
             normalized[target_col] = ''
 
-    print(f"DEBUG: Normalized columns: {list(normalized.columns)}")
-    print(f"DEBUG: Normalized shape: {normalized.shape}")
+    console.print(f"DEBUG: Normalized columns: {list(normalized.columns)}", style="dim")
+    console.print(f"DEBUG: Normalized shape: {normalized.shape}", style="dim")
     
     # Filter out empty rows (rows where question or answer are empty/NaN)
     # But keep rows that have at least some data
@@ -90,16 +96,16 @@ def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             a_content = has_content(row['answer'])
             has_any = q_content or a_content
             mask.append(has_any)
-            print(f"DEBUG: Row {idx}: q='{str(row['question'])[:30]}...', a='{str(row['answer'])[:30]}...', has_content={has_any}")
+            console.print(f"DEBUG: Row {idx}: q='{str(row['question'])[:30]}...', a='{str(row['answer'])[:30]}...', has_content={has_any}", style="dim")
         
-        print(f"DEBUG: Final mask: {mask}")
+        console.print(f"DEBUG: Final mask: {mask}", style="dim")
         normalized = normalized[mask].reset_index(drop=True)
     except Exception as e:
-        print(f"DEBUG: Error in filtering: {e}")
+        console.print(f"DEBUG: Error in filtering: {e}", style="red")
         # If filtering fails, keep all rows
         pass
     
-    print(f"DEBUG: After filtering empty rows: {normalized.shape}")
+    console.print(f"DEBUG: After filtering empty rows: {normalized.shape}", style="dim")
     return normalized
 
 
@@ -121,21 +127,19 @@ class GroundTruthFileHandler:
                 try:
                     # Try reading the first sheet
                     df = pd.read_excel(uploaded, engine='openpyxl', sheet_name=0)
-                    print(f"DEBUG: Read sheet 0, shape: {df.shape}")
-                    
+                    console.print(f"DEBUG: Read sheet 0, shape: {df.shape}", style="dim")
                     # If the first few rows are empty, try to find the header
                     if df.empty or df.iloc[0].isna().all():
                         # Try reading with header detection
                         df = pd.read_excel(uploaded, engine='openpyxl', header=0)
-                        print(f"DEBUG: Re-read with header=0, shape: {df.shape}")
-                        
+                        console.print(f"DEBUG: Re-read with header=0, shape: {df.shape}", style="dim")
                 except ImportError:
                     df = pd.read_excel(uploaded)
 
-            print(f"DEBUG: File read successfully. Shape: {df.shape}")
-            print(f"DEBUG: Columns: {list(df.columns)}")
-            print(f"DEBUG: dtypes:\n{df.dtypes}")
-            print(f"DEBUG: First few rows:\n{df.head()}")
+            console.print(f"DEBUG: File read successfully. Shape: {df.shape}", style="green")
+            console.print(f"DEBUG: Columns: {list(df.columns)}", style="dim")
+            console.print(f"DEBUG: dtypes:\n{df.dtypes}", style="dim")
+            console.print(f"DEBUG: First few rows:\n{df.head()}", style="dim")
 
             # Skip empty rows at the beginning if any
             df = df.dropna(how='all').reset_index(drop=True)

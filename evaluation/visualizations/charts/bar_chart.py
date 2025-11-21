@@ -26,7 +26,7 @@ def generate_bar_chart(df: pd.DataFrame,
     Generate grouped bar chart for RAG metrics comparison.
 
     Args:
-        df: DataFrame with columns: Configuration, Faithfulness, Context_Recall, Context_Relevance, Answer_Relevancy
+        df: DataFrame with columns: Configuration, Faithfulness, Context_Recall, Answer_Correctness, Answer_Relevancy
         title: Chart title
         figsize: Figure size (width, height)
         save_path: Optional path to save chart
@@ -45,8 +45,8 @@ def generate_bar_chart(df: pd.DataFrame,
         plt.rcParams['font.size'] = 10
 
         # Prepare data for plotting
-        metrics = ['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']
-        metric_labels = ['Faithfulness', 'Context Recall', 'Context Relevance', 'Answer Relevancy']
+        metrics = ['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']
+        metric_labels = ['Faithfulness', 'Context Recall', 'Answer Correctness', 'Answer Relevancy']
 
         # Melt dataframe for seaborn
         df_melted = df.melt(id_vars=['Configuration'],
@@ -135,8 +135,8 @@ def generate_horizontal_bar_chart(df: pd.DataFrame,
         sns.set_style("whitegrid")
 
         # Prepare data
-        metrics = ['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']
-        metric_labels = ['Faithfulness', 'Context Recall', 'Context Relevance', 'Answer Relevancy']
+        metrics = ['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']
+        metric_labels = ['Faithfulness', 'Context Recall', 'Answer Correctness', 'Answer Relevancy']
 
         df_melted = df.melt(id_vars=['Configuration'],
                            value_vars=metrics,

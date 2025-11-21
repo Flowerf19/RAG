@@ -63,7 +63,7 @@ class ModelPerformanceComponent:
                 'Configuration': df['model'],
                 'Faithfulness': df.get('faithfulness', pd.Series([0]*len(df))).astype(float),
                 'Context_Recall': df.get('recall', pd.Series([0]*len(df))).astype(float),
-                'Context_Relevance': df.get('relevance', pd.Series([0]*len(df))).astype(float),
+                'Answer_Correctness': df.get('relevance', pd.Series([0]*len(df))).astype(float),
                 'Answer_Relevancy': df.get('answer_relevancy', df.get('relevance', pd.Series([0]*len(df)))).astype(float)
             })
 

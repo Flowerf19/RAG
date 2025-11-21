@@ -27,7 +27,7 @@ def generate_radar_chart(df: pd.DataFrame,
     Generate radar chart for RAG metrics profile comparison.
 
     Args:
-        df: DataFrame with columns: Configuration, Faithfulness, Context_Recall, Context_Relevance, Answer_Relevancy
+        df: DataFrame with columns: Configuration, Faithfulness, Context_Recall, Answer_Correctness, Answer_Relevancy
         title: Chart title
         figsize: Figure size (width, height)
         save_path: Optional path to save chart
@@ -42,8 +42,8 @@ def generate_radar_chart(df: pd.DataFrame,
             return plt.figure()
 
         # Prepare data
-        metrics = ['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']
-        metric_labels = ['Faithfulness', 'Context Recall', 'Context Relevance', 'Answer Relevancy']
+        metrics = ['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']
+        metric_labels = ['Faithfulness', 'Context Recall', 'Answer Correctness', 'Answer Relevancy']
 
         # Number of variables
         N = len(metrics)
@@ -129,8 +129,8 @@ def generate_radar_chart_subplots(df: pd.DataFrame,
             return plt.figure()
 
         # Prepare data
-        metrics = ['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']
-        metric_labels = ['Faithfulness', 'Context Recall', 'Context Relevance', 'Answer Relevancy']
+        metrics = ['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']
+        metric_labels = ['Faithfulness', 'Context Recall', 'Answer Correctness', 'Answer Relevancy']
 
         N = len(metrics)
         angles = [n / float(N) * 2 * pi for n in range(N)]

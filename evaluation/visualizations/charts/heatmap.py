@@ -27,7 +27,7 @@ def generate_heatmap(df: pd.DataFrame,
     Generate heatmap for RAG metrics visualization.
 
     Args:
-        df: DataFrame with columns: Configuration, Faithfulness, Context_Recall, Context_Relevance, Answer_Relevancy
+        df: DataFrame with columns: Configuration, Faithfulness, Context_Recall, Answer_Correctness, Answer_Relevancy
         title: Chart title
         figsize: Figure size (width, height)
         cmap: Colormap for heatmap
@@ -45,11 +45,11 @@ def generate_heatmap(df: pd.DataFrame,
         # Prepare data for heatmap
         # Set Configuration as index, keep only metric columns
         heatmap_data = df.set_index('Configuration')[
-            ['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']
+            ['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']
         ]
 
         # Rename columns for better display
-        heatmap_data.columns = ['Faithfulness', 'Context Recall', 'Context Relevance', 'Answer Relevancy']
+        heatmap_data.columns = ['Faithfulness', 'Context Recall', 'Answer Correctness', 'Answer Relevancy']
 
         # Create figure
         fig, ax = plt.subplots(figsize=figsize)
@@ -119,9 +119,9 @@ def generate_heatmap_with_clustering(df: pd.DataFrame,
 
         # Prepare data
         heatmap_data = df.set_index('Configuration')[
-            ['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']
+            ['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']
         ]
-        heatmap_data.columns = ['Faithfulness', 'Context Recall', 'Context Relevance', 'Answer Relevancy']
+        heatmap_data.columns = ['Faithfulness', 'Context Recall', 'Answer Correctness', 'Answer Relevancy']
 
         # Create figure
         fig, ax = plt.subplots(figsize=figsize)
@@ -189,15 +189,15 @@ def generate_difference_heatmap(df: pd.DataFrame,
             logger.warning(f"Baseline configuration '{baseline_config}' not found")
             return plt.figure()
 
-        baseline_values = baseline_row[['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']].iloc[0]
+        baseline_values = baseline_row[['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']].iloc[0]
 
         # Calculate differences
-        diff_data = df.set_index('Configuration')[['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']].copy()
+        diff_data = df.set_index('Configuration')[['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']].copy()
         for col in diff_data.columns:
             diff_data[col] = diff_data[col] - baseline_values[col]
 
         # Rename columns
-        diff_data.columns = ['Faithfulness', 'Context Recall', 'Context Relevance', 'Answer Relevancy']
+        diff_data.columns = ['Faithfulness', 'Context Recall', 'Answer Correctness', 'Answer Relevancy']
 
         # Create figure
         fig, ax = plt.subplots(figsize=figsize)

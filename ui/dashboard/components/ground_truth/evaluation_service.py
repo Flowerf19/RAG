@@ -40,11 +40,11 @@ class GroundTruthEvaluationService:
                 # Create comparison table
                 summary = ragas_result.get('summary', {})
                 comparison_data = {
-                    'Metric': ['Faithfulness', 'Context Recall', 'Context Relevance', 'Answer Relevancy'],
+                    'Metric': ['Faithfulness', 'Context Recall', 'Answer Correctness', 'Answer Relevancy'],
                     'Score': [
                         f"{summary.get('faithfulness', 0):.4f}",
                         f"{summary.get('context_recall', 0):.4f}",
-                        f"{summary.get('context_relevance', 0):.4f}",
+                        f"{summary.get('answer_correctness', 0):.4f}",
                         f"{summary.get('answer_relevancy', 0):.4f}"
                     ]
                 }
@@ -53,7 +53,7 @@ class GroundTruthEvaluationService:
                 st.table(comparison_df)
 
                 # Detailed metrics tabs
-                tab1, tab2, tab3, tab4, tab5 = st.tabs(["Faithfulness", "Context Recall", "Context Relevance", "Answer Relevancy", "Visualizations"])
+                tab1, tab2, tab3, tab4, tab5 = st.tabs(["Faithfulness", "Context Recall", "Answer Correctness", "Answer Relevancy", "Visualizations"])
 
                 with tab1:
                     st.metric("Faithfulness", f"{summary.get('faithfulness', 0):.4f}")
@@ -64,8 +64,8 @@ class GroundTruthEvaluationService:
                     st.write("Context Recall measures how much of the ground truth information is covered by the retrieved context.")
 
                 with tab3:
-                    st.metric("Context Relevance", f"{summary.get('context_relevance', 0):.4f}")
-                    st.write("Context Relevance measures how relevant the retrieved context is to the question.")
+                    st.metric("Answer Correctness", f"{summary.get('answer_correctness', 0):.4f}")
+                    st.write("Answer Correctness measures the correctness of the generated answer.")
 
                 with tab4:
                     st.metric("Answer Relevancy", f"{summary.get('answer_relevancy', 0):.4f}")

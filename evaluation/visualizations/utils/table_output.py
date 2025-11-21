@@ -36,7 +36,7 @@ def generate_metrics_table(df: pd.DataFrame,
 
         # Format numeric columns to 4 decimal places
         formatted_df = df.copy()
-        numeric_cols = ['Faithfulness', 'Context_Recall', 'Context_Relevance', 'Answer_Relevancy']
+        numeric_cols = ['Faithfulness', 'Context_Recall', 'Answer_Correctness', 'Answer_Relevancy']
         for col in numeric_cols:
             if col in formatted_df.columns:
                 formatted_df[col] = formatted_df[col].round(4)

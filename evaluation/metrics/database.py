@@ -35,6 +35,7 @@ class MetricsDB:
                     latency REAL,
                     faithfulness REAL,
                     relevance REAL,
+                    answer_correctness REAL,
                     recall REAL,
                     error BOOLEAN DEFAULT FALSE,
                     error_message TEXT,
@@ -120,6 +121,10 @@ class MetricsDB:
                 conn.execute("ALTER TABLE ground_truth_qa ADD COLUMN relevance REAL")
             except sqlite3.OperationalError:
                 pass
+            try:
+                conn.execute("ALTER TABLE ground_truth_qa ADD COLUMN answer_correctness REAL")
+            except sqlite3.OperationalError:
+                pass
             # Add new columns if they don't exist (migration)
             try:
                 conn.execute("ALTER TABLE metrics ADD COLUMN embedder_model TEXT")
@@ -159,6 +164,10 @@ class MetricsDB:
                 pass  # Column already exists
             try:
                 conn.execute("ALTER TABLE metrics ADD COLUMN recall REAL")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+            try:
+                conn.execute("ALTER TABLE metrics ADD COLUMN answer_correctness REAL")
             except sqlite3.OperationalError:
                 pass  # Column already exists
             conn.commit()
@@ -258,6 +267,7 @@ class MetricsDB:
                       latency: Optional[float] = None,
                       faithfulness: Optional[float] = None,
                       relevance: Optional[float] = None,
+                      answer_correctness: Optional[float] = None,
                       recall: Optional[float] = None,
                       error: bool = False,
                       error_message: Optional[str] = None,
@@ -290,6 +300,7 @@ class MetricsDB:
                 'latency': latency,
                 'faithfulness': faithfulness,
                 'relevance': relevance,
+                'answer_correctness': answer_correctness,
                 'recall': recall,
                 'error': error,
                 'error_message': error_message,
@@ -305,10 +316,10 @@ class MetricsDB:
             cursor = conn.execute("""
                 INSERT INTO metrics (
                     timestamp, query, model, embedder_model, llm_model, reranker_model,
-                    query_enhanced, latency, faithfulness, relevance, recall, error,
+                    query_enhanced, latency, faithfulness, relevance, answer_correctness, recall, error,
                     error_message, metadata, total_tokens, retrieval_chunks, embedding_tokens,
                     reranking_tokens, llm_tokens
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 data['timestamp'],
                 data['query'],
@@ -320,6 +331,7 @@ class MetricsDB:
                 data['latency'],
                 data['faithfulness'],
                 data['relevance'],
+                data.get('answer_correctness'),
                 data['recall'],
                 data['error'],
                 data['error_message'],
@@ -666,6 +678,7 @@ class MetricsDB:
         rouge_l: float | None = None,
         faithfulness: float | None = None,
         relevance: float | None = None,
+        answer_correctness: float | None = None,
     ) -> None:
         """Update a ground_truth_qa row with RAG evaluation results."""
         if evaluated_at is None:
@@ -701,6 +714,8 @@ class MetricsDB:
                 update_cols.append(('faithfulness', float(faithfulness)))
             if relevance is not None:
                 update_cols.append(('relevance', float(relevance)))
+            if answer_correctness is not None:
+                update_cols.append(('answer_correctness', float(answer_correctness)))
 
             set_clause = ", ".join([f"{col} = ?" for col, _ in update_cols])
             params = [val for _, val in update_cols]

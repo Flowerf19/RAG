@@ -9,7 +9,7 @@ with Gemini LLM for evaluation metrics.
 Supported Metrics:
 - faithfulness: Measures how faithful the answer is to the context
 - context_recall: Measures how much of the ground truth is covered by the context
-- context_relevancy: Measures how relevant the context is to the question
+- answer_correctness: Measures how correct the answer is compared to the ground truth
 
 Usage:
     from evaluation.backend_dashboard.ragas_evaluator import RagasEvaluator
@@ -25,14 +25,17 @@ Usage:
 
 import os
 import logging
+import json
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import time
 
 from ragas import evaluate
-from ragas.metrics import faithfulness, context_recall, ContextRelevance, AnswerRelevancy
+from ragas.metrics import faithfulness, context_recall, AnswerRelevancy
+from ragas.metrics.collections import AnswerCorrectness
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
+from ragas.run_config import RunConfig
 from datasets import Dataset
 
 # Conditional imports for different LLM providers
@@ -56,7 +59,7 @@ class RagasEvaluationResult:
     """Container for Ragas evaluation results."""
     faithfulness: float
     context_recall: float
-    context_relevance: float
+    answer_correctness: float
     answer_relevancy: float
     question: str
     answer: str
@@ -128,21 +131,32 @@ class RagasEvaluator:
         self.ragas_embeddings = LangchainEmbeddingsWrapper(self.embeddings)
 
         # Configure evaluation metrics
-        self.context_relevance = ContextRelevance()
         self.answer_relevancy = AnswerRelevancy()
         
-        self.metrics = [
-            faithfulness,
-            context_recall,
-            self.context_relevance,
-            self.answer_relevancy,
-        ]
+        if llm_provider == 'ollama':
+            # For Ollama, skip AnswerCorrectness as it requires modern InstructorLLM
+            self.answer_correctness = None
+            self.metrics = [
+                faithfulness,
+                context_recall,
+                self.answer_relevancy,
+            ]
+        else:
+            # For Gemini and other providers, include AnswerCorrectness
+            self.answer_correctness = AnswerCorrectness(embeddings=self.ragas_embeddings)
+            self.metrics = [
+                faithfulness,
+                context_recall,
+                self.answer_correctness,
+                self.answer_relevancy,
+            ]
 
         # Set LLM for metrics that need it
         faithfulness.llm = self.ragas_llm
         context_recall.llm = self.ragas_llm
-        self.context_relevance.llm = self.ragas_llm
         self.answer_relevancy.llm = self.ragas_llm
+        if self.answer_correctness:
+            self.answer_correctness.llm = self.ragas_llm
 
         logger.info(f"RagasEvaluator initialized with {llm_provider.upper()} LLM ({self.model_name})")
 
@@ -177,25 +191,49 @@ class RagasEvaluator:
             # Create dataset
             dataset = Dataset.from_dict(data)
 
-            # Run evaluation
-            logger.info(f"Evaluating question: {question[:50]}...")
-            results = evaluate(
-                dataset=dataset,
-                metrics=self.metrics,
-                llm=self.ragas_llm,
-                embeddings=self.ragas_embeddings
+            # Run evaluation with custom timeout for Ollama
+            run_config = RunConfig(
+                timeout=600,  # 10 minutes timeout for Ollama
+                max_retries=5,  # Reduce retries to avoid long waits
+                max_workers=4  # Reduce workers to be more conservative
             )
+            
+            logger.info(f"Evaluating question: {question[:50]}... (timeout: {run_config.timeout}s, workers: {run_config.max_workers})")
+            try:
+                results = evaluate(
+                    dataset=dataset,
+                    metrics=self.metrics,
+                    llm=self.ragas_llm,
+                    embeddings=self.ragas_embeddings,
+                    run_config=run_config,
+                    raise_exceptions=False  # Don't raise on individual metric failures
+                )
+            except Exception as eval_error:
+                logger.error(f"Ragas evaluation failed for question: {question[:50]}... Error: {str(eval_error)}")
+                raise
 
             # Extract scores
             faithfulness_score = float(results['faithfulness'][0])
             context_recall_score = float(results['context_recall'][0])
-            context_relevance_score = float(results['nv_context_relevance'][0])
+
+            # Robust lookup for AnswerCorrectness under variant keys (only if metric is available)
+            answer_correctness_score = 0.0
+            if self.answer_correctness:
+                possible_ac_keys = ['answer_correctness', 'nv_answer_correctness', 'AnswerCorrectness', 'nv_answer_correctness_mean']
+                for k in possible_ac_keys:
+                    if k in results:
+                        try:
+                            answer_correctness_score = float(results[k][0])
+                            break
+                        except Exception:
+                            continue
+
             answer_relevancy_score = float(results['answer_relevancy'][0])
 
             result = RagasEvaluationResult(
                 faithfulness=faithfulness_score,
                 context_recall=context_recall_score,
-                context_relevance=context_relevance_score,
+                answer_correctness=answer_correctness_score,
                 answer_relevancy=answer_relevancy_score,
                 question=question,
                 answer=answer,
@@ -205,7 +243,7 @@ class RagasEvaluator:
 
             logger.info(f"Evaluation complete - Faithfulness: {faithfulness_score:.3f}, "
                        f"Context Recall: {context_recall_score:.3f}, "
-                       f"Context Relevance: {context_relevance_score:.3f}, "
+                       f"{'Answer Correctness: {:.3f}, '.format(answer_correctness_score) if self.answer_correctness else ''}"
                        f"Answer Relevancy: {answer_relevancy_score:.3f}")
 
             return result
@@ -290,7 +328,8 @@ class RagasBackendDashboard(BackendDashboard):
             evaluation_data = {
                 'faithfulness': result.faithfulness,
                 'context_recall': result.context_recall,
-                'context_relevancy': result.context_relevancy,
+                'answer_correctness': result.answer_correctness,
+                'answer_relevancy': result.answer_relevancy,
                 'question': result.question,
                 'answer': result.answer,
                 'contexts': result.contexts,
@@ -299,17 +338,20 @@ class RagasBackendDashboard(BackendDashboard):
             }
 
             if save_to_db:
-                # Save to database (reuse existing save method)
-                self.save_evaluation_result(
-                    question=result.question,
-                    answer=result.answer,
-                    contexts=result.contexts,
-                    ground_truth=result.ground_truth,
-                    faithfulness=result.faithfulness,
-                    context_recall=result.context_recall,
-                    context_relevancy=result.context_relevancy,
-                    evaluation_type='ragas'
-                )
+                # Save to database
+                try:
+                    meta = {'evaluation_type': 'ragas'}
+                    self.db.insert_metric(
+                        query=result.question,
+                        model='ragas',
+                        faithfulness=result.faithfulness,
+                        relevance=result.answer_relevancy,
+                        answer_correctness=result.answer_correctness,
+                        recall=result.context_recall,
+                        metadata=json.dumps(meta),
+                    )
+                except Exception:
+                    logger.exception('Failed to save ragas evaluation to DB')
 
             logger.info("Ragas evaluation completed and saved to database")
             return evaluation_data
@@ -371,4 +413,4 @@ if __name__ == "__main__":
     print("Evaluation Results:")
     print(f"Faithfulness: {result.faithfulness:.3f}")
     print(f"Context Recall: {result.context_recall:.3f}")
-    print(f"Context Relevancy: {result.context_relevancy:.3f}")
+    print(f"Answer Correctness: {result.answer_correctness:.3f}")

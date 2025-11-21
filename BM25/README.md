@@ -22,7 +22,8 @@ pip install -r requirements.txt
 
 # Install spaCy models for keyword extraction
 python -c "import spacy; spacy.cli.download('en_core_web_sm')"
-python -c "import spacy; spacy.cli.download('vi_core_news_lg')"
+pip install spacy-udpipe
+python -c "import spacy_udpipe; spacy_udpipe.download('vi')"
 ```
 
 ### Basic Usage
@@ -170,7 +171,7 @@ python -m pytest test/bm25/ -v
 
 ### Implementation Notes
 - Whoosh library required (add to requirements.txt)
-- spaCy models available (en_core_web_sm, vi_core_news_lg)
+- spaCy models available (en_core_web_sm, vi_udpipe)
 - UTF-8 encoding for text processing
 
 ### Key Implementation Files
@@ -214,7 +215,7 @@ python -m pytest test/bm25/ -v
   - `_load_nlp(language)` — lazy spaCy model loading
   - `_detect_language(text)` — language detection
 
-- **Supported languages**: English (en_core_web_sm), Vietnamese (vi_core_news_lg)
+- **Supported languages**: English (en_core_web_sm), Vietnamese (vi_udpipe via spaCy-UDPipe)
 
 ## 🔌 API Contract
 

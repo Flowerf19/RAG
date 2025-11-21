@@ -24,7 +24,7 @@ class SemanticChunker(BaseChunker):
     # spaCy model mapping for different languages (fallback if config not found)
     SPACY_MODEL_MAP = {
         "en": "en_core_web_sm",        # English (small)
-        "vi": "vi_core_news_lg",       # Vietnamese (large)
+        "vi": "vi_udpipe",       # Vietnamese (UDPipe fallback)
         "zh": "zh_core_web_sm",        # Chinese (small)
         "de": "de_core_news_sm",       # German (small)
         "fr": "fr_core_news_sm",       # French (small)
@@ -115,10 +115,15 @@ class SemanticChunker(BaseChunker):
             else:
                 spacy_model = "en_core_web_sm"  # Default to English for auto
             
-            # Try to load model (KHÔNG auto-download)
+            # Try to load model (KHONG auto-download)
             try:
-                import spacy
-                self._nlp = spacy.load(spacy_model)
+                if spacy_model.endswith("_udpipe"):
+                    import spacy_udpipe  # type: ignore
+                    target_lang = (self.language or "vi").split("_")[0]
+                    self._nlp = spacy_udpipe.load(target_lang)
+                else:
+                    import spacy
+                    self._nlp = spacy.load(spacy_model)
             except Exception:
                 self._nlp = None  # fallback regex
 

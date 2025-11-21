@@ -25,7 +25,8 @@ pip install -r requirements.txt
 
 # Install spaCy models
 python -c "import spacy; spacy.cli.download('en_core_web_sm')"
-python -c "import spacy; spacy.cli.download('vi_core_news_lg')"
+pip install spacy-udpipe
+python -c "import spacy_udpipe; spacy_udpipe.download('vi')"
 ```
 
 ### Basic Usage
@@ -71,7 +72,7 @@ The chunker integrates seamlessly with the RAG pipeline for automatic document p
 
 ### Supported Languages
 - **English** (`en`): en_core_web_sm
-- **Vietnamese** (`vi`): vi_core_news_lg (large model recommended)
+- **Vietnamese** (`vi`): vi_udpipe (via spaCy-UDPipe)
 - **Chinese** (`zh`): zh_core_web_sm
 - **European**: German, French, Spanish, Italian, Portuguese, Dutch, Polish
 - **Russian** (`ru`): ru_core_news_sm

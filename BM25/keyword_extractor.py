@@ -21,7 +21,7 @@ try:
 except ImportError as exc:  # pragma: no cover - handled at runtime
     raise RuntimeError(
         "spaCy is required for BM25 keyword extraction. "
-        "Install the appropriate models (e.g. en_core_web_sm, vi_core_news_lg)."
+        "Install the appropriate models (e.g. en_core_web_sm; vi via spaCy-UDPipe)."
     ) from exc
 
 # Optional language detection
@@ -40,7 +40,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LANGUAGE_MODELS: Dict[str, str] = {
     "en": "en_core_web_sm",
-    "vi": "vi_core_news_lg",
+    # Use spaCy-UDPipe for Vietnamese because official spaCy VN models are unavailable.
+    "vi": "vi_udpipe",
 }
 
 
@@ -58,6 +59,7 @@ class KeywordExtractor:
         if "en" not in self.language_models:
             self.language_models["en"] = "en_core_web_sm"
         self._nlp_cache: Dict[str, Language] = {}
+        self._noun_chunks_unavailable = set()  # track langs lacking noun_chunks
         self._accent_pattern = re.compile(r"[àáảãạăắằẳẵặâấầẩẫậđèéẻẽẹêếềểễệ"
                                           r"ìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụ"
                                           r"ưứừửữựỳýỷỹỵ]", re.IGNORECASE)
@@ -73,7 +75,18 @@ class KeywordExtractor:
         if lang not in self._nlp_cache:
             model_name = self.language_models[lang]
             logger.info("Loading spaCy model '%s' for language '%s'", model_name, lang)
-            self._nlp_cache[lang] = spacy.load(model_name, disable=("ner",))
+            if model_name.endswith("_udpipe"):
+                try:
+                    import spacy_udpipe  # type: ignore
+                except ImportError as exc:  # pragma: no cover - handled at runtime
+                    raise RuntimeError(
+                        "spaCy-UDPipe is required for Vietnamese. "
+                        "Install with: pip install spacy-udpipe && python -m spacy_udpipe download vi"
+                    ) from exc
+                # spaCy-UDPipe exposes pipelines via spacy_udpipe.load(lang_code)
+                self._nlp_cache[lang] = spacy_udpipe.load(lang)
+            else:
+                self._nlp_cache[lang] = spacy.load(model_name, disable=("ner",))
         return self._nlp_cache[lang]
 
     def detect_language(self, text: str) -> str:
@@ -122,7 +135,14 @@ class KeywordExtractor:
 
         terms = list(self._iter_token_terms(doc))
         if include_phrases:
-            terms.extend(self._iter_phrase_terms(doc))
+            try:
+                terms.extend(self._iter_phrase_terms(doc))
+            except Exception as exc:
+                # spaCy-UDPipe for vi does not implement noun_chunks; skip quietly after first warning
+                lang_key = language
+                if lang_key not in self._noun_chunks_unavailable:
+                    self._noun_chunks_unavailable.add(lang_key)
+                    logger.warning("noun_chunks not available for language '%s'; skipping noun phrases (%s)", lang_key, exc)
 
         # Preserve insertion order while removing duplicates.
         seen = set()

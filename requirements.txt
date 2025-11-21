@@ -13,6 +13,7 @@ whoosh
  
 # NLP and text processing
 spacy
+spacy-udpipe
 transformers
 torch
 sentence-transformers

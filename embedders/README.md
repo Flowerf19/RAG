@@ -45,7 +45,7 @@ The module provides unified text-to-vector conversion with support for multiple 
     - `bge3_embedder.py` — BGE-M3 embedding (1024-dim)
     - `base_ollama_embedder.py` — Base class for Ollama embedders
   - `huggingface/` — HuggingFace implementations:
-    - `hf_api_embedder.py` — HF API embedder (384-dim)
+    - `hf_api_embedder.py` — HF API embedder (1024-dim)
     - `hf_local_embedder.py` — Local HF embedder
     - `base_huggingface_embedder.py` — Base class for HF embedders
     - `token_manager.py` — HF API token management

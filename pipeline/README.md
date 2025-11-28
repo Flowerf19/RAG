@@ -216,44 +216,6 @@ Pipeline Flow:
 7) ScoreFusion → Final ranked results
 ```
 
-## Testing & Validation
-
-### Unit Tests
-```python
-# Test pipeline initialization
-pipeline = RAGPipeline(output_dir="test_data")
-assert pipeline.output_dir.exists()
-
-# Test PDF processing (mock embedder)
-result = pipeline.process_pdf("test.pdf")
-assert result["success"] == True
-assert result["chunks"] > 0
-```
-
-### Integration Tests
-```python
-# Test full pipeline with real PDF
-results = pipeline.process_directory("data/pdf")
-assert len(results) > 0
-
-# Test retrieval
-retrieval_results = retrieval.retrieve_hybrid("test query", top_k=5)
-assert len(retrieval_results) <= 5
-```
-
-## Operational Notes
-
-### Directory Structure
-```
-data/
-├── pdf/           # Input PDFs
-├── chunks/        # Text chunks
-├── embeddings/    # Embedding vectors
-├── vectors/       # FAISS indexes + metadata
-├── metadata/      # Summaries and reports
-└── cache/         # Processing cache
-```
-
 ### Embedder Configuration
 - **Ollama**: Requires running Ollama server (localhost:11434)
 - **HuggingFace API**: Needs API token, subject to rate limits

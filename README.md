@@ -290,6 +290,46 @@ Notes:
 - **Security**: indicates whether data stays local or is sent to third-party services; self-hosted rerankers keep data on-prem.
 
 
+## Dependencies
+
+Key libraries used by this project (grouped by purpose).
+
+| Package | Purpose |
+|---------|---------|
+| `streamlit` | Web UI / dashboard |
+| `pandas` | Data manipulation |
+| `numpy` | Numeric operations |
+| `requests` | HTTP requests |
+| `openpyxl` | Excel reading/writing |
+| `rich` | Console formatting/logging |
+| `ftfy` | Text fixing (encoding cleanup) |
+| `faiss-cpu` | Vector index / similarity search (FAISS) |
+| `whoosh` | BM25 / lexical indexing |
+| `spacy` | NLP tokenization / segmentation |
+| `transformers` | Model loading / HuggingFace models |
+| `torch` | Model runtime (PyTorch) |
+| `sentence-transformers` | Off-the-shelf embedding models |
+| `PyMuPDF` / `pymupdf` | PDF parsing / page extraction |
+| `pdfplumber` | PDF table extraction |
+| `pymupdf4llm` | PDF helper utilities (project-specific) |
+| `paddlepaddle` | OCR backend (PaddleOCR) |
+| `doclayout_yolo` | Layout detection for document regions |
+| `langchain` | Orchestration, LLM adapters |
+| `langchain-community` | Extra community connectors |
+| `langchain-google-genai` | Gemini / Google GenAI wrapper |
+| `langchain-ollama` | Ollama integration |
+| `langchain-openai` | OpenAI integration |
+| `langchain-text-splitters` | Text chunking helpers |
+| `openai` | OpenAI API client |
+| `google.generativeai` | Google Gemini client |
+| `pip-system-certs` | Use system certs for HTTPS |
+| `ragas` | RAG evaluation framework (used in evaluation/) |
+| `datasets` | HuggingFace datasets (evaluation) |
+| `matplotlib`, `seaborn`, `plotly` | Visualizations / charts |
+| `scikit-learn` | ML utilities and metrics |
+
+If you want, I can (a) add a short note about which packages are optional (e.g., Ollama/Gemini/OpenAI wrappers), or (b) create a minimal `requirements-core.txt` for a lightweight install.
+
 ### Environment Setup
 
 ```bash

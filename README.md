@@ -1,4 +1,4 @@
-﻿# RAGFlow — Advanced Retrieval-Augmented Generation System
+﻿﻿# RAGFlow — Advanced Retrieval-Augmented Generation System
 
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -34,13 +34,13 @@ cd RAG
 # Create virtual environment
 python -m venv .venv
 .venv\Scripts\Activate.ps1  # Windows
+source .venv/bin/activate   #linux
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Install language models
 python -c "import spacy; spacy.cli.download('en_core_web_sm')"
-python -c "import spacy; spacy.cli.download('vi_core_news_lg')"
 ```
 
 ### Basic Usage
@@ -60,6 +60,7 @@ python -c "from pipeline.rag_pipeline import RAGPipeline; RAGPipeline().process_
 3. **Launch Web Interface**:
 ```bash
 streamlit run ui/app.py
+.venv\Scripts\Activate.ps1; streamlit run ui/dashboard/app.py
 ```
 
 ##  Architecture Overview
@@ -267,6 +268,32 @@ export GOOGLE_API_KEY="your_key_here"
 # OpenAI (optional)
 export OPENAI_API_KEY="your_key_here"
 ```
+
+### API Keys Setup
+
+For full functionality, you'll need to set up API keys for various services:
+
+1. **Copy the secrets template**:
+   ```bash
+   cp .streamlit/secrets.example .streamlit/secret.toml
+   ```
+
+2. **Edit the secrets file** with your actual API keys:
+   ```toml
+   # HuggingFace API Token (required for E5-Large Multilingual embeddings via HF API)
+   HF_TOKEN = "hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+   # Google Gemini API Key (required for Gemini LLM inference)
+   gemini_api_key = "AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   ```
+
+3. **Environment Variables** (alternative to secrets.toml):
+   ```bash
+   export GOOGLE_API_KEY="your_gemini_key"
+   export HF_TOKEN="your_huggingface_token"
+   ```
+
+**⚠️ Security Note**: Never commit actual API keys to version control. The `.streamlit/secret.toml` file is already in `.gitignore`.
 
 ##  Use Cases
 

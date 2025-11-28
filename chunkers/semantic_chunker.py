@@ -24,7 +24,7 @@ class SemanticChunker(BaseChunker):
     # spaCy model mapping for different languages (fallback if config not found)
     SPACY_MODEL_MAP = {
         "en": "en_core_web_sm",        # English (small)
-        "vi": "vi_core_news_lg",       # Vietnamese (large)
+        "vi": "en_core_web_sm",       # Vietnamese (large)
         "zh": "zh_core_web_sm",        # Chinese (small)
         "de": "de_core_news_sm",       # German (small)
         "fr": "fr_core_news_sm",       # French (small)

@@ -21,7 +21,7 @@ try:
 except ImportError as exc:  # pragma: no cover - handled at runtime
     raise RuntimeError(
         "spaCy is required for BM25 keyword extraction. "
-        "Install the appropriate models (e.g. en_core_web_sm, vi_core_news_lg)."
+        "Install the appropriate models (e.g. en_core_web_sm)."
     ) from exc
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LANGUAGE_MODELS: Dict[str, str] = {
     "en": "en_core_web_sm",
-    #     "vi": "vi_core_news_lg",
+    "vi": "en_core_web_sm", #vie hien khong ho tro
 }
 
 

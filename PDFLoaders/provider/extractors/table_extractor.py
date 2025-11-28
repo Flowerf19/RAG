@@ -119,7 +119,7 @@ class TableExtractor:
                     
                     # Check if table needs OCR enhancement (many empty cells)
                     if self.ocr_extractor and fitz_page is not None:
-                        enhanced_table = self._enhance_with_ocr(filtered_table, fitz_page)
+                        enhanced_table = self._enhance_with_ocr(filtered_table, fitz_page, page_num)
                         filtered_tables.append(enhanced_table)
                     else:
                         filtered_tables.append(filtered_table)
@@ -129,7 +129,7 @@ class TableExtractor:
             logger.warning(f"Table extraction failed for page {page_num+1}: {e}")
             return []
     
-    def _enhance_with_ocr(self, table: List[List[str]], fitz_page) -> List[List[str]]:
+    def _enhance_with_ocr(self, table: List[List[str]], fitz_page, page_num: int) -> List[List[str]]:
         """
         Enhance table with OCR for empty cells (image-based tables)
         
@@ -141,6 +141,7 @@ class TableExtractor:
         Args:
             table: Original table from pdfplumber
             fitz_page: PyMuPDF page for OCR
+            page_num: Page number for OCR processing
             
         Returns:
             Enhanced table with OCR-filled cells
@@ -159,7 +160,7 @@ class TableExtractor:
         # Use OCR to fill empty cells
         try:
             # Get OCR text for the entire page
-            ocr_text = self.ocr_extractor.extract_text(fitz_page)
+            ocr_text = self.ocr_extractor.extract(fitz_page, page_num)
             
             # Simple strategy: if table is mostly empty, replace with OCR content
             # For now, append OCR text as a new row to indicate enhancement

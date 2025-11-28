@@ -1,0 +1,18 @@
+[
+  {
+    "question": "Trong pha Thực hiện (Execution), đội trưởng (TL) đảm bảo tuân thủ các quy tắc ISMS bằng cách nào?",
+    "answer": "Đảm bảo dự án và thành viên tuân thủ các quy tắc ISMS, đầu ra là báo cáo ISMS (báo cáo từ khóa).",
+    "contexts": [
+      "QMS/PR_SCM001\n3 Execution\n3.1 Execute onboard HR\nCollaborate with IT, HR\ndepartment to get necessary\nresources for project\nTL • Human\nresources\n• Project\norganization\n• Onboard plan\nOnboard training\nevaluation\nFree form\n3.2 Ensure project and members\nfollow ISMS rules\nTL • Human\nresources\n• Project\norganization\nISMS report\n(keyword report)\nFree form\nXXX-XXX\nXX -XX\nOwner : Delivery Center Company :\nService Delivery Process\nQMS/PR_SD001 Version: 1.0\n3.3 Inform to interested parties\nProcess_Service Delivery.pdf"
+    ],
+    "ground_truth": "Đảm bảo dự án và thành viên tuân thủ các quy tắc ISMS, đầu ra là báo cáo ISMS (báo cáo từ khóa)."
+  },
+  {
+    "question": "Mục đích của Quy trình Quản lý Dịch vụ (QMS/PR_SM001) là gì?",
+    "answer": "Xác định quy trình quản lý dịch vụ được áp dụng cho các dịch vụ của Công ty.",
+    "contexts": [
+      "1. INTRODUCTION\n1.1 PURPOSE\nThis document defines the service management process which is applied to The Company’s services.\n1.2 SCOPE\nThis process is used in service delivery realized at The Company.\nHowever, in a certain service, the Delivery Manager can decide whether to apply this entire process or\njust a modified version of it or leave it out. It is highly emphasized that all activities tagged as mandatory\nshall not be dropped out by team leader.\n1.3 DEFINITIONS, ACRONYMS AND ABBREVIATIONS\nProcess_Service Management.pdf"
+    ],
+    "ground_truth": "Xác định quy trình quản lý dịch vụ được áp dụng cho các dịch vụ của Công ty."
+  }
+]

@@ -8,12 +8,14 @@ from enum import Enum
 from llm.base_client import BaseLLMClient
 from llm.gemini_client import GeminiClient
 from llm.lmstudio_client import LMStudioClient
+from llm.ollama_client import OllamaClient
 
 
 class LLMProvider(Enum):
     """Enum for supported LLM providers"""
     GEMINI = "gemini"
     LMSTUDIO = "lmstudio"
+    OLLAMA = "ollama"
 
 
 class LLMClientFactory:
@@ -48,6 +50,8 @@ class LLMClientFactory:
             return GeminiClient(config)
         elif provider == LLMProvider.LMSTUDIO:
             return LMStudioClient(config)
+        elif provider == LLMProvider.OLLAMA:
+            return OllamaClient(config)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
     
@@ -138,6 +142,9 @@ class LLMClientFactory:
             provider = LLMProvider(provider_name.lower())
             return LLMClientFactory.create(provider)
         except ValueError:
+            # Provide helpful hint for 'gemma3n' users: allow 'ollama' alias
+            if provider_name.lower() in ("gemma3n", "gemma", "gemma3"):
+                return OllamaClient({"model": f"{provider_name}:latest"})
             raise ValueError(
                 f"Invalid provider name: {provider_name}. "
                 f"Valid options: {[p.value for p in LLMProvider]}"

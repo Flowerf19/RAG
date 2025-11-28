@@ -47,18 +47,10 @@ env/
 htmlcov/
 
 # Streamlit (local config, not project-specific)
-.streamlit/secrets.toml 
+.streamlit/secrets.toml
+.streamlit/secret.toml 
 
 
-# Data & Cache (Large files, generated)
-data/cache/
-data/chunks/
-data/embeddings/
-data/vectors/
-data/metadata/
-data/bm25_index/
-*.pkl
-*.json
 
 # Temporary files
 *.tmp
@@ -77,3 +69,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Database files
+*.db
+data/metrics.db
+data/

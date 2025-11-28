@@ -24,6 +24,8 @@ streamlit run ui/app.py
 # Hoặc (nếu ở trong thư mục ui/)
 streamlit run app.py
 ```
+#dashboard
+.venv\Scripts\Activate.ps1; streamlit run ui/dashboard/app.py
 
 ## 🔧 Architecture Pattern
 

@@ -22,10 +22,10 @@ pip install -r requirements.txt
 
 # Install spaCy models for keyword extraction
 python -c "import spacy; spacy.cli.download('en_core_web_sm')"
-python -c "import spacy; spacy.cli.download('vi_core_news_lg')"
+python -c "import spacy; spacy.cli.download('en_core_web_sm')"
 ```
 
-### Basic Usage
+### Basic Usages
 
 The module provides keyword-based search capabilities integrated with the RAG pipeline.
 
@@ -170,7 +170,7 @@ python -m pytest test/bm25/ -v
 
 ### Implementation Notes
 - Whoosh library required (add to requirements.txt)
-- spaCy models available (en_core_web_sm, vi_core_news_lg)
+- spaCy models available (en_core_web_sm)
 - UTF-8 encoding for text processing
 
 ### Key Implementation Files
@@ -214,7 +214,7 @@ python -m pytest test/bm25/ -v
   - `_load_nlp(language)` — lazy spaCy model loading
   - `_detect_language(text)` — language detection
 
-- **Supported languages**: English (en_core_web_sm), Vietnamese (vi_core_news_lg)
+- **Supported languages**: English (en_core_web_sm)
 
 ## 🔌 API Contract
 

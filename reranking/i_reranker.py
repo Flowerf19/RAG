@@ -42,15 +42,25 @@ class IReranker(ABC):
         pass
     
     @abstractmethod
+    def get_model_name(self) -> str:
+        """
+        Lấy tên cụ thể của reranker model đang được sử dụng.
+
+        Returns:
+            str: Model name (e.g., "bge-reranker-v2-m3", "jina-reranker-v2-base-multilingual")
+        """
+        pass
+
+    @abstractmethod
     def rerank(self, query: str, documents: List[str], top_k: int = 10) -> List[RerankResult]:
         """
         Rerank documents based on query relevance.
-        
+
         Args:
             query: Query text
             documents: List of document texts to rerank
             top_k: Number of top results to return
-            
+
         Returns:
             List of RerankResult sorted by score (highest first)
         """

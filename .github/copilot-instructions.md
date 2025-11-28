@@ -1,132 +1,45 @@
-# RAG System – AI Coding Agent Instructions
+# Copilot Instructions — RAG project (concise)
 
-LÀM ƠN HÃY CHẠY TRONG VENV .venv\Scripts\Activate.ps1
+This short guide helps AI coding agents be productive in this Retrieval-Augmented-Generation repository.
 
-## 🎯 System Architecture
-Modular RAG pipeline for PDF processing with hybrid retrieval (vector + keyword search):
+## Big picture
+Flow: `PDFLoaders` → `chunkers` → `embedders` → Vector store (FAISS) + BM25 (Whoosh) → `query_enhancement` → `retrieval_orchestrator` → `score_fusion` → `reranking` → LLM/UI → `evaluation`.
 
-**Pipeline Flow**: `PDF → PDFProvider → PDFDocument → SemanticChunker → ChunkSet → Embedder → FAISS + BM25 → Reranking → LLM`
+## Key files (jump-to examples)
+- Loaders: `PDFLoaders/provider/pdf_provider.py` (OCR, tables, multilingual hooks).
+- Chunking: `chunkers/semantic_chunker.py` — use `_aggregate_page_content()`; it reads `page.text` and avoids duplicating `page.tables`/`page.figures`.
+- Embedders: `embedders/embedder_factory.py` and `embedders/providers/*` (factory methods: `create_bge_m3()`, `create_gemma()`, etc.).
+- Pipeline: `pipeline/rag_pipeline.py` (CLI/entry), `pipeline/processing/` (chunk → embed → store).
+- Retrieval: `pipeline/retrieval/retrieval_orchestrator.py`, `pipeline/retrieval/retriever.py`, `pipeline/retrieval/score_fusion.py`.
+- BM25: `BM25/bm25_manager.py`, `BM25/whoosh_indexer.py` (index stored under `data/bm25_index/`).
+- LLM adapters: `llm/client_factory.py`, `llm/*.py` (Gemini, LMStudio, Ollama).
+- UI & evaluation: `ui/app.py` (Streamlit), `evaluation/backend_dashboard/*`.
 
-**Key Modules:**
-- **`PDFLoaders/`** - Smart PDF loading with OCR integration via `PDFProvider`
-  - Uses `PyMuPDF` (fitz) for text extraction + `PaddleOCR` for image-based PDFs
-  - Auto-detection: text-based (>50 chars/page) vs image-based PDFs
-  - Table extraction: `pdfplumber` + OCR enhancement (triggered when >30% empty cells)
-  - Figure extraction: Groups images + OCR text extraction per figure
-  - **Language mapping**: `multilingual` → `en` (PaddleOCR doesn't support `multilingual` directly)
-  - **OCR Enhancement Logic**:
-    - Tables: Appends `[OCR Supplement]` row when >30% cells empty
-    - Figures: Extracts text via PaddleOCR and stores in `figure['text']`
-  - Architecture: `PDFProvider` → `PDFDocument` (with `PageContent` list)
-- **`chunkers/`** - Semantic text segmentation using spaCy + coherence scoring
-  - `SemanticChunker`: spaCy sentence splitting + discourse marker analysis
-  - **Multi-language support**: Auto-selects spaCy model based on language (en, vi, zh, fr, de, es, etc.)
-  - **Critical**: Aggregates ALL page content (text + tables + figures) via `_aggregate_page_content()`
-  - Entity overlap + lexical overlap for coherence scoring
-  - Output: `ChunkSet` with `Chunk` objects (text + provenance + metadata)
-- **`embedders/`** - Multi-provider embeddings with factory pattern
-  - **Ollama**: Gemma (768-dim), BGE-M3 (1024-dim)
-  - **HuggingFace API**: intfloat/multilingual-e5-large (1024-dim, FREE)
-  - **HuggingFace Local**: BGE-M3 (1024-dim), E5 Large Instruct (1024-dim), E5 Base (768-dim), GTE Multilingual Base (768-dim), Paraphrase MPNet Base V2 (768-dim), Paraphrase MiniLM L12 V2 (384-dim)
-  - **Factory methods**: `create_gemma()`, `create_bge_m3()`, `create_huggingface_api()`, `create_e5_large_instruct()`, `create_e5_base()`, `create_gte_multilingual_base()`, `create_paraphrase_mpnet_base_v2()`, `create_paraphrase_minilm_l12_v2()`
-- **`pipeline/`** - RAG orchestration (organized into submodules)
-  - **`rag_pipeline.py`** (427 lines): Main orchestrator
-  - **`backend_connector.py`** (29 lines): Backward compatibility
-  - **`processing/`** - PDF and embedding processing
-    - `pdf_processor.py` (120 lines): PDF → chunks
-    - `embedding_processor.py` (196 lines): Chunks → embeddings
-  - **`storage/`** - File I/O and vector storage
-    - `file_manager.py` (181 lines): File I/O operations
-    - `vector_store.py` (114 lines): FAISS operations
-    - `summary_generator.py` (136 lines): Document summaries
-  - **`retrieval/`** - Hybrid retrieval operations
-    - `retrieval_service.py` (271 lines): Hybrid search coordination
-    - `retrieval_orchestrator.py` (271 lines): `fetch_retrieval()` flow
-    - `retriever.py` (112 lines): Vector search
-    - `score_fusion.py` (222 lines): Score normalization
-- **`query_enhancement/`** - Query expansion and preprocessing
-  - **`query_processor.py`** (110 lines): Query enhancement (QEM) + embedding fusion
-  - `qem_core.py`, `qem_strategy.py`, `qem_lm_client.py`: Core QEM logic
-- **`BM25/`** - Keyword-based retrieval
-  - **`bm25_manager.py`** (151 lines): BM25 indexing and search operations
-  - `whoosh_indexer.py`, `ingest_manager.py`, `search_service.py`: Core BM25 infrastructure
-- **`reranking/`** - Multi-provider reranking system
-  - **Stable rerankers**: BGE-M3 (Ollama/HF API/HF Local), Jina V2 Multilingual (~0.3GB), GTE Multilingual (~0.5GB), BGE Base (~0.4GB)
-  - **Factory methods**: `create_bge_m3_ollama()`, `create_bge_m3_hf_api()`, `create_bge_m3_hf_local()`, `create_jina_v2_multilingual()`, `create_gte_multilingual()`, `create_bge_base()`
-- **`evaluation/`** - Automated evaluation and metrics system
-  - **Metrics**: Latency, throughput, faithfulness, relevance scoring
-  - **Storage**: SQLite database (`metrics.db`) for performance tracking
-  - **Dashboard**: Streamlit backend dashboard for visualization
-  - **Multi-model comparison**: Automated testing across different LLM/embedder combinations
-- **`ui/`** - Streamlit UI with OOP components
-  - `app.py` (464 lines): Main Streamlit app with RAGChatApp class
-  - `components/`: ChatDisplay, SourceDisplay, Sidebar classes
-  - Dual import pattern: try/except for `python -m` vs direct execution
+## Developer workflows (Windows PowerShell examples)
+- Create env & install: `python -m venv .venv; .venv\Scripts\Activate.ps1; pip install -r requirements.txt`
+- Process PDFs (build chunks & embeddings):
+	`python -c "from pipeline.rag_pipeline import RAGPipeline; RAGPipeline().process_directory('data/pdf')"`
+- Run UI: `streamlit run ui/app.py`
+- Run evaluation quick check:
+	`python -c "from evaluation.backend_dashboard.api import BackendDashboard; BackendDashboard().evaluate_ground_truth_with_ragas(llm_provider='ollama', limit=5)"`
+- Tests: `pytest -q`
 
-# RAG — AI Coding Agent Quick Guide
+## Project-specific conventions & patterns
+- Factories: prefer `EmbedderFactory`, `LLMClientFactory`, `reranker_factory` for pluggable implementations.
+- No global state: pass configs via constructors and `pipeline/backend_connector.py`.
+- Chunking: call `_aggregate_page_content()` in `chunkers/semantic_chunker.py` to avoid duplicate content from tables/figures.
+- Embedding dimensions: switching embedders (e.g. Gemma=768 vs BGE-M3/E5=1024) requires rebuilding FAISS indexes stored in `data/vectors/`.
 
-Short, actionable notes to make an AI coding agent productive in this repo.
+## Integration points & important gotchas
+- Ollama default API: `http://localhost:11434` — ensure Ollama daemon is running before using its embedder/LLM.
+- Environment variables: `GOOGLE_API_KEY` for Gemini, `OPENAI_API_KEY` for OpenAI; LMStudio uses `base_url` in `llm/config_loader.py`.
+- BM25 index path: `data/bm25_index/` (Whoosh files). Rebuild when ingest code changes.
+- Evaluation: prefer `BackendDashboard._get_or_create_embedder()` to reuse cached embedders for speed.
+- spaCy: install models used by `BM25/keyword_extractor.py` (e.g. `en_core_web_sm`).
 
-1) Big picture (one-line): PDF → PDFLoaders → SemanticChunker → ChunkSet → Embedders → FAISS + Whoosh(BM25) → Reranker → LLM/UI
+## Quick troubleshooting pointers
+- Query flow debug: follow `query_enhancement/query_processor.py` → `pipeline/retrieval/retrieval_orchestrator.py` → `pipeline/retrieval/retriever.py` + `BM25/bm25_manager.py` → `score_fusion` → `reranker_factory`.
+- Chunker problems: inspect `chunkers/semantic_chunker.py` (sentence splitting & `_aggregate_page_content`).
+- Embedding problems: check `embedders/providers/*` and `pipeline/processing/embedding_processor.py`.
 
-2) Key directories & representative files (use these to find behavior):
-   - `PDFLoaders/` — `pdf_provider.py` (OCR heuristics, page aggregation)
-   - `chunkers/` — `semantic_chunker.py`, `model/chunk.py` (chunk creation + provenance)
-   - `embedders/` — `embedder_factory.py`, `embedder_type.py` (provider factory; Gemma 768 vs BGE-M3 1024)
-   - `pipeline/` — **ORGANIZED** into submodules:
-     - `rag_pipeline.py` (427 lines) - Main orchestrator
-     - `backend_connector.py` (29 lines) - Backward compat
-     - `processing/` - `pdf_processor.py` (120), `embedding_processor.py` (196)
-     - `storage/` - `file_manager.py` (181), `vector_store.py` (114), `summary_generator.py` (136)
-     - `retrieval/` - `retrieval_service.py` (271), `retrieval_orchestrator.py` (271), `retriever.py` (112), `score_fusion.py` (222)
-   - `query_enhancement/` — Query expansion module (moved to root)
-     - `query_processor.py` (110 lines) - QEM + embedding fusion
-     - `qem_core.py`, `qem_strategy.py`, `qem_lm_client.py` - QEM logic
-   - `BM25/` — `bm25_manager.py` (151 lines), `whoosh_indexer.py`, `ingest_manager.py` (BM25 indexing & cache: `data/cache/bm25_chunk_cache.json`)
-   - `reranking/` — `reranker_factory.py` (stable rerankers: BGE-M3, Jina V2, GTE, BGE Base)
-   - `evaluation/` — `example_usage.py`, `metrics/`, `backend_dashboard/` (automated evaluation with SQLite metrics.db)
-   - `ui/` — `app.py`, `components/` (Streamlit UI with OOP components)
-   - `llm/` — `client_factory.py`, `base_client.py`, `gemini_client.py` (LLM abstraction with factory pattern)
-
-3) Developer workflows & commands (Windows PowerShell):
-   - create env & install: `python -m venv .venv; .venv\Scripts\Activate.ps1; pip install -r requirements.txt`
-   - process PDFs to vectors/BM25: `python -c "from pipeline.rag_pipeline import RAGPipeline; RAGPipeline().process_directory('data/pdf')"`
-   - run UI: `streamlit run ui/app.py` (open http://localhost:8501)
-   - ⚠️ deprecated: `streamlit run llm/LLM_FE.py` (use `ui/app.py` instead)
-   - test single PDF: `python -c "from pipeline.rag_pipeline import RAGPipeline; p = RAGPipeline(); p.process_pdf('path/to/file.pdf')"`
-   - test embedders: `python test_new_embedders.py` (validates 5 new multilingual embedders)
-   - run evaluation: `python evaluation/example_usage.py` (automated RAG evaluation)
-   - evaluation dashboard: `streamlit run ui/dashboard/app.py` (metrics visualization)
-
-4) Project-specific conventions to follow exactly:
-   - Single responsibility: loaders = extraction only; chunkers = text → chunks only; embedders = chunk → vector only; retriever = search only; UI = rendering only; LLM = model calling only.
-   - Aggregation: chunkers must call `_aggregate_page_content()` to include `page.text`, `page.tables`, and `page.figures` (see `semantic_chunker.py`).
-   - Factory & constructor injection: prefer factory methods (in `embedders/`, `llm/client_factory.py`) and pass configs via constructors — avoid global state.
-   - OOP components: UI components (in `ui/components/`) are classes; LLM clients inherit from `BaseLLMClient`; use polymorphism and dependency injection.
-   - Dual import pattern: modules support `python -m` vs direct import; use the try/except import style shown in `ui/app.py`.
-   - Graceful degradation: optional providers (BM25, Ollama) are wrapped in try/except; check for None before use (see `pipeline/backend_connector.py`).
-
-5) Integration points & gotchas:
-   - Ollama (local) endpoint: http://localhost:11434 — verify before embedding.
-   - Embedding dimensions mismatch: Gemma=768, BGE-M3/E5=1024 → rebuild indexes when switching providers.
-   - FAISS storage: `.faiss` + `.pkl` metadata in `data/vectors/`. Whoosh index in `data/bm25_index/` (watch `MAIN_WRITELOCK`).
-   - spaCy models required (install `en_core_web_sm`, `vi_core_news_lg` when needed).
-   - **Logging configuration**: `logging.basicConfig()` must be called BEFORE importing modules that create loggers (see `pipeline/rag_pipeline.py`).
-   - **Table filtering**: Enhanced false positive detection removes header tables, watermarks, and non-content tables (reduces chunks by ~50% in document PDFs)
-   - **Embedder fallback**: Pipeline continues with zero vectors if embedder unavailable (graceful degradation).
-   - **Evaluation metrics**: SQLite `metrics.db` stores latency, throughput, faithfulness, relevance scores for model comparison.
-
-6) Quick pointers for search & rerank flow (use these files to trace behavior):
-   - query enhancement: `query_enhancement/query_processor.py` (uses QEM core)
-   - embedding fusion: `query_processor.py` → `fuse_query_embeddings()`
-   - hybrid retrieval: `pipeline/retrieval_service.py` → `retrieve_hybrid()` (calls vector + BM25, merges via `score_fusion.py`)
-   - score merging: `pipeline/score_fusion.py` → `merge_vector_and_bm25()` (z-score normalization)
-   - orchestration: `pipeline/retrieval_orchestrator.py` → `fetch_retrieval()` (QEM → embed → search → rerank)
-   - reranking: `reranking/reranker_factory.py` returns rerankers used in `retrieval_orchestrator.py`
-   - evaluation: `evaluation/example_usage.py` for automated testing, `evaluation/backend_dashboard/` for metrics visualization
-
----
-Updated: Added 5 new multilingual embedders, stable reranker lineup, and evaluation framework. Reply with which sections to expand or any unclear/missing integrations to include.
-
----
-Updated: concise guide with file pointers and commands. Reply with which sections to expand or any missing integrations to include.
+If you'd like, I can (1) run `pytest -q`, (2) regenerate FAISS vectors when switching embedders, or (3) add more examples for common edits. Tell me which next.

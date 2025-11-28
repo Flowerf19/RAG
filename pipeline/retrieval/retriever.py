@@ -30,6 +30,15 @@ class Retriever:
             embedder: Embedder instance for query encoding
         """
         self.embedder = embedder
+        # Cache for loaded FAISS indexes to avoid reloading on every query
+        self._faiss_cache: Dict[str, tuple[faiss.Index, Dict[int, Dict[str, Any]]]] = {}
+
+    def clear_cache(self) -> None:
+        """
+        Clear the FAISS index cache. Call this when indexes are rebuilt.
+        """
+        self._faiss_cache.clear()
+        logger.info("Cleared FAISS index cache")
 
     def search_similar(
         self,
@@ -53,8 +62,15 @@ class Retriever:
         Returns:
             List of similar chunks with metadata and cosine similarity scores
         """
-        # Load FAISS index and metadata
-        index, metadata_map = self._load_index_and_metadata(faiss_file, metadata_map_file)
+        # Load FAISS index and metadata (with caching)
+        cache_key = f"{faiss_file}:{metadata_map_file}"
+        if cache_key not in self._faiss_cache:
+            index, metadata_map = self._load_index_and_metadata(faiss_file, metadata_map_file)
+            self._faiss_cache[cache_key] = (index, metadata_map)
+            logger.debug("Loaded FAISS index from disk: %s", faiss_file)
+        else:
+            index, metadata_map = self._faiss_cache[cache_key]
+            logger.debug("Using cached FAISS index: %s", faiss_file)
 
         # Generate or reuse query embedding and normalize
         if query_embedding is None:
@@ -90,7 +106,10 @@ class Retriever:
         results.sort(key=lambda x: x["similarity_score"], reverse=True)
 
         log_query = query_text or "<embedding>"
-        logger.info("Similarity search completed: %d result(s) for query %s", len(results), log_query)
+        # Use DEBUG level here to avoid noisy INFO logs for each index when
+        # multiple FAISS indexes are searched. The orchestrator will emit a
+        # consolidated INFO-level summary instead.
+        logger.debug("Similarity search completed: %d result(s) for query %s", len(results), log_query)
         return results
 
     def _load_index_and_metadata(self, faiss_file: Path, metadata_map_file: Path) -> tuple[faiss.Index, Dict[int, Dict[str, Any]]]:

@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import time
 from typing import Any, Dict, List, Optional
+import threading
 
 from embedders.embedder_type import EmbedderType
 from pipeline.rag_pipeline import RAGPipeline
@@ -19,7 +20,8 @@ from query_enhancement.query_processor import create_query_processor
 # Import evaluation components
 try:
     from evaluation.metrics.logger import EvaluationLogger
-    from evaluation.evaluators.auto_evaluator import AutoEvaluator
+    from evaluation.evaluators.auto_evaluator import AutoEvaluator  # noqa: F401
+    from evaluation.metrics.token_counter import token_counter
     _EVALUATION_AVAILABLE = True
 except ImportError:
     _EVALUATION_AVAILABLE = False
@@ -32,16 +34,20 @@ logger = logging.getLogger(__name__)
 # Global cache for pipeline instances to avoid reloading models
 _PIPELINE_CACHE: Dict[str, RAGPipeline] = {}
 
+# Lock to prevent concurrent pipeline initializations (double-checked locking)
+_PIPELINE_LOCK = threading.Lock()
+
 
 def fetch_retrieval(
     query_text: str,
-    top_k: int = 5,
+    top_k: int = 10,
     max_chars: int = 8000,
     embedder_type: str = "ollama",
     reranker_type: str = "none",
     use_query_enhancement: bool = True,
     api_tokens: Optional[Dict[str, str]] = None,
     llm_model: Optional[str] = None,
+    evaluate_response: bool = False,  # Disabled by default - evaluation should happen in dedicated methods
 ) -> Dict[str, Any]:
     """
     Enhanced retrieval function combining query enhancement and reranking.
@@ -57,6 +63,7 @@ def fetch_retrieval(
         use_query_enhancement: Whether to use query enhancement module
         api_tokens: Dict of API tokens for rerankers (keys: "hf", "cohere", "jina")
         llm_model: LLM model name for evaluation logging (e.g., "gemini", "lmstudio")
+        evaluate_response: DISABLED - Response evaluation should happen in dedicated evaluation methods
 
     Returns:
         Dict with keys: "context" (str), "sources" (list), "queries" (list), "retrieval_info" (dict)
@@ -64,23 +71,29 @@ def fetch_retrieval(
     start_time = time.time() if _EVALUATION_AVAILABLE else None
 
     try:
-        logger.info(f"📥 Received query: {query_text[:100]}...")
+        logger.info(f"[RECEIVED] Received query: {query_text[:100]}...")
 
         # Setup embedder
         embedder_enum, use_api = _parse_embedder_type(embedder_type)
 
-        # Initialize pipeline with caching
+        # Initialize pipeline with caching (thread-safe double-checked locking)
         cache_key = f"{embedder_enum.value}_{use_api}_{embedder_type}"
+
         if cache_key not in _PIPELINE_CACHE:
-            logger.info(
-                f"🔄 Creating new pipeline instance for {cache_key} (first time may take 30-60s)"
-            )
-            _PIPELINE_CACHE[cache_key] = RAGPipeline(
-                embedder_type=embedder_enum, hf_use_api=use_api
-            )
-            logger.info(f"✅ Pipeline cached for {cache_key}")
+            # Acquire lock so only one thread/process in this interpreter creates the pipeline
+            with _PIPELINE_LOCK:
+                if cache_key not in _PIPELINE_CACHE:
+                    logger.info(
+                        f"[CREATING] Creating new pipeline instance for {cache_key} (first time may take 30-60s)"
+                    )
+                    _PIPELINE_CACHE[cache_key] = RAGPipeline(
+                        embedder_type=embedder_enum, hf_use_api=use_api
+                    )
+                    logger.info(f"[CACHED] Pipeline cached for {cache_key}")
         else:
-            logger.info(f"♻️ Using cached pipeline for {cache_key}")
+            logger.info(f"[USING] Using cached pipeline for {cache_key}")
+
+        pipeline = _PIPELINE_CACHE[cache_key]
 
         pipeline = _PIPELINE_CACHE[cache_key]
         
@@ -101,25 +114,32 @@ def fetch_retrieval(
             elif embedder_type.lower() == "paraphrase_minilm_l12_v2":
                 pipeline.embedder = factory.create_paraphrase_minilm_l12_v2(device="cpu")
             
-            logger.info(f"✅ Switched to {embedder_type} embedder")
+            logger.info(f"[SWITCHED] Switched to {embedder_type} embedder")
 
         retriever = RAGRetrievalService(pipeline)
 
         # Query Enhancement
         query_processor = create_query_processor(use_query_enhancement, pipeline.embedder)
         expanded_queries = query_processor.enhance_query(query_text, use_query_enhancement)
+        logger.info(f"Expanded queries: {expanded_queries}")
 
         # Create fused embedding
-        logger.info(f"🔍 Embedding {len(expanded_queries)} queries...")
+        logger.info(f"[EMBEDDING] Embedding {len(expanded_queries)} queries...")
         fused_embedding = query_processor.fuse_query_embeddings(expanded_queries)
         bm25_query = " ".join(expanded_queries).strip()
-        logger.info("✅ Query embeddings created")
+        logger.info("[EMBEDDING] Query embeddings created")
 
         # Hybrid retrieval - get more results for potential reranking
         retrieval_top_k = top_k * 5 if reranker_type != "none" else top_k
         logger.info(
             f"📚 Searching documents (retrieving top {retrieval_top_k} candidates)..."
         )
+
+        # Determine number of index pairs that will be searched for a helpful
+        # consolidated log message. `RAGRetrievalService.get_all_index_pairs`
+        # lists available FAISS indexes.
+        index_pairs = retriever.get_all_index_pairs()
+        num_indexes = len(index_pairs)
 
         results = retriever.retrieve_hybrid(
             query_text=query_text,
@@ -138,6 +158,10 @@ def fetch_retrieval(
             if _EVALUATION_AVAILABLE:
                 latency = time.time() - start_time if start_time else 0
                 eval_logger = EvaluationLogger()
+                
+                # Get specific model names
+                embedder_specific = getattr(pipeline.embedder, 'get_model_name', lambda: None)() if pipeline.embedder else None
+                
                 eval_logger.log_evaluation(
                     query=query_text,
                     model=llm_model or f"{embedder_type}_{reranker_type}",
@@ -147,18 +171,34 @@ def fetch_retrieval(
                     embedder_model=embedder_type,
                     llm_model=llm_model,
                     reranker_model=reranker_type,
-                    query_enhanced=use_query_enhancement
+                    embedder_specific_model=embedder_specific,
+                    llm_specific_model=llm_model,  # LLM model name is already specific
+                    reranker_specific_model=None,  # No reranker used
+                        query_enhanced=use_query_enhancement,
+                        embedding_tokens=0,
+                        reranking_tokens=0,
+                        llm_tokens=0,
+                        total_tokens=0,
+                        retrieval_chunks=0,
+                        metadata={'evaluation_type': 'retrieval'}
                 )
 
             return empty_response
 
         initial_count = len(results)
-        logger.info(f"Retrieved {initial_count} results from hybrid search")
+        # Consolidated info-level log: number of indexes searched and total
+        # merged results. This replaces multiple per-index INFO logs.
+        logger.info(
+            "Hybrid retrieval completed: searched %d index(es), merged %d result(s)",
+            num_indexes,
+            initial_count,
+        )
 
         # Apply reranking if specified
         reranked = False
+        reranker_obj = None
         if reranker_type and reranker_type != "none":
-            results, reranked = _apply_reranking(
+            results, reranked, reranker_obj = _apply_reranking(
                 results, query_text, reranker_type, top_k, initial_count, api_tokens
             )
         else:
@@ -172,23 +212,74 @@ def fetch_retrieval(
         if _EVALUATION_AVAILABLE:
             latency = time.time() - start_time if start_time else 0
 
-            # Evaluate response quality
-            evaluator = AutoEvaluator(embedder=pipeline.embedder)
-            faithfulness, relevance = evaluator.evaluate_response(query_text, context, context)
+            # Track tokens used in different operations
+            embedding_tokens = 0
+            reranking_tokens = 0
+            llm_tokens = 0
 
-            # Log evaluation
+            try:
+                # Count embedding tokens (query + expanded queries)
+                embedding_texts = [query_text] + expanded_queries
+                embedding_tokens = sum(token_counter.count_tokens(text, embedder_type) for text in embedding_texts)
+                logger.info(f"Embedding tokens counted: {embedding_tokens}")
+
+                # Count reranking tokens if reranking was used
+                if reranked:
+                    # Approximate reranking tokens (query + top candidates)
+                    reranking_texts = [query_text] + [result.get('text', '')[:500] for result in results[:top_k]]
+                    reranking_tokens = sum(token_counter.count_tokens(text, 'default') for text in reranking_texts)
+                    logger.info(f"Reranking tokens counted: {reranking_tokens}")
+
+                # Count LLM tokens for evaluation (if LLM evaluation is used)
+                if llm_model:
+                    eval_texts = [query_text, context, context]  # query, answer, context for evaluation
+                    llm_tokens = sum(token_counter.count_tokens(text, llm_model) for text in eval_texts)
+                    logger.info(f"LLM tokens counted: {llm_tokens}")
+
+            except Exception as e:
+                logger.error(f"Error counting tokens: {e}")
+                # Continue with zero token counts
+
+            # No joined_sources needed at retrieval-level; skip assigning unused variable
+
+            # NOTE: Response quality evaluation should be done in dashboard modules where
+            # actual LLM responses and ground truth are available. The current evaluation
+            # incorrectly uses retrieval context as "answer" and compares it against itself.
+            # Faithfulness/relevance scores are inflated, and recall is always None.
+            # DISABLED: Evaluation should only happen in dedicated evaluation methods
+            # if evaluate_response:
+            #     evaluator = AutoEvaluator(embedder=pipeline.embedder)
+            #     # We don't use the results since they're set to None in logging anyway
+            #     evaluator.evaluate_response(query_text, context, joined_sources)
+
+            # Log evaluation with token counts
             eval_logger = EvaluationLogger()
+            
+            # Get specific model names
+            embedder_specific = getattr(pipeline.embedder, 'get_model_name', lambda: None)() if pipeline.embedder else None
+            reranker_specific = getattr(reranker_obj, 'get_model_name', lambda: None)() if reranker_obj else None
+            
             eval_logger.log_evaluation(
                 query=query_text,
                 model=llm_model or f"{embedder_type}_{reranker_type}",
                 latency=latency,
-                faithfulness=faithfulness,
-                relevance=relevance,
+                faithfulness=None,  # Not evaluated at retrieval level - use dedicated faithfulness evaluation
+                relevance=None,     # Not evaluated at retrieval level - use dedicated relevance evaluation  
+                recall=None,        # Not evaluated at retrieval level - use dedicated recall evaluation
                 error=False,
                 embedder_model=embedder_type,
                 llm_model=llm_model,
                 reranker_model=reranker_type,
-                query_enhanced=use_query_enhancement
+                embedder_specific_model=embedder_specific,
+                llm_specific_model=llm_model,  # LLM model name is already specific
+                reranker_specific_model=reranker_specific,
+                query_enhanced=use_query_enhancement,
+                embedding_tokens=embedding_tokens,
+                reranking_tokens=reranking_tokens,
+                llm_tokens=llm_tokens,
+                total_tokens=embedding_tokens + reranking_tokens + llm_tokens,
+                retrieval_chunks=initial_count,
+                metadata={'evaluation_type': 'retrieval'}
             )
 
         return {
@@ -309,7 +400,7 @@ def _apply_reranking(
     top_k: int,
     initial_count: int,
     api_tokens: Optional[Dict[str, str]],
-) -> tuple[List[Dict[str, Any]], bool]:
+) -> tuple[List[Dict[str, Any]], bool, Optional[Any]]:
     """
     Apply reranking to results if reranker is specified.
     
@@ -322,11 +413,10 @@ def _apply_reranking(
         api_tokens: API tokens for rerankers
         
     Returns:
-        Tuple of (reranked results, reranked flag)
+        Tuple of (reranked results, reranked flag, reranker object)
     """
     try:
         from reranking.reranker_factory import RerankerFactory
-        from reranking.reranker_type import RerankerType
 
         # Map reranker_type string to enum
         reranker_enum = _parse_reranker_type(reranker_type)
@@ -355,15 +445,15 @@ def _apply_reranking(
             logger.info(
                 f"Applied {reranker_type} reranking: {initial_count} -> {len(results)} results"
             )
-            return results, True
+            return results, True, reranker
 
     except Exception as e:
         logger.warning(
             f"Reranking failed ({reranker_type}): {e}. Using top {top_k} from original results."
         )
-        return results[:top_k], False
+        return results[:top_k], False, None
 
-    return results[:top_k], False
+    return results[:top_k], False, None
 
 
 def _parse_reranker_type(reranker_type: str):

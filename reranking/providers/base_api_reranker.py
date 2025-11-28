@@ -45,6 +45,10 @@ class BaseAPIReranker(IReranker):
             raise RuntimeError("Profile not initialized")
         return self._profile
     
+    def get_model_name(self) -> str:
+        """Get specific reranker model name"""
+        return self.profile.model_id if self.profile else self.model_name
+    
     def rerank(self, query: str, documents: List[str], top_k: int = 10) -> List[RerankResult]:
         """
         Rerank documents using API.

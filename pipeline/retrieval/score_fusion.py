@@ -76,6 +76,43 @@ class ScoreFusion:
             r[normalized_key] = (ScoreFusion._as_float(r.get(score_key)) - mean) / std_dev
 
     @staticmethod
+    def min_max_normalize_scores(
+        results: List[Dict[str, Any]],
+        score_key: str,
+        normalized_key: str,
+    ) -> None:
+        """
+        Convert raw scores to min-max normalized scores (0-1 range) for stable weighting (in-place modification).
+        
+        Args:
+            results: List of result dictionaries
+            score_key: Key for raw scores
+            normalized_key: Key to store normalized scores
+        """
+        if not results:
+            return
+
+        scores = [ScoreFusion._as_float(r.get(score_key)) for r in results]
+        
+        if len(scores) < 2:
+            for r in results:
+                r[normalized_key] = ScoreFusion._as_float(r.get(score_key))
+            return
+
+        min_score = min(scores)
+        max_score = max(scores)
+        score_range = max_score - min_score
+
+        if score_range == 0:
+            for r in results:
+                r[normalized_key] = 0.5  # All scores are the same, set to middle value
+            return
+
+        for r in results:
+            raw_score = ScoreFusion._as_float(r.get(score_key))
+            r[normalized_key] = (raw_score - min_score) / score_range
+
+    @staticmethod
     def deduplicate_results(
         results: List[Dict[str, Any]],
         score_key: str,
@@ -245,5 +282,14 @@ class ScoreFusion:
         merged_results.sort(
             key=lambda item: item.get("similarity_score", 0.0), reverse=True
         )
+        
+        # Apply min-max normalization to final similarity scores for consistent 0-1 range
+        ScoreFusion.min_max_normalize_scores(
+            merged_results, "similarity_score", "normalized_similarity_score"
+        )
+        
+        # Update similarity_score to be the normalized version
+        for r in merged_results:
+            r["similarity_score"] = r["normalized_similarity_score"]
         
         return merged_results[:top_k]

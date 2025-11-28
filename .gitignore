@@ -73,3 +73,4 @@ logs/
 # Database files
 *.db
 data/metrics.db
+data/

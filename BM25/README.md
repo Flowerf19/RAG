@@ -47,8 +47,9 @@ A typical data flow for indexing and searching looks like this:
 `User Query → BM25Manager.search() → BM25SearchService → KeywordExtractor → WhooshIndexer → Search Results`
 
 ```mermaid
-flowchart TD
+flowchart TB
    subgraph Indexing
+      direction TB
       A[Chunk Set] --> B(BM25Manager)
       B --> C[BM25IngestManager]
       C --> D{Cache Check}
@@ -61,6 +62,7 @@ flowchart TD
    end
 
    subgraph Searching
+      direction TB
       K[User Query] --> L(BM25Manager)
       L --> M[BM25SearchService]
       M --> N[KeywordExtractor]

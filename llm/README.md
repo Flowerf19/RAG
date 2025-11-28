@@ -27,6 +27,52 @@ This module is built on two primary design patterns:
 | **`config_loader.py`** | A powerful, centralized configuration manager. It loads settings from `config/app.yaml`, resolves paths, and reads environment variables and secrets. |
 | `chat_styles.css` | CSS styles used by the Streamlit frontend for rendering the chat interface. |
 
+## Module Architecture Diagram
+
+This diagram illustrates the workflow and relationships between the key components of the LLM module.
+
+```mermaid
+graph TD
+    subgraph "LLM Module Core"
+        direction LR
+        A[ChatHandler] -- "1. build_messages()" --> D[Formatted Messages List];
+        B{LLMClientFactory} -- "2. create_from_string(provider)" --> C((LLM Client));
+        C -- "3. generate(messages)" --> E[LLM Response];
+        
+        subgraph "Client Implementations"
+            direction TB
+            F(BaseLLMClient)
+            G[GeminiClient]
+            H[LMStudioClient]
+            I[OllamaClient]
+        end
+        
+        F <|-- G;
+        F <|-- H;
+        F <|-- I;
+        
+        B -- creates one of --> G;
+        B -- creates one of --> H;
+        B -- creates one of --> I;
+
+        J[ConfigLoader] -- "Provides settings" -.-> B;
+        J -- "Provides settings" -.-> G;
+        J -- "Provides settings" -.-> H;
+        J -- "Provides settings" -.-> I;
+    end
+
+    style F fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+    style C fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+```
+
+**Workflow Explanation:**
+
+1.  **Message Preparation**: The `ChatHandler` takes the user's query, conversation history, and any retrieved RAG context and formats them into a standardized list of messages.
+2.  **Client Creation**: The `LLMClientFactory` is called with a provider name (e.g., `"gemini"`). It uses the `ConfigLoader` to fetch the necessary credentials and settings, then instantiates and returns the correct client (`GeminiClient`, `OllamaClient`, etc.).
+3.  **Response Generation**: The application calls the `generate()` method on the client instance. The client sends the formatted messages to the corresponding LLM API and returns the generated response.
+
+All clients conform to the `BaseLLMClient` interface, ensuring that the calling application can interact with them in a uniform way.
+
 ## Usage Examples
 
 ### Recommended Workflow: Factory + Chat Handler

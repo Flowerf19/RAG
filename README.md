@@ -249,12 +249,27 @@ RAG-2/
 
 ### Embedding Providers
 
-| Provider | Model | Dimensions | Multilingual | Cost |
-|----------|-------|------------|--------------|------|
-| HuggingFace Local | BAAI/bge-m3 | 1024 | ✅ | Free |
-| HuggingFace API | multilingual-e5-large | 1024 | ✅ | Free |
-| Ollama | embeddinggemma | 768 | ✅ | Free |
-| Ollama | bge-m3 | 1024 | ✅ | Free |
+The table below lists common embedding providers and models that the project supports or can be configured to use. Dimensions are approximate where noted. Cost / Performance / Security columns are qualitative and depend on deployment (local vs cloud) and model variant.
+
+| Provider | Model (example) | Dimensions (approx.) | Multilingual | Cost | Performance | Security |
+|----------|-----------------|----------------------:|:-------------:|:----:|:----------:|:--------:|
+| HuggingFace (local) | BAAI/bge-m3 | 1024 | ✅ | Low | High | Local (best) |
+| HuggingFace (API) | multilingual-e5-large | 1024 | ✅ | Medium | High | Cloud (depends on HF) |
+| Ollama (local) | embeddinggemma | 768 | ✅ | Low | Medium | Local (best) |
+| Ollama (local) | bge-m3 | 1024 | ✅ | Low | High | Local (best) |
+| OpenAI (cloud) | text-embedding-3-* | 1536 | ✅ | High | High | Cloud (managed) |
+| Cohere (cloud) | multilingual models | 1536 | ✅ | Medium | High | Cloud (managed) |
+| Jina AI (cloud/local) | jina-v2-multilingual | 1024 | ✅ | Medium | High | Cloud / Self-host |
+| Google / GTE (cloud) | gte-multilingual | 1024 | ✅ | High | High | Cloud (managed) |
+| Sentence-Transformers | all-MiniLM-L6-v2 | 384 | ✅ | Free | Medium | Local/Cloud |
+| Lightweight (edge) | bge-base / small | ~256-512 | ✅ | Low | Low-Med | Local (edge) |
+
+Notes:
+- **Cost**: qualitative (Low / Medium / High). "Low" often means free to run locally (open-source) but may require hardware; "High" indicates paid cloud APIs or high compute costs for large models.
+- **Performance**: qualitative (Low / Medium / High) for embedding quality and retrieval effectiveness. Higher-dimensional, newer models generally give better semantic retrieval.
+- **Security**: indicates typical deployment: `Local (best)` means data stays on-prem; `Cloud (managed)` means data sent to third-party API — consider privacy/compliance impacts.
+
+If you want, I can (a) add exact dimension numbers for any specific model you plan to use, (b) rank models in order for your environment (local-only vs cloud), or (c) update the UI defaults to surface these options.
 
 ### Environment Setup
 

@@ -25,7 +25,7 @@ pip install -r requirements.txt
 
 # Install spaCy models
 python -c "import spacy; spacy.cli.download('en_core_web_sm')"
-python -c "import spacy; spacy.cli.download('vi_core_news_lg')"
+python -c "import spacy; spacy.cli.download('en_core_web_sm'')"
 ```
 
 ### Basic Usage
@@ -71,7 +71,7 @@ The chunker integrates seamlessly with the RAG pipeline for automatic document p
 
 ### Supported Languages
 - **English** (`en`): en_core_web_sm
-- **Vietnamese** (`vi`): vi_core_news_lg (large model recommended)
+- **Vietnamese** (`vi`): vi_core_news_lg (large model recommended but it unsupported in this version)
 - **Chinese** (`zh`): zh_core_web_sm
 - **European**: German, French, Spanish, Italian, Portuguese, Dutch, Polish
 - **Russian** (`ru`): ru_core_news_sm

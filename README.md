@@ -41,7 +41,6 @@ pip install -r requirements.txt
 
 # Install language models
 python -c "import spacy; spacy.cli.download('en_core_web_sm')"
-python -c "import spacy; spacy.cli.download('vi_core_news_lg')"
 ```
 
 ### Basic Usage

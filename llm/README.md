@@ -29,47 +29,34 @@ This module is built on two primary design patterns:
 
 ## Module Architecture Diagram
 
-This diagram illustrates the workflow and relationships between the key components of the LLM module.
+This diagram illustrates the top-down data and control flow of the module.
 
 ```mermaid
 graph TD
-    subgraph "LLM Module Workflow"
-        direction LR
-        A[ChatHandler] -- "1. build_messages()" --> D[Formatted Messages List]
-        B{LLMClientFactory} -- "2. create_from_string()" --> C((LLM Client))
-        C -- "3. generate()" --> E[LLM Response]
-    end
-
-    subgraph "Implementation Details"
-        F((BaseLLMClient))
-        G[GeminiClient]
-        H[LMStudioClient]
-        I[OllamaClient]
-        J[ConfigLoader]
-
-        G -- "inherits" --> F
-        H -- "inherits" --> F
-        I -- "inherits" --> F
+    subgraph "LLM Module Architecture (Top-Down)"
+        A[ChatHandler] -- "1. build_messages()" --> B[Formatted Messages]
         
-        B -- "creates" --> G
-        B -- "creates" --> H
-        B -- "creates" --> I
-
-        J -. "provides config" .-> B
-        J -. "provides config" .-> G
-        J -. "provides config" .-> H
-        J -. "provides config" .-> I
+        Z[ConfigLoader]
+        
+        B --> C{LLMClientFactory}
+        Z -. "Provides config" .-> C
+        
+        C -- "2. create_from_string()" --> D["Concrete Client<br>(Gemini, Ollama, etc.)"]
+        
+        D -- "inherits from" --> E((BaseLLMClient))
+        Z -. "Provides config" .-> D
+        
+        D -- "3. generate()" --> F[LLM Response]
     end
 
-    style F stroke-dasharray: 5 5
-    style C stroke-dasharray: 5 5
+    style E stroke-dasharray: 5 5
 ```
 
 **Workflow Explanation:**
 
-1.  **Message Preparation**: The `ChatHandler` takes the user's query, conversation history, and any retrieved RAG context and formats them into a standardized list of messages.
-2.  **Client Creation**: The `LLMClientFactory` is called with a provider name (e.g., `"gemini"`). It uses the `ConfigLoader` to fetch the necessary credentials and settings, then instantiates and returns the correct client (`GeminiClient`, `OllamaClient`, etc.).
-3.  **Response Generation**: The application calls the `generate()` method on the client instance. The client, which conforms to the `BaseLLMClient` interface, sends the formatted messages to the corresponding LLM API and returns the generated response.
+1.  **Message Preparation**: The `ChatHandler` starts the process by formatting the user's query, context, and history into a standardized message list.
+2.  **Client Creation**: The `LLMClientFactory` receives the messages. It uses the `ConfigLoader` to get the required settings and then instantiates the appropriate **Concrete Client** (e.g., `GeminiClient`, `OllamaClient`).
+3.  **Response Generation**: The created client, which inherits its interface from `BaseLLMClient`, calls its `generate()` method to get a response from the LLM and returns the final output.
 
 ## Usage Examples
 

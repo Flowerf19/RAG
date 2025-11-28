@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_LANGUAGE_MODELS: Dict[str, str] = {
     "en": "en_core_web_sm",
-    "vi": "en_core_web_sm", #vie hien khong ho tro
+    "vi": "en_core_web_sm",  # FIXME: No Vietnamese model configured. Falls back to English.
 }
 
 

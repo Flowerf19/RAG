@@ -249,12 +249,48 @@ RAG-2/
 
 ### Embedding Providers
 
-| Provider | Model | Dimensions | Multilingual | Cost |
-|----------|-------|------------|--------------|------|
-| HuggingFace Local | BAAI/bge-m3 | 1024 | ✅ | Free |
-| HuggingFace API | multilingual-e5-large | 1024 | ✅ | Free |
-| Ollama | embeddinggemma | 768 | ✅ | Free |
-| Ollama | bge-m3 | 1024 | ✅ | Free |
+The table below lists common embedding providers and models that the project supports or can be configured to use. Dimensions are approximate where noted. Cost / Performance / Security columns are qualitative and depend on deployment (local vs cloud) and model variant.
+
+| Provider | Model (example) | Dimensions (approx.) | Multilingual | Cost | Performance | Security |
+|----------|-----------------|----------------------:|:-------------:|:----:|:----------:|:--------:|
+| HuggingFace (local) | BAAI/bge-m3 | 1024 | ✅ | Low | High | Local (best) |
+| HuggingFace (API) | multilingual-e5-large | 1024 | ✅ | Medium | High | Cloud (depends on HF) |
+| Ollama (local) | embeddinggemma | 768 | ✅ | Low | Medium | Local (best) |
+| Ollama (local) | bge-m3 | 1024 | ✅ | Low | High | Local (best) |
+| OpenAI (cloud) | text-embedding-3-* | 1536 | ✅ | High | High | Cloud (managed) |
+| Cohere (cloud) | multilingual models | 1536 | ✅ | Medium | High | Cloud (managed) |
+| Jina AI (cloud/local) | jina-v2-multilingual | 1024 | ✅ | Medium | High | Cloud / Self-host |
+| Google / GTE (cloud) | gte-multilingual | 1024 | ✅ | High | High | Cloud (managed) |
+| Sentence-Transformers | all-MiniLM-L6-v2 | 384 | ✅ | Free | Medium | Local/Cloud |
+| Lightweight (edge) | bge-base / small | ~256-512 | ✅ | Low | Low-Med | Local (edge) |
+
+Notes:
+- **Cost**: qualitative (Low / Medium / High). "Low" often means free to run locally (open-source) but may require hardware; "High" indicates paid cloud APIs or high compute costs for large models.
+- **Performance**: qualitative (Low / Medium / High) for embedding quality and retrieval effectiveness. Higher-dimensional, newer models generally give better semantic retrieval.
+- **Security**: indicates typical deployment: `Local (best)` means data stays on-prem; `Cloud (managed)` means data sent to third-party API — consider privacy/compliance impacts.
+
+If you want, I can (a) add exact dimension numbers for any specific model you plan to use, (b) rank models in order for your environment (local-only vs cloud), or (c) update the UI defaults to surface these options.
+
+### Reranking Providers
+
+The following table summarizes common reranking options used after initial retrieval. Columns are qualitative; actual cost and latency depend on model size and whether you run locally or via cloud APIs.
+
+| Provider | Model (example) | Cost | Performance | Latency | Security | Notes |
+|----------|-----------------|:----:|:----------:|:-------:|:--------:|-------|
+| HuggingFace (local) | BAAI/bge-reranker-v2-m3 | Low | High | Medium | Local (best) | Strong accuracy for semantic re-ranking when run locally on GPU/CPU. |
+| Jina | jina-reranker-v2-base-multilingual | Medium | High | Low-Med | Cloud/Self-host | Good multilingual reranking; can be self-hosted for privacy. |
+| Cohere (cloud) | cohere-rerank | Medium | High | Low | Cloud (managed) | Low latency cloud API; consider data policies. |
+| OpenAI (cloud) | text-davinci / specialized | High | High | Low | Cloud (managed) | High quality but cost and privacy concerns for sensitive data. |
+| Google (GTE) | gte-reranker | High | High | Low | Cloud (managed) | Strong performance for multilingual reranking via cloud. |
+| Sentence-Transformers (local) | cross-encoder/ms-marco-MiniLM-L-6-v2 | Low | Medium-High | Medium | Local/Cloud | Lightweight cross-encoders good for small-scale reranking. |
+| Lightweight heuristic | TF-IDF / lexical scoring | Free | Low-Med | Very Low | Local (best) | Fast baseline reranker; useful when compute is limited. |
+
+Notes:
+- **Cost**: relative cost (Low / Medium / High). Local open-source models are Low cost but require hardware; cloud APIs incur usage fees.
+- **Performance**: overall reranking quality (Low → High). Cross-encoders and specialized rerankers tend to perform best.
+- **Latency**: expected response time for reranking; cloud APIs often provide lower latency but at higher cost.
+- **Security**: indicates whether data stays local or is sent to third-party services; self-hosted rerankers keep data on-prem.
+
 
 ### Environment Setup
 

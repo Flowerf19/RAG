@@ -1,151 +1,109 @@
-# RAG Evaluation System
+# Evaluation (Ragas integration)
 
-A minimalist evaluation system for comparing RAG model performance and accuracy.
+This folder provides evaluation tools and a backend dashboard for assessing RAG system quality using the Ragas framework. The evaluation modules support both light-weight similarity heuristics and full Ragas-based metrics (faithfulness, context recall, answer correctness, answer relevancy) using configurable LLM providers (Gemini, Ollama, etc.).
 
-## Features
+Key points:
+- The project ships a `RagasEvaluator` wrapper (see `evaluation/backend_dashboard/ragas_evaluator.py`) that integrates with the `ragas` package to compute standardized RAG metrics.
+- For accurate Ragas evaluations you should configure an LLM provider (Gemini via `GOOGLE_API_KEY` or Ollama local) before running evaluations.
 
-- **Automated Evaluation**: LLM-based scoring or similarity heuristics
-- **Performance Metrics**: Latency, throughput, faithfulness, relevance
-- **SQLite Storage**: Lightweight database for metrics
-- **Streamlit Dashboard**: Real-time visualization and comparison
-- **Multi-Model Support**: Compare GPT, Mistral, DeepSeek, and local models
+## Requirements
 
-## Quick Start
+- Python 3.10+
+- Install project requirements (recommended virtualenv):
 
-### 1. Install Dependencies
-
-```bash
-pip install streamlit plotly scikit-learn
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1  # Windows
+pip install -r requirements.txt
 ```
 
-### 2. Run Example
+- Install Ragas and related extras (if not already present):
+
+```bash
+pip install ragas datasets langchain
+# If using Gemini (Google): install langchain Google GenAI wrapper
+pip install git+https://github.com/google-research/langchain-google-generativeai.git  # optional
+# If using Ollama locally: install langchain_ollama
+pip install langchain-ollama
+```
+
+Note: some providers (Gemini) require an API key and provider-specific wrappers; Ollama works with a local Ollama daemon.
+
+## Quick Start — Ragas evaluation
+
+1. Set your environment variables (example for Gemini):
+
+```powershell
+setx GOOGLE_API_KEY "your_gemini_key"
+# or on Linux/Mac:
+# export GOOGLE_API_KEY="your_gemini_key"
+```
+
+2. Run the example usage to evaluate a sample response (uses `RagasEvaluator`):
 
 ```bash
 python evaluation/example_usage.py
 ```
 
-### 3. Launch Dashboard
+3. Run the Streamlit dashboard (UI lives in `ui/dashboard`):
 
-```bash
+```powershell
+.venv\Scripts\Activate.ps1
 streamlit run ui/dashboard/app.py
 ```
 
-## Architecture
+## Usage examples
 
-```
-User Query
-    ↓
-RAG Pipeline (multiple models)
-    ↓
-Evaluation Logger → metrics.db
-    ↓
-Backend Dashboard API
-    ↓
-Streamlit Dashboard
-```
-
-## Usage
-
-### Basic Evaluation
+### Single evaluation (programmatic)
 
 ```python
-from evaluation.metrics.logger import EvaluationLogger
-from evaluation.evaluators.auto_evaluator import AutoEvaluator
+from evaluation.backend_dashboard.ragas_evaluator import RagasEvaluator
 
-# Initialize
-logger = EvaluationLogger()
-evaluator = AutoEvaluator()
-
-# Evaluate response
-faithfulness, relevance = evaluator.evaluate_response(query, answer, context)
-
-# Log metrics
-logger.log_evaluation(
-    query=query,
-    model="gpt-4",
-    latency=1.25,
-    faithfulness=faithfulness,
-    relevance=relevance
+# Initialize (use 'gemini' or 'ollama')
+e = RagasEvaluator(llm_provider='gemini', api_key='YOUR_GOOGLE_API_KEY')
+res = e.evaluate(
+    question='What is supervised learning?',
+    answer='Supervised learning trains models on labeled data.',
+    contexts=['Supervised learning uses labeled examples...', 'It trains models to map inputs to outputs.'],
+    ground_truth='Supervised learning is a method that trains a model using labeled data.'
 )
+print(res)
 ```
 
-### Pipeline Integration
+### Batch evaluation
 
-```python
-with logger.time_and_log(query, model_name) as timer:
-    # Run your RAG pipeline
-    result = rag_pipeline.run(query)
+Use `RagasEvaluator.evaluate_batch()` to evaluate multiple samples; the wrapper adds a short delay between requests to avoid rate limits when using cloud LLMs.
 
-    # Evaluate and log
-    faithfulness, relevance = evaluator.evaluate_response(query, result.answer, result.context)
-    timer.set_scores(faithfulness=faithfulness, relevance=relevance)
-```
+## Integration with backend dashboard
 
-## Metrics
-
-| Metric | Description | Range |
-|--------|-------------|-------|
-| Latency | Response time | seconds |
-| Faithfulness | Answer matches context | 0-1 |
-| Relevance | Answer matches query | 0-1 |
-| Error Rate | Pipeline failure rate | % |
-
-## Dashboard Features
-
-- **Overview Stats**: Total queries, average accuracy, latency, error rate
-- **Model Comparison**: Tables for LLM, embedding, and reranking models
-- **Performance Charts**: Latency trends and accuracy comparisons
-- **Recent Activity**: Latest evaluation results
+`RagasBackendDashboard` extends the existing backend API with a `evaluate_with_ragas()` method that runs Ragas evaluation and optionally saves results to the metrics database. The backend dashboard class lives in `evaluation/backend_dashboard/api.py` and stores results in the configured metrics DB (`evaluation/metrics/database.py`).
 
 ## Configuration
 
-### Environment Variables
+- Environment variables:
+  - `GOOGLE_API_KEY` — required for Gemini (if using Gemini)
+  - `METRICS_DB_PATH` — path for metrics database (default: `data/metrics.db`)
 
-```bash
-# For LLM-based evaluation
-OPENAI_API_KEY=your_key
-GOOGLE_API_KEY=your_key
+- Database: the evaluation modules use SQLite by default; ensure the `data/` folder exists and is writable.
 
-# Database path
-METRICS_DB_PATH=data/metrics.db
-```
+## Metrics (Ragas)
 
-### Model Categories
+Ragas computes multiple RAG-specific metrics; this project exposes at least:
+- `faithfulness` — how well the answer is supported by provided contexts
+- `context_recall` — how much ground truth is covered by contexts
+- `answer_correctness` — correctness compared to ground truth (requires embeddings)
+- `answer_relevancy` — relevancy of answer to the query
 
-The system automatically categorizes models:
-- **LLM**: GPT, Claude, Mistral, DeepSeek
-- **Embedding**: BGE-M3, E5-Large, embedding models
-- **Reranking**: Cross-encoders, reranking models
+## Troubleshooting & Tips
 
-## API Reference
+- If you see import errors for provider wrappers, install the corresponding langchain provider package (e.g., `langchain-google-generativeai` for Gemini).
+- For local evaluation, Ollama is a practical choice — ensure the Ollama daemon is running and reachable.
+- To speed up large-scale testing, use the similarity-based evaluators in `evaluation/evaluators` which avoid external API calls.
+- When using cloud LLMs, be mindful of API costs and rate limits; use `RagasEvaluator.request_delay` to space requests.
 
-### EvaluationLogger
+---
 
-- `log_evaluation()`: Log single evaluation
-- `time_and_log()`: Context manager for pipeline timing
-
-### AutoEvaluator
-
-- `evaluate_response()`: Evaluate answer quality
-- Supports both LLM and similarity-based evaluation
-
-### BackendDashboard
-
-- `get_overview_stats()`: System-wide statistics
-- `get_model_comparison_data()`: Model comparison tables
-- `get_latency_over_time()`: Time series data
-- `get_accuracy_by_model()`: Accuracy metrics
-
-## Troubleshooting
-
-### Common Issues
-
-- **No evaluation scores**: Check if embedder/LLM clients are properly initialized
-- **Database errors**: Ensure data/ directory exists and is writable
-- **Dashboard not loading**: Verify streamlit and plotly are installed
-
-### Performance Tips
-
-- Use similarity-based evaluation for faster processing
-- Batch evaluations when possible
-- Consider sampling for large datasets
+If you want, I can also:
+- add an example Jupyter notebook showing how to evaluate a set of queries with `RagasEvaluator`,
+- update `evaluation/example_usage.py` to include both Ragas and similarity-based examples, or
+- add instructions for configuring the Streamlit dashboard to show Ragas metrics.

@@ -33,45 +33,43 @@ This diagram illustrates the workflow and relationships between the key componen
 
 ```mermaid
 graph TD
-    subgraph "LLM Module Core"
+    subgraph "LLM Module Workflow"
         direction LR
-        A[ChatHandler] -- "1. build_messages()" --> D[Formatted Messages List];
-        B{LLMClientFactory} -- "2. create_from_string(provider)" --> C((LLM Client));
-        C -- "3. generate(messages)" --> E[LLM Response];
-        
-        subgraph "Client Implementations"
-            direction TB
-            F(BaseLLMClient)
-            G[GeminiClient]
-            H[LMStudioClient]
-            I[OllamaClient]
-        end
-        
-        F <|-- G;
-        F <|-- H;
-        F <|-- I;
-        
-        B -- creates one of --> G;
-        B -- creates one of --> H;
-        B -- creates one of --> I;
-
-        J[ConfigLoader] -- "Provides settings" -.-> B;
-        J -- "Provides settings" -.-> G;
-        J -- "Provides settings" -.-> H;
-        J -- "Provides settings" -.-> I;
+        A[ChatHandler] -- "1. build_messages()" --> D[Formatted Messages List]
+        B{LLMClientFactory} -- "2. create_from_string()" --> C((LLM Client))
+        C -- "3. generate()" --> E[LLM Response]
     end
 
-    style F fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
-    style C fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5
+    subgraph "Implementation Details"
+        F((BaseLLMClient))
+        G[GeminiClient]
+        H[LMStudioClient]
+        I[OllamaClient]
+        J[ConfigLoader]
+
+        G -- "inherits" --> F
+        H -- "inherits" --> F
+        I -- "inherits" --> F
+        
+        B -- "creates" --> G
+        B -- "creates" --> H
+        B -- "creates" --> I
+
+        J -. "provides config" .-> B
+        J -. "provides config" .-> G
+        J -. "provides config" .-> H
+        J -. "provides config" .-> I
+    end
+
+    style F stroke-dasharray: 5 5
+    style C stroke-dasharray: 5 5
 ```
 
 **Workflow Explanation:**
 
 1.  **Message Preparation**: The `ChatHandler` takes the user's query, conversation history, and any retrieved RAG context and formats them into a standardized list of messages.
 2.  **Client Creation**: The `LLMClientFactory` is called with a provider name (e.g., `"gemini"`). It uses the `ConfigLoader` to fetch the necessary credentials and settings, then instantiates and returns the correct client (`GeminiClient`, `OllamaClient`, etc.).
-3.  **Response Generation**: The application calls the `generate()` method on the client instance. The client sends the formatted messages to the corresponding LLM API and returns the generated response.
-
-All clients conform to the `BaseLLMClient` interface, ensuring that the calling application can interact with them in a uniform way.
+3.  **Response Generation**: The application calls the `generate()` method on the client instance. The client, which conforms to the `BaseLLMClient` interface, sends the formatted messages to the corresponding LLM API and returns the generated response.
 
 ## Usage Examples
 

@@ -269,8 +269,6 @@ Notes:
 - **Performance**: qualitative (Low / Medium / High) for embedding quality and retrieval effectiveness. Higher-dimensional, newer models generally give better semantic retrieval.
 - **Security**: indicates typical deployment: `Local (best)` means data stays on-prem; `Cloud (managed)` means data sent to third-party API — consider privacy/compliance impacts.
 
-If you want, I can (a) add exact dimension numbers for any specific model you plan to use, (b) rank models in order for your environment (local-only vs cloud), or (c) update the UI defaults to surface these options.
-
 ### Reranking Providers
 
 The following table summarizes common reranking options used after initial retrieval. Columns are qualitative; actual cost and latency depend on model size and whether you run locally or via cloud APIs.

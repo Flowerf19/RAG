@@ -271,6 +271,27 @@ Notes:
 
 If you want, I can (a) add exact dimension numbers for any specific model you plan to use, (b) rank models in order for your environment (local-only vs cloud), or (c) update the UI defaults to surface these options.
 
+### Reranking Providers
+
+The following table summarizes common reranking options used after initial retrieval. Columns are qualitative; actual cost and latency depend on model size and whether you run locally or via cloud APIs.
+
+| Provider | Model (example) | Cost | Performance | Latency | Security | Notes |
+|----------|-----------------|:----:|:----------:|:-------:|:--------:|-------|
+| HuggingFace (local) | BAAI/bge-reranker-v2-m3 | Low | High | Medium | Local (best) | Strong accuracy for semantic re-ranking when run locally on GPU/CPU. |
+| Jina | jina-reranker-v2-base-multilingual | Medium | High | Low-Med | Cloud/Self-host | Good multilingual reranking; can be self-hosted for privacy. |
+| Cohere (cloud) | cohere-rerank | Medium | High | Low | Cloud (managed) | Low latency cloud API; consider data policies. |
+| OpenAI (cloud) | text-davinci / specialized | High | High | Low | Cloud (managed) | High quality but cost and privacy concerns for sensitive data. |
+| Google (GTE) | gte-reranker | High | High | Low | Cloud (managed) | Strong performance for multilingual reranking via cloud. |
+| Sentence-Transformers (local) | cross-encoder/ms-marco-MiniLM-L-6-v2 | Low | Medium-High | Medium | Local/Cloud | Lightweight cross-encoders good for small-scale reranking. |
+| Lightweight heuristic | TF-IDF / lexical scoring | Free | Low-Med | Very Low | Local (best) | Fast baseline reranker; useful when compute is limited. |
+
+Notes:
+- **Cost**: relative cost (Low / Medium / High). Local open-source models are Low cost but require hardware; cloud APIs incur usage fees.
+- **Performance**: overall reranking quality (Low → High). Cross-encoders and specialized rerankers tend to perform best.
+- **Latency**: expected response time for reranking; cloud APIs often provide lower latency but at higher cost.
+- **Security**: indicates whether data stays local or is sent to third-party services; self-hosted rerankers keep data on-prem.
+
+
 ### Environment Setup
 
 ```bash
